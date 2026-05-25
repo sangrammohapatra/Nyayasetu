@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+
+    <!-- ── Viewport ──────────────────────────────────────────────────────── -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover"
+    />
+
+    <!-- ── Primary meta ──────────────────────────────────────────────────── -->
+    <title>NyayaSetu — Bridge to Justice</title>
+    <meta
+      name="description"
+      content="AI-powered legal document creation and court case tracking for every Indian citizen. Free RTI applications, domestic violence complaints, and 15+ legal templates in 11 Indian languages."
+    />
+    <meta name="keywords" content="legal documents india, RTI application, consumer complaint, court case tracking, NyayaSetu, legal aid india, free legal help" />
+    <meta name="author" content="NyayaSetu" />
+    <meta name="robots" content="index, follow" />
+    <meta name="rating" content="general" />
+    <meta name="language" content="en" />
+
+    <!-- ── PWA / Web App ─────────────────────────────────────────────────── -->
+    <meta name="application-name" content="NyayaSetu" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="NyayaSetu" />
+    <meta name="theme-color" content="#1565C0" />
+    <meta name="msapplication-navbutton-color" content="#1565C0" />
+    <meta name="msapplication-starturl" content="/" />
+    <meta name="msapplication-TileColor" content="#1565C0" />
+    <meta name="msapplication-TileImage" content="/icons/icon-144.png" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <!-- ── Open Graph ─────────────────────────────────────────────────────── -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://nyayasetu.in/" />
+    <meta property="og:title" content="NyayaSetu — Bridge to Justice" />
+    <meta
+      property="og:description"
+      content="AI-powered legal documents and court case tracking for every Indian. Free RTI, consumer complaints, and more in 11 languages."
+    />
+    <meta property="og:image" content="https://nyayasetu.in/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_IN" />
+    <meta property="og:site_name" content="NyayaSetu" />
+
+    <!-- ── Twitter Card ───────────────────────────────────────────────────── -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@NyayaSetu" />
+    <meta name="twitter:title" content="NyayaSetu — Bridge to Justice" />
+    <meta
+      name="twitter:description"
+      content="Free RTI applications, consumer complaints, and 15+ legal documents for every Indian. AI-powered, in your language."
+    />
+    <meta name="twitter:image" content="https://nyayasetu.in/og-image.png" />
+
+    <!-- ── Favicons & Icons ───────────────────────────────────────────────── -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-96.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-72.png" />
+
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png" />
+    <link rel="apple-touch-icon" sizes="144x144" href="/icons/icon-144.png" />
+    <link rel="apple-touch-icon" sizes="120x120" href="/icons/icon-128.png" />
+    <link rel="apple-touch-icon" sizes="114x114" href="/icons/icon-128.png" />
+    <link rel="apple-touch-icon" sizes="76x76" href="/icons/icon-96.png" />
+    <link rel="apple-touch-icon" sizes="72x72" href="/icons/icon-72.png" />
+    <link rel="apple-touch-icon" sizes="60x60" href="/icons/icon-72.png" />
+    <link rel="apple-touch-icon" sizes="57x57" href="/icons/icon-72.png" />
+
+    <!-- ── PWA Manifest ───────────────────────────────────────────────────── -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- ── Google Fonts — Preconnect for performance ─────────────────────── -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+
+    <!-- ── Google Fonts — Playfair Display + DM Sans + JetBrains Mono ────── -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400;1,9..40,500&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    />
+
+    <!-- ── Critical CSS — prevent flash of unstyled content ──────────────── -->
+    <style>
+      /* Prevent layout shift before React hydrates */
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        background-color: #F8FAFF;
+        color: #1A1A2E;
+        font-family: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        overflow-x: hidden;
+      }
+      #root {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      /* Loading indicator shown before React renders */
+      #app-loading {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #F8FAFF;
+        z-index: 9999;
+        transition: opacity 0.3s ease;
+      }
+      #app-loading.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #app-loading-icon {
+        font-size: 56px;
+        animation: pulse 1.8s ease-in-out infinite;
+      }
+      #app-loading-text {
+        margin-top: 16px;
+        font-family: 'Playfair Display', Georgia, serif;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1565C0;
+        letter-spacing: 0.02em;
+      }
+      #app-loading-sub {
+        margin-top: 6px;
+        font-size: 0.85rem;
+        color: #5F6B7A;
+      }
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 0.9; }
+        50%       { transform: scale(1.08); opacity: 1; }
+      }
+      /* CSS custom properties — default theme applied immediately to avoid flash */
+      :root {
+        --color-primary:        #1565C0;
+        --color-primary-light:  #1E88E5;
+        --color-primary-dark:   #0D47A1;
+        --color-primary-alpha:  rgba(21, 101, 192, 0.15);
+        --color-secondary:      #E65100;
+        --color-bg:             #F8FAFF;
+        --color-surface:        #FFFFFF;
+        --color-text:           #1A1A2E;
+        --color-text-secondary: #5C6BC0;
+        --color-border:         #E8EAF6;
+        --color-success:        #2E7D32;
+        --color-error:          #C62828;
+        --color-warning:        #E65100;
+        --color-overlay:        rgba(21, 101, 192, 0.06);
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Loading screen — hidden once React mounts -->
+    <div id="app-loading" aria-live="polite" aria-label="Loading NyayaSetu">
+      <div id="app-loading-icon">⚖️</div>
+      <div id="app-loading-text">NyayaSetu</div>
+      <div id="app-loading-sub">Bridge to Justice</div>
+    </div>
+
+    <!-- React root -->
+    <div id="root"></div>
+
+    <!-- Inline script: hide loader once React renders -->
+    <script>
+      window.addEventListener('nyayasetu:ready', function () {
+        var loader = document.getElementById('app-loading');
+        if (loader) {
+          loader.classList.add('hidden');
+          setTimeout(function () { loader.remove(); }, 400);
+        }
+      });
+    </script>
+
+    <!-- Vite entry point -->
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

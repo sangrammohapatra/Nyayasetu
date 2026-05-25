@@ -1,0 +1,60 @@
+{
+  "name": "nyayasetu-server",
+  "version": "1.0.0",
+  "description": "NyayaSetu backend API server",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "worker": "node src/worker/worker.js",
+    "worker:dev": "nodemon src/worker/worker.js",
+    "seed:acts": "node scripts/seedLegalActs.js",
+    "seed:jurisdictions": "node scripts/seedJurisdictions.js",
+    "seed:templates": "node scripts/seedTemplates.js",
+    "seed:all": "npm run seed:acts && npm run seed:jurisdictions && npm run seed:templates",
+    "create:admin": "node scripts/createAdmin.js",
+    "test": "jest --runInBand",
+    "test:watch": "jest --watch",
+    "lint": "eslint src/ scripts/ --ext .js",
+    "lint:fix": "eslint src/ scripts/ --ext .js --fix"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.0",
+    "@aws-sdk/client-s3": "^3.400.0",
+    "@aws-sdk/s3-request-presigner": "^3.400.0",
+    "@bull-board/api": "^5.14.3",
+    "@bull-board/express": "^5.14.3",
+    "@google/generative-ai": "^0.7.0",
+    "axios": "^1.6.0",
+    "bcryptjs": "^2.4.3",
+    "bull": "^4.12.0",
+    "cloudinary": "^2.3.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "express-validator": "^7.3.2",
+    "helmet": "^7.1.0",
+    "ioredis": "^5.3.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.1.0",
+    "mongoose-field-encryption": "^7.0.1",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.8",
+    "pdfkit": "^0.14.0",
+    "razorpay": "^2.9.2",
+    "socket.io": "^4.8.3",
+    "twilio": "^4.20.1",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.3",
+    "supertest": "^6.3.4"
+  }
+}

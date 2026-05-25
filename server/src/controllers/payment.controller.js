@@ -1,0 +1,758 @@
+/**
+ * server/src/controllers/payment.controller.js
+ *
+ * Handles:
+ *   - Pay-per-document (createDocumentOrder, verifyDocumentPayment)
+ *   - Subscriptions    (createSubscriptionOrder, verifySubscription,
+ *                       getCurrentSubscription, cancelSubscription)
+ *   - Payment history  (getPaymentHistory)
+ *   - Razorpay webhooks (webhookHandler)
+ */
+
+'use strict';
+
+const crypto = require('crypto');
+
+const User = require('../models/User.model');
+const Document = require('../models/Document.model');
+const DocumentTemplate = require('../models/DocumentTemplate.model');
+const Payment = require('../models/Payment.model');
+const Subscription = require('../models/Subscription.model');
+
+const razorpayService = require('../services/payment/razorpayService');
+const emailService = require('../services/notification/emailService');
+const asyncHandler = require('../utils/asyncHandler');
+const logger = require('../utils/logger');
+
+/* ---------------------------------------------------------------------------
+ * Constants
+ * ------------------------------------------------------------------------ */
+
+const PLANS = {
+  citizen: {
+    basic: { monthly: 9900, annual: 99900 },
+    pro: { monthly: 19900, annual: 199900 },
+  },
+  lawyer: {
+    professional: { monthly: 49900, annual: 499900 },
+    firm: { monthly: 149900, annual: 1499900 },
+  },
+};
+
+const PAY_PER_DOC = {
+  simple: 4900,
+  standard: 9900,
+  complex: 19900,
+  premium: 19900,
+};
+
+// New usage limits unlocked by each plan
+const PLAN_LIMITS = {
+  free: { docsLimit: 3, casesLimit: 1, aiChatsLimit: 5 },
+  basic: { docsLimit: 15, casesLimit: 5, aiChatsLimit: 30 },
+  pro: { docsLimit: 999999, casesLimit: 999999, aiChatsLimit: 999999 },
+  professional: { docsLimit: 999999, casesLimit: 999999, aiChatsLimit: 999999 },
+  firm: { docsLimit: 999999, casesLimit: 999999, aiChatsLimit: 999999 },
+};
+
+const VALID_CITIZEN_PLANS = ['basic', 'pro'];
+const VALID_LAWYER_PLANS = ['professional', 'firm'];
+const VALID_BILLING_CYCLES = ['monthly', 'annual'];
+
+/* ---------------------------------------------------------------------------
+ * Helpers
+ * ------------------------------------------------------------------------ */
+
+function getSubscriptionValidUntil(billingCycle) {
+  const d = new Date();
+  if (billingCycle === 'annual') {
+    d.setFullYear(d.getFullYear() + 1);
+  } else {
+    d.setMonth(d.getMonth() + 1);
+  }
+  return d;
+}
+
+function getPlanAmount(persona, plan, billingCycle) {
+  const group = PLANS[persona];
+  if (!group) return null;
+  const planPrices = group[plan];
+  if (!planPrices) return null;
+  return planPrices[billingCycle] || null;
+}
+
+/* ---------------------------------------------------------------------------
+ * createDocumentOrder
+ * POST /v1/payments/create-order
+ * Body: { documentId }
+ * ------------------------------------------------------------------------ */
+const createDocumentOrder = asyncHandler(async (req, res) => {
+  const userId = req.user.userId;
+  const { documentId } = req.body;
+
+  if (!documentId) {
+    return res.status(400).json({ error: 'documentId is required' });
+  }
+
+  const doc = await Document.findOne({ _id: documentId, user: userId })
+    .populate('template', 'slug name complexity pricePayPerDoc');
+
+  if (!doc) {
+    return res.status(404).json({ error: 'Document not found' });
+  }
+  if (doc.isPaid) {
+    return res.status(400).json({ error: 'Already paid', pdfUrl: doc.pdfUrl });
+  }
+  if (!doc.template) {
+    return res.status(400).json({ error: 'Document template not found — cannot determine price' });
+  }
+
+  // Price resolution: explicit template price → PAY_PER_DOC by complexity → fallback standard
+  const amount =
+    (doc.template.pricePayPerDoc > 0 ? doc.template.pricePayPerDoc : null) ||
+    PAY_PER_DOC[doc.template.complexity] ||
+    PAY_PER_DOC.standard;
+
+  let order;
+  try {
+    order = await razorpayService.createOrder(
+      amount,
+      'INR',
+      `doc_${documentId}_${Date.now()}`.substring(0, 40),
+      {
+        documentId: String(documentId),
+        userId: String(userId),
+        templateSlug: doc.template.slug,
+      }
+    );
+  } catch (err) {
+    logger.error('[payment.controller] createDocumentOrder: Razorpay failed', { error: err.message });
+    return res.status(502).json({ error: 'Payment gateway error — please try again' });
+  }
+
+  await Payment.create({
+    user: userId,
+    type: 'pay_per_doc',
+    razorpayOrderId: order.id,
+    amount,
+    currency: 'INR',
+    status: 'created',
+    relatedEntity: doc._id,
+    relatedEntityType: 'Document',
+    lawyerEarnings: 0,
+    platformEarnings: amount,
+  });
+
+  return res.status(201).json({
+    orderId: order.id,
+    amount: order.amount,
+    currency: order.currency,
+    razorpayKeyId: process.env.RAZORPAY_KEY_ID,
+    documentTitle: doc.title,
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * verifyDocumentPayment
+ * POST /v1/payments/verify
+ * Body: { orderId, paymentId, signature, documentId }
+ * ------------------------------------------------------------------------ */
+const verifyDocumentPayment = asyncHandler(async (req, res) => {
+  const userId = req.user.userId;
+  const { orderId, paymentId, signature, documentId } = req.body;
+
+  if (!orderId || !paymentId || !signature || !documentId) {
+    return res.status(400).json({ error: 'orderId, paymentId, signature and documentId are required' });
+  }
+
+  const isValid = razorpayService.verifyPaymentSignature(orderId, paymentId, signature);
+  if (!isValid) {
+    logger.warn('[payment.controller] verifyDocumentPayment: invalid signature', {
+      userId,
+      orderId,
+      paymentId,
+    });
+    return res.status(400).json({ error: 'Payment signature verification failed' });
+  }
+
+  const payment = await Payment.findOne({ razorpayOrderId: orderId });
+  if (!payment) {
+    return res.status(404).json({ error: 'Payment record not found' });
+  }
+
+  // Idempotent — if already processed just return success
+  if (payment.status === 'paid') {
+    const doc = await Document.findById(documentId).select('pdfUrl').lean();
+    return res.json({ success: true, pdfUrl: doc && doc.pdfUrl });
+  }
+
+  payment.status = 'paid';
+  payment.razorpayPaymentId = paymentId;
+  payment.paidAt = new Date();
+  await payment.save();
+
+  const doc = await Document.findOneAndUpdate(
+    { _id: documentId, user: userId },
+    {
+      $set: {
+        isPaid: true,
+        accessType: 'pay_per_doc',
+        payment: payment._id,
+      },
+    },
+    { new: true }
+  );
+
+  if (!doc) {
+    return res.status(404).json({ error: 'Document not found' });
+  }
+
+  // Trigger PDF generation if not yet generated
+  let pdfUrl = doc.pdfUrl;
+  if (!pdfUrl) {
+    try {
+      const documentQueue = require('../services/notification/documentQueueClient');
+      await documentQueue.enqueueGenerateDocument({
+        documentId: doc._id,
+        userId,
+        priority: 'high',
+      });
+    } catch (qErr) {
+      logger.warn('[payment.controller] verifyDocumentPayment: failed to enqueue PDF generation', {
+        documentId,
+        error: qErr.message,
+      });
+    }
+  }
+
+  return res.json({ success: true, pdfUrl: pdfUrl || null });
+});
+
+/* ---------------------------------------------------------------------------
+ * createSubscriptionOrder
+ * POST /v1/subscriptions/create
+ * Body: { plan, billingCycle, persona }
+ * ------------------------------------------------------------------------ */
+const createSubscriptionOrder = asyncHandler(async (req, res) => {
+  const userId = req.user.userId;
+  const userPersona = req.user.persona;
+
+  const { plan, billingCycle, persona } = req.body;
+
+  // Persona from body, falling back to token persona
+  const effectivePersona = persona || userPersona;
+
+  if (!plan || !billingCycle) {
+    return res.status(400).json({ error: 'plan and billingCycle are required' });
+  }
+  if (!VALID_BILLING_CYCLES.includes(billingCycle)) {
+    return res.status(400).json({ error: `billingCycle must be one of: ${VALID_BILLING_CYCLES.join(', ')}` });
+  }
+
+  const validPlans = effectivePersona === 'lawyer' ? VALID_LAWYER_PLANS : VALID_CITIZEN_PLANS;
+  if (!validPlans.includes(plan)) {
+    return res.status(400).json({
+      error: `For persona '${effectivePersona}' plan must be one of: ${validPlans.join(', ')}`,
+    });
+  }
+
+  const amount = getPlanAmount(effectivePersona, plan, billingCycle);
+  if (!amount) {
+    return res.status(400).json({ error: 'Invalid plan / billingCycle combination' });
+  }
+
+  let order;
+  try {
+    order = await razorpayService.createOrder(
+      amount,
+      'INR',
+      `sub_${userId}_${Date.now()}`.substring(0, 40),
+      {
+        userId: String(userId),
+        plan,
+        billingCycle,
+        persona: effectivePersona,
+      }
+    );
+  } catch (err) {
+    logger.error('[payment.controller] createSubscriptionOrder: Razorpay failed', { error: err.message });
+    return res.status(502).json({ error: 'Payment gateway error — please try again' });
+  }
+
+  return res.status(201).json({
+    orderId: order.id,
+    amount: order.amount,
+    currency: order.currency,
+    plan,
+    billingCycle,
+    razorpayKeyId: process.env.RAZORPAY_KEY_ID,
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * verifySubscription
+ * POST /v1/subscriptions/verify
+ * Body: { orderId, paymentId, signature, plan, billingCycle, persona }
+ * ------------------------------------------------------------------------ */
+const verifySubscription = asyncHandler(async (req, res) => {
+  const userId = req.user.userId;
+  const {
+    orderId,
+    paymentId,
+    signature,
+    plan,
+    billingCycle,
+    persona,
+  } = req.body;
+
+  if (!orderId || !paymentId || !signature || !plan || !billingCycle) {
+    return res.status(400).json({
+      error: 'orderId, paymentId, signature, plan and billingCycle are required',
+    });
+  }
+
+  const isValid = razorpayService.verifyPaymentSignature(orderId, paymentId, signature);
+  if (!isValid) {
+    logger.warn('[payment.controller] verifySubscription: invalid signature', {
+      userId,
+      orderId,
+    });
+    return res.status(400).json({ error: 'Payment signature verification failed' });
+  }
+
+  const effectivePersona = persona || req.user.persona;
+  const amount = getPlanAmount(effectivePersona, plan, billingCycle);
+  if (!amount) {
+    return res.status(400).json({ error: 'Invalid plan / billingCycle combination' });
+  }
+
+  const validUntil = getSubscriptionValidUntil(billingCycle);
+  const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
+
+  // Upsert Subscription record (idempotent on orderId)
+  const subscription = await Subscription.findOneAndUpdate(
+    { razorpayOrderId: orderId },
+    {
+      $setOnInsert: {
+        user: userId,
+        plan,
+        billingCycle,
+        startDate: new Date(),
+        endDate: validUntil,
+        isActive: true,
+        autoRenew: true,
+        razorpayOrderId: orderId,
+        razorpayPaymentId: paymentId,
+        amount,
+      },
+    },
+    { upsert: true, new: true }
+  );
+
+  // Update User subscription + usage limits
+  await User.findByIdAndUpdate(userId, {
+    $set: {
+      'subscription.plan': plan,
+      'subscription.validUntil': validUntil,
+      'subscription.autoRenew': true,
+      'freeUsage.docsLimit': limits.docsLimit,
+      'freeUsage.casesLimit': limits.casesLimit,
+      'freeUsage.aiChatsLimit': limits.aiChatsLimit,
+    },
+  });
+
+  // Payment record
+  const existingPayment = await Payment.findOne({ razorpayOrderId: orderId });
+  if (!existingPayment) {
+    await Payment.create({
+      user: userId,
+      type: 'subscription',
+      razorpayOrderId: orderId,
+      razorpayPaymentId: paymentId,
+      amount,
+      currency: 'INR',
+      status: 'paid',
+      paidAt: new Date(),
+      relatedEntity: subscription._id,
+      relatedEntityType: 'Subscription',
+      platformEarnings: amount,
+      lawyerEarnings: 0,
+    });
+  } else if (existingPayment.status !== 'paid') {
+    existingPayment.status = 'paid';
+    existingPayment.razorpayPaymentId = paymentId;
+    existingPayment.paidAt = new Date();
+    await existingPayment.save();
+  }
+
+  // Welcome / upgrade email (best-effort)
+  const user = await User.findById(userId).select('name email').lean();
+  if (user && user.email) {
+    try {
+      await emailService.sendEmail({
+        to: user.email,
+        subject: `Your NyayaSetu ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan is active 🎉`,
+        html: emailService.welcomeEmail(user.name || ''),
+      });
+    } catch (emailErr) {
+      logger.warn('[payment.controller] verifySubscription: email failed', { error: emailErr.message });
+    }
+  }
+
+  return res.json({ success: true, subscription });
+});
+
+/* ---------------------------------------------------------------------------
+ * getCurrentSubscription
+ * GET /v1/subscriptions/current
+ * ------------------------------------------------------------------------ */
+const getCurrentSubscription = asyncHandler(async (req, res) => {
+  const userId = req.user.userId;
+
+  const [user, subscription] = await Promise.all([
+    User.findById(userId)
+      .select('subscription freeUsage preferredLanguage')
+      .lean(),
+    Subscription.findOne({ user: userId, isActive: true })
+      .sort({ createdAt: -1 })
+      .lean(),
+  ]);
+
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  return res.json({
+    plan: (user.subscription && user.subscription.plan) || 'free',
+    validUntil: user.subscription && user.subscription.validUntil,
+    autoRenew: user.subscription && user.subscription.autoRenew,
+    freeUsage: user.freeUsage,
+    subscription: subscription || null,
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * cancelUserSubscription
+ * POST /v1/subscriptions/cancel
+ * ------------------------------------------------------------------------ */
+const cancelUserSubscription = asyncHandler(async (req, res) => {
+  const userId = req.user.userId;
+
+  const subscription = await Subscription.findOne({ user: userId, isActive: true })
+    .sort({ createdAt: -1 });
+
+  if (!subscription) {
+    return res.status(404).json({ error: 'No active subscription found' });
+  }
+
+  // Cancel at Razorpay if a subscription ID exists (recurring billing)
+  if (subscription.razorpaySubscriptionId) {
+    try {
+      await razorpayService.cancelSubscription(subscription.razorpaySubscriptionId, true);
+    } catch (err) {
+      logger.error('[payment.controller] cancelUserSubscription: Razorpay cancel failed', {
+        subscriptionId: subscription.razorpaySubscriptionId,
+        error: err.message,
+      });
+      // Do not abort — mark as cancelled in DB regardless
+    }
+  }
+
+  subscription.isActive = false;
+  subscription.cancelledAt = new Date();
+  subscription.autoRenew = false;
+  await subscription.save();
+
+  // Downgrade user to free but let them keep access until validUntil
+  await User.findByIdAndUpdate(userId, {
+    $set: {
+      'subscription.autoRenew': false,
+    },
+  });
+
+  return res.json({
+    ok: true,
+    message: 'Subscription cancelled. You will retain access until the end of your current billing period.',
+    validUntil: subscription.endDate,
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * getPaymentHistory
+ * GET /v1/payments/history
+ * Query: page, limit, type
+ * ------------------------------------------------------------------------ */
+const getPaymentHistory = asyncHandler(async (req, res) => {
+  const userId = req.user.userId;
+  const { page = 1, limit = 20, type } = req.query;
+
+  const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+  const skip = (pageNum - 1) * limitNum;
+
+  const filter = { user: userId };
+  const VALID_TYPES = ['pay_per_doc', 'subscription', 'consultation'];
+  if (type && VALID_TYPES.includes(type)) filter.type = type;
+
+  try {
+    const [items, total] = await Promise.all([
+      Payment.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      Payment.countDocuments(filter),
+    ]);
+
+    return res.json({
+      items,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.max(1, Math.ceil(total / limitNum)),
+    });
+  } catch (err) {
+    logger.error('[payment.controller] getPaymentHistory failed', { userId, error: err.message });
+    return res.status(500).json({ error: 'Failed to load payment history' });
+  }
+});
+
+/* ---------------------------------------------------------------------------
+ * webhookHandler
+ * POST /v1/payments/webhook
+ *
+ * IMPORTANT: This route must use express.raw() (NOT express.json()) so the raw
+ * body is preserved for HMAC verification. See payment.routes.js.
+ *
+ * Handles:
+ *   payment.captured          → mark Payment paid + unlock Document
+ *   subscription.activated    → activate Subscription record
+ *   subscription.charged      → extend subscription validity
+ *   subscription.cancelled    → downgrade user to free plan
+ *   payment.failed            → mark Payment failed
+ * ------------------------------------------------------------------------ */
+const webhookHandler = asyncHandler(async (req, res) => {
+  const signature = req.header('X-Razorpay-Signature') || '';
+
+  const isValid = razorpayService.verifyWebhookSignature(req.body, signature);
+  if (!isValid) {
+    logger.warn('[payment.controller] webhookHandler: invalid signature', {
+      ip: req.ip,
+    });
+    return res.status(400).json({ error: 'Invalid webhook signature' });
+  }
+
+  // req.body is a Buffer at this point — parse it
+  let event;
+  try {
+    event = JSON.parse(req.body.toString('utf8'));
+  } catch (parseErr) {
+    logger.error('[payment.controller] webhookHandler: failed to parse body', {
+      error: parseErr.message,
+    });
+    return res.status(400).json({ error: 'Invalid JSON body' });
+  }
+
+  const eventType = event.event;
+  const payload = event.payload;
+
+  logger.info('[payment.controller] Webhook received', { eventType });
+
+  try {
+    switch (eventType) {
+      case 'payment.captured':
+        await handlePaymentCaptured(payload);
+        break;
+      case 'subscription.activated':
+        await handleSubscriptionActivated(payload);
+        break;
+      case 'subscription.charged':
+        await handleSubscriptionCharged(payload);
+        break;
+      case 'subscription.cancelled':
+        await handleSubscriptionCancelled(payload);
+        break;
+      case 'payment.failed':
+        await handlePaymentFailed(payload);
+        break;
+      default:
+        logger.debug('[payment.controller] Unhandled webhook event', { eventType });
+    }
+  } catch (handlerErr) {
+    // Log but return 200 to prevent Razorpay retries for application-level errors
+    logger.error('[payment.controller] webhookHandler: handler threw', {
+      eventType,
+      error: handlerErr.message,
+      stack: handlerErr.stack,
+    });
+  }
+
+  return res.status(200).json({ ok: true });
+});
+
+/* ---------------------------------------------------------------------------
+ * Webhook event handlers (all idempotent)
+ * ------------------------------------------------------------------------ */
+
+async function handlePaymentCaptured(payload) {
+  const paymentEntity = payload && payload.payment && payload.payment.entity;
+  if (!paymentEntity) return;
+
+  const razorpayOrderId = paymentEntity.order_id;
+  const razorpayPaymentId = paymentEntity.id;
+
+  const payment = await Payment.findOne({ razorpayOrderId });
+  if (!payment) {
+    logger.warn('[payment.controller] handlePaymentCaptured: no Payment record', { razorpayOrderId });
+    return;
+  }
+  if (payment.status === 'paid') return; // idempotent
+
+  payment.status = 'paid';
+  payment.razorpayPaymentId = razorpayPaymentId;
+  payment.paidAt = new Date();
+  await payment.save();
+
+  if (payment.type === 'pay_per_doc' && payment.relatedEntity) {
+    await Document.findByIdAndUpdate(payment.relatedEntity, {
+      $set: {
+        isPaid: true,
+        accessType: 'pay_per_doc',
+        payment: payment._id,
+      },
+    });
+    logger.info('[payment.controller] handlePaymentCaptured: document unlocked', {
+      documentId: payment.relatedEntity,
+    });
+  }
+
+  if (payment.type === 'subscription') {
+    const sub = await Subscription.findOne({ razorpayOrderId });
+    if (sub && !sub.isActive) {
+      sub.isActive = true;
+      sub.razorpayPaymentId = razorpayPaymentId;
+      await sub.save();
+    }
+  }
+}
+
+async function handleSubscriptionActivated(payload) {
+  const subEntity = payload && payload.subscription && payload.subscription.entity;
+  if (!subEntity) return;
+
+  const rzpSubId = subEntity.id;
+
+  const subscription = await Subscription.findOne({ razorpaySubscriptionId: rzpSubId });
+  if (!subscription) {
+    logger.warn('[payment.controller] handleSubscriptionActivated: no Subscription record', { rzpSubId });
+    return;
+  }
+
+  if (!subscription.isActive) {
+    subscription.isActive = true;
+    await subscription.save();
+
+    const limits = PLAN_LIMITS[subscription.plan] || PLAN_LIMITS.free;
+    await User.findByIdAndUpdate(subscription.user, {
+      $set: {
+        'subscription.plan': subscription.plan,
+        'subscription.validUntil': subscription.endDate,
+        'subscription.autoRenew': true,
+        'freeUsage.docsLimit': limits.docsLimit,
+        'freeUsage.casesLimit': limits.casesLimit,
+        'freeUsage.aiChatsLimit': limits.aiChatsLimit,
+      },
+    });
+  }
+}
+
+async function handleSubscriptionCharged(payload) {
+  const subEntity = payload && payload.subscription && payload.subscription.entity;
+  const paymentEntity = payload && payload.payment && payload.payment.entity;
+  if (!subEntity || !paymentEntity) return;
+
+  const subscription = await Subscription.findOne({ razorpaySubscriptionId: subEntity.id });
+  if (!subscription) return;
+
+  // Extend validity by one billing cycle
+  const newValidUntil = getSubscriptionValidUntil(subscription.billingCycle);
+  subscription.endDate = newValidUntil;
+  subscription.isActive = true;
+  await subscription.save();
+
+  await User.findByIdAndUpdate(subscription.user, {
+    $set: { 'subscription.validUntil': newValidUntil },
+  });
+
+  // Record the renewal payment
+  const existingPayment = await Payment.findOne({ razorpayPaymentId: paymentEntity.id });
+  if (!existingPayment) {
+    await Payment.create({
+      user: subscription.user,
+      type: 'subscription',
+      razorpayPaymentId: paymentEntity.id,
+      razorpayOrderId: paymentEntity.order_id || '',
+      amount: paymentEntity.amount,
+      currency: 'INR',
+      status: 'paid',
+      paidAt: new Date(),
+      relatedEntity: subscription._id,
+      relatedEntityType: 'Subscription',
+      platformEarnings: paymentEntity.amount,
+      lawyerEarnings: 0,
+    });
+  }
+
+  logger.info('[payment.controller] handleSubscriptionCharged: renewed', {
+    subscriptionId: subscription._id,
+    newValidUntil,
+  });
+}
+
+async function handleSubscriptionCancelled(payload) {
+  const subEntity = payload && payload.subscription && payload.subscription.entity;
+  if (!subEntity) return;
+
+  const subscription = await Subscription.findOne({ razorpaySubscriptionId: subEntity.id });
+  if (!subscription) return;
+
+  subscription.isActive = false;
+  subscription.cancelledAt = new Date();
+  subscription.autoRenew = false;
+  await subscription.save();
+
+  // Revert user to free plan
+  await User.findByIdAndUpdate(subscription.user, {
+    $set: {
+      'subscription.plan': 'free',
+      'subscription.autoRenew': false,
+      'freeUsage.docsLimit': PLAN_LIMITS.free.docsLimit,
+      'freeUsage.casesLimit': PLAN_LIMITS.free.casesLimit,
+      'freeUsage.aiChatsLimit': PLAN_LIMITS.free.aiChatsLimit,
+    },
+  });
+
+  logger.info('[payment.controller] handleSubscriptionCancelled', { subscriptionId: subscription._id });
+}
+
+async function handlePaymentFailed(payload) {
+  const paymentEntity = payload && payload.payment && payload.payment.entity;
+  if (!paymentEntity) return;
+
+  const razorpayOrderId = paymentEntity.order_id;
+  await Payment.findOneAndUpdate(
+    { razorpayOrderId },
+    { $set: { status: 'failed', failedAt: new Date() } }
+  );
+
+  logger.info('[payment.controller] handlePaymentFailed', { razorpayOrderId });
+}
+
+module.exports = {
+  createDocumentOrder,
+  verifyDocumentPayment,
+  createSubscriptionOrder,
+  verifySubscription,
+  getCurrentSubscription,
+  cancelUserSubscription,
+  getPaymentHistory,
+  webhookHandler,
+};

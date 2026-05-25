@@ -1,0 +1,23 @@
+{
+  "name": "nyayasetu-worker",
+  "version": "1.0.0",
+  "description": "NyayaSetu Bull.js background job worker",
+  "main": "src/worker.js",
+  "private": true,
+  "scripts": {
+    "dev": "nodemon src/worker.js",
+    "start": "node src/worker.js"
+  },
+  "dependencies": {
+    "bull": "^4.16.0",
+    "date-fns": "^3.6.0",
+    "dotenv": "^16.4.5",
+    "ioredis": "^5.4.1",
+    "mongoose": "^8.7.0",
+    "twilio": "^5.3.4",
+    "winston": "^3.15.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  }
+}

@@ -1,0 +1,302 @@
+const { generate } = require('./aiProvider');
+const logger       = require('../../utils/logger');
+
+// ─── Indian Kanoon URL builder ────────────────────────────────────────────────
+
+const INDIAN_KANOON_BASE = 'https://indiankanoon.org/search/?formInput=';
+
+/**
+ * buildKanoonUrl — construct a search URL for a given act + section.
+ * Used in legalCitations so users can verify every cited law.
+ *
+ * @param {string} actName    — e.g. "Consumer Protection Act, 2019"
+ * @param {string} section    — e.g. "Section 35"
+ */
+function buildKanoonUrl(actName, section) {
+  const query = section
+    ? `${section} ${actName}`
+    : actName;
+  return `${INDIAN_KANOON_BASE}${encodeURIComponent(query)}`;
+}
+
+// ─── System prompt builder ────────────────────────────────────────────────────
+
+/**
+ * buildDocumentPrompt — constructs the full document generation prompt.
+ *
+ * This is the most important prompt in NyayaSetu — it must produce a
+ * jurisdiction-aware, citation-rich, professionally formatted legal document.
+ *
+ * @param {object} session           — ChatSession (has collectedData, userState, userLanguage)
+ * @param {object} template          — DocumentTemplate
+ * @param {object} jurisdictionRule  — JurisdictionRule for state+docType (may be null)
+ * @param {Array}  legalActSections  — Array of { act, sections[] } from LegalAct
+ */
+function buildDocumentPrompt(session, template, jurisdictionRule, legalActSections) {
+  const collectedData = session.toCollectedDataObject
+    ? session.toCollectedDataObject()
+    : (session.collectedData instanceof Map
+        ? Object.fromEntries(session.collectedData)
+        : session.collectedData || {});
+
+  const state    = session.userState    || 'India';
+  const language = session.userLanguage || 'en';
+  const today    = new Date().toLocaleDateString('en-IN', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  });
+
+  // ── Jurisdiction context ─────────────────────────────────────────────────
+  const filingAuthority = jurisdictionRule?.filingAuthority
+    ? `${jurisdictionRule.filingAuthority.name}${jurisdictionRule.filingAuthority.address ? `, ${jurisdictionRule.filingAuthority.address}` : ''}`
+    : `Appropriate authority in ${state}`;
+
+  const filingFeeText = jurisdictionRule?.filingFee?.notes
+    || (jurisdictionRule?.filingFee?.amount
+        ? `₹${jurisdictionRule.filingFee.amount / 100}`
+        : 'As applicable');
+
+  const limitationText = jurisdictionRule?.limitationPeriod?.days
+    ? `${jurisdictionRule.limitationPeriod.days} days from ${jurisdictionRule.limitationPeriod.fromEvent || 'the incident'}`
+    : 'As per applicable law';
+
+  const courtHierarchy = jurisdictionRule?.courtHierarchy?.length
+    ? jurisdictionRule.courtHierarchy
+        .sort((a, b) => a.level - b.level)
+        .map((c) => `  Level ${c.level}: ${c.name} (${c.jurisdiction || 'general jurisdiction'})`)
+        .join('\n')
+    : `  District court system in ${state}`;
+
+  // ── Applicable acts and sections ─────────────────────────────────────────
+  const actsContext = (legalActSections || []).map((actData) => {
+    const act      = actData.act || actData;
+    const sections = actData.sections || act.sections || [];
+
+    const sectionText = sections.slice(0, 8).map((s) =>
+      `  Section ${s.number}${s.title ? ` — ${s.title}` : ''}: ${(s.text || '').slice(0, 400)}${s.text?.length > 400 ? '…' : ''}`
+    ).join('\n');
+
+    return `ACT: ${act.fullName || act.shortName} (${act.year || 'Year N/A'})
+Type: ${act.type === 'state' ? `State Act (${act.applicableState})` : 'Central Act'}
+Relevant Sections:
+${sectionText || '  (No specific sections loaded)'}`;
+  }).join('\n\n---\n\n');
+
+  // ── Collected user data ───────────────────────────────────────────────────
+  const dataContext = Object.entries(collectedData)
+    .map(([k, v]) => {
+      const question = (template.questionFlow || []).find((q) => q.key === k);
+      const label    = question?.label || k.replace(/_/g, ' ');
+      return `  ${label}: ${v}`;
+    })
+    .join('\n');
+
+  // ── Document language instruction ─────────────────────────────────────────
+  const langInstruction = language !== 'en'
+    ? `\n\nLANGUAGE: The document text must be in formal English (standard for Indian courts), but clauseExplanations and nextSteps[].instruction should be provided in BOTH English AND the user's language (${language}). Use simple, clear language in explanations.`
+    : '';
+
+  // ── Additional template-specific instructions ─────────────────────────────
+  const templateAddendum = template.systemPromptAddendum
+    ? `\n\nTEMPLATE-SPECIFIC INSTRUCTIONS:\n${template.systemPromptAddendum}`
+    : '';
+
+  return `You are NyayaSetu's legal document drafting engine. Generate a complete, professional, jurisdiction-aware Indian legal document.
+
+=== DOCUMENT TYPE ===
+${template.name}
+Category: ${template.category}
+Complexity: ${template.complexity}
+
+=== USER INFORMATION (collected via conversation) ===
+${dataContext || '(No data collected)'}
+
+=== JURISDICTION ===
+State/UT: ${state}
+Filing Authority: ${filingAuthority}
+Filing Fee: ${filingFeeText}
+Limitation Period: ${limitationText}
+Court Hierarchy:
+${courtHierarchy}
+
+=== APPLICABLE LAWS AND SECTIONS ===
+${actsContext || '(No specific acts loaded — apply general Indian law principles)'}
+
+=== DOCUMENT DATE ===
+${today}
+
+${template.outputFormat?.includeWitnesses ? '=== FORMAT: Include space for 2 witnesses ===' : ''}
+${template.outputFormat?.includeNotary ? '=== FORMAT: Include notary attestation section ===' : ''}
+${langInstruction}${templateAddendum}
+
+=== CRITICAL OUTPUT REQUIREMENTS ===
+Respond with ONLY a valid JSON object in this EXACT structure (no markdown, no explanation):
+
+{
+  "documentText": "The complete formal legal document as a single string. Use \\n for line breaks. Include proper salutation, body paragraphs citing specific law sections, prayer/relief sought, and signature block. Must be ready to print and file.",
+  "legalCitations": [
+    {
+      "act": "Full name of the act",
+      "section": "Section number and title",
+      "description": "One sentence explaining why this section is relevant to this specific case",
+      "url": "Indian Kanoon search URL for this section"
+    }
+  ],
+  "clauseExplanations": [
+    {
+      "clauseIndex": 0,
+      "clauseText": "First ~100 characters of the paragraph this explains",
+      "explanation": "Plain English explanation of what this clause means for the user",
+      "explanationHi": "Same explanation in Hindi (Devanagari script)"
+    }
+  ],
+  "nextSteps": [
+    {
+      "step": 1,
+      "instruction": "Exact actionable instruction",
+      "authority": "Name of the office/court to approach",
+      "fee": "Exact fee if known, otherwise 'As applicable'",
+      "timelineExpected": "Realistic timeline",
+      "onlineLink": "Official government portal URL if available, otherwise null"
+    }
+  ]
+}
+
+DOCUMENT QUALITY STANDARDS:
+- Cite SPECIFIC sections (e.g. "Section 35(1)(a) of the Consumer Protection Act, 2019")
+- Use the user's actual names, dates, amounts — not placeholders
+- The prayer/relief section must request SPECIFIC remedies with INR amounts where applicable
+- Tone: formal, authoritative, professional — this will be filed with an Indian court or authority
+- clauseExplanations: cover every substantive paragraph (minimum 5, maximum 15)
+- nextSteps: provide 3–7 concrete, actionable steps specific to ${state}
+- legalCitations: minimum 3 citations, maximum 10`;
+}
+
+// ─── JSON validation ───────────────────────────────────────────────────────────
+
+/**
+ * validateDocumentJson — checks that the AI response has all required fields
+ * and sensible lengths. Throws a descriptive error if validation fails.
+ */
+function validateDocumentJson(parsed) {
+  const errors = [];
+
+  if (typeof parsed.documentText !== 'string' || parsed.documentText.length < 200) {
+    errors.push('documentText is missing or too short (min 200 chars)');
+  }
+
+  if (!Array.isArray(parsed.legalCitations) || parsed.legalCitations.length === 0) {
+    errors.push('legalCitations must be a non-empty array');
+  }
+
+  if (!Array.isArray(parsed.clauseExplanations) || parsed.clauseExplanations.length === 0) {
+    errors.push('clauseExplanations must be a non-empty array');
+  }
+
+  if (!Array.isArray(parsed.nextSteps) || parsed.nextSteps.length === 0) {
+    errors.push('nextSteps must be a non-empty array');
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Document JSON validation failed: ${errors.join('; ')}`);
+  }
+}
+
+// ─── Post-process citations ────────────────────────────────────────────────────
+
+/**
+ * enrichCitations — add Indian Kanoon URLs where the AI didn't provide one.
+ */
+function enrichCitations(citations) {
+  return (citations || []).map((c) => ({
+    ...c,
+    url: c.url || buildKanoonUrl(c.act, c.section),
+  }));
+}
+
+// ─── generateDocument ─────────────────────────────────────────────────────────
+
+/**
+ * generateDocument — the primary function called by the document controller.
+ *
+ * Builds the prompt, calls the AI in JSON mode, validates the output,
+ * and returns the enriched document structure.
+ *
+ * @param {object} session           — ChatSession document
+ * @param {object} template          — DocumentTemplate document
+ * @param {object} jurisdictionRule  — JurisdictionRule (may be null)
+ * @param {Array}  legalActSections  — Relevant LegalAct documents with sections
+ * @returns {Promise<{
+ *   documentText:       string,
+ *   legalCitations:     Array,
+ *   clauseExplanations: Array,
+ *   nextSteps:          Array,
+ * }>}
+ */
+async function generateDocument(session, template, jurisdictionRule, legalActSections) {
+  const prompt = buildDocumentPrompt(session, template, jurisdictionRule, legalActSections);
+
+  logger.info(`[documentEngine] Generating document: ${template.slug}, state: ${session.userState}, session: ${session._id}`);
+  logger.debug(`[documentEngine] Prompt length: ${prompt.length} chars`);
+
+  // ── First attempt ─────────────────────────────────────────────────────────
+  let parsed;
+
+  try {
+    parsed = await generate(prompt, true);
+    validateDocumentJson(parsed);
+  } catch (firstErr) {
+    logger.warn(`[documentEngine] First attempt failed: ${firstErr.message}. Retrying with stricter prompt…`);
+
+    // ── Retry with a stricter, more explicit prompt ────────────────────────
+    const stricterPrompt = `${prompt}
+
+REMINDER: Your previous response could not be parsed as valid JSON. 
+You MUST respond with ONLY a raw JSON object. 
+DO NOT include any text before the opening { or after the closing }.
+DO NOT use markdown code fences.
+DO NOT include comments.
+The response must be directly parseable by JSON.parse() with zero modifications.`;
+
+    try {
+      parsed = await generate(stricterPrompt, true);
+      validateDocumentJson(parsed);
+    } catch (secondErr) {
+      logger.error(`[documentEngine] Both attempts failed for session ${session._id}`, {
+        firstError:  firstErr.message,
+        secondError: secondErr.message,
+        templateSlug: template.slug,
+      });
+      throw new Error(
+        `Document generation failed after 2 attempts. Last error: ${secondErr.message}`
+      );
+    }
+  }
+
+  // ── Enrich citations with Indian Kanoon URLs ───────────────────────────────
+  parsed.legalCitations = enrichCitations(parsed.legalCitations);
+
+  // ── Normalise nextSteps ───────────────────────────────────────────────────
+  parsed.nextSteps = (parsed.nextSteps || []).map((step, i) => ({
+    step:             step.step ?? i + 1,
+    instruction:      step.instruction || '',
+    authority:        step.authority || '',
+    fee:              step.fee || 'As applicable',
+    timelineExpected: step.timelineExpected || 'Varies',
+    onlineLink:       step.onlineLink || null,
+  }));
+
+  logger.info(`[documentEngine] Document generated successfully: ${parsed.documentText.length} chars, ${parsed.legalCitations.length} citations, ${parsed.nextSteps.length} next steps`);
+
+  return {
+    documentText:       parsed.documentText,
+    legalCitations:     parsed.legalCitations,
+    clauseExplanations: parsed.clauseExplanations,
+    nextSteps:          parsed.nextSteps,
+  };
+}
+
+module.exports = {
+  generateDocument,
+  buildDocumentPrompt,
+  buildKanoonUrl,
+};

@@ -1,0 +1,122 @@
+version: '3.9'
+
+# ──────────────────────────────────────────────────────────────────────────────
+# NyayaSetu — Local Development Stack
+# ──────────────────────────────────────────────────────────────────────────────
+# Usage:
+#   docker-compose up -d          # Start all services
+#   docker-compose logs -f server # Tail server logs
+#   docker-compose down -v        # Stop + remove volumes (fresh start)
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── MongoDB 7.0 ─────────────────────────────────────────────────────────────
+  mongo:
+    image: mongo:7.0
+    container_name: nyaya_mongo
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_DATABASE: nyayasetu
+    volumes:
+      - nyaya_mongo_data:/data/db
+      - nyaya_mongo_config:/data/configdb
+    networks:
+      - nyaya_network
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ── Redis 7 (Alpine) ─────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: nyaya_redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - nyaya_redis_data:/data
+    networks:
+      - nyaya_network
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── Express API Server ───────────────────────────────────────────────────────
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      target: development
+    container_name: nyaya_server
+    restart: unless-stopped
+    ports:
+      - '5000:5000'
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      MONGO_URI: mongodb://mongo:27017/nyayasetu
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - ./server:/app
+      - /app/node_modules   # Anonymous volume prevents host node_modules override
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - nyaya_network
+    command: ['npx', 'nodemon', 'src/server.js']
+
+  # ── Bull Worker Process ──────────────────────────────────────────────────────
+  worker:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      target: development
+    container_name: nyaya_worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      MONGO_URI: mongodb://mongo:27017/nyayasetu
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - nyaya_network
+    command: ['npx', 'nodemon', 'src/worker/worker.js']
+
+# ── Named Volumes ──────────────────────────────────────────────────────────────
+volumes:
+  nyaya_mongo_data:
+    driver: local
+  nyaya_mongo_config:
+    driver: local
+  nyaya_redis_data:
+    driver: local
+
+# ── Networks ───────────────────────────────────────────────────────────────────
+networks:
+  nyaya_network:
+    driver: bridge
+    name: nyaya_network
