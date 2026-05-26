@@ -10,7 +10,7 @@
 
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const mongoose = require('mongoose');
-const LegalAct = require('../src/models/LegalAct');
+const LegalAct = require('../src/models/LegalAct.model');
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/nyayasetu';
 

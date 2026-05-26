@@ -13,7 +13,7 @@
 
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const mongoose = require('mongoose');
-const JurisdictionRule = require('../src/models/JurisdictionRule');
+const JurisdictionRule = require('../src/models/JurisdictionRule.model');
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/nyayasetu';
 
