@@ -124,6 +124,10 @@ const authSlice = createSlice({
       state.error = null;
       state.otpSent = false;
     },
+    resetOtpState(state) {
+      state.otpSent = false;
+      state.error = null;
+    },
   },
   extraReducers: (builder) => {
     // sendOTP
@@ -149,7 +153,7 @@ const authSlice = createSlice({
       })
       .addCase(verifyOTP.fulfilled, (state, action) => {
         state.loading = false;
-        state.token = action.payload.token;
+        state.token = action.payload.accessToken;
         state.refreshToken = action.payload.refreshToken || state.refreshToken;
         state.user = action.payload.user || null;
         state.otpSent = false;
@@ -167,7 +171,7 @@ const authSlice = createSlice({
       })
       .addCase(register.fulfilled, (state, action) => {
         state.loading = false;
-        state.token = action.payload.token;
+        state.token = action.payload.accessToken;
         state.refreshToken = action.payload.refreshToken || state.refreshToken;
         state.user = action.payload.user || null;
       })
@@ -218,7 +222,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError, setUser, setToken, forceLogout } = authSlice.actions;
+export const { clearError, setUser, setToken, forceLogout, resetOtpState } = authSlice.actions;
 
 // ─── Selectors ───────────────────────────────────────────────────────────────
 
@@ -226,7 +230,7 @@ export const selectUser = (state) => state.auth.user;
 export const selectIsAuthenticated = (state) => !!state.auth.token && !!state.auth.user;
 export const selectUserPlan = (state) =>
   state.auth.user?.subscription?.plan || 'free';
-export const selectUserPersona = (state) => state.auth.user?.persona || 'citizen';
+export const selectUserPersona = (state) => (state.auth.user?.persona || 'citizen').toLowerCase();
 export const selectAuthLoading = (state) => state.auth.loading;
 export const selectAuthError = (state) => state.auth.error;
 export const selectOtpSent = (state) => state.auth.otpSent;

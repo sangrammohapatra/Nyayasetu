@@ -396,7 +396,7 @@ function Navbar() {
 
           {[
             { icon: '👤', label: t('navbar.profile', 'Profile'), path: `/${persona}/profile` },
-            { icon: '⚙️', label: t('navbar.settings', 'Settings'), path: '/settings' },
+            { icon: '⚙️', label: t('navbar.settings', 'Settings'), path: `/${persona}/settings` },
             { icon: '⭐', label: t('navbar.upgrade', 'Upgrade Plan'), path: '/pricing', highlight: true },
           ].map((item) => (
             <MenuItem key={item.path}

@@ -158,7 +158,7 @@ async function clearOtpAttemptsValue(phone) {
 function signTokenPair(user) {
   const payload = {
     userId: user._id.toString(),
-    persona: user.persona,
+    persona: user.persona?.toLowerCase(),
     plan: user.subscription?.plan || "free",
   };
   const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {

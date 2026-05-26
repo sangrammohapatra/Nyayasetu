@@ -34,6 +34,7 @@ import AnimatedPage from "./components/ui/AnimatedPage";
 import Navbar from "./components/layout/Navbar";
 import Sidebar from "./components/layout/Sidebar";
 import BottomNav from "./components/layout/BottomNav";
+import NyayaBotWidget from "./components/nyayabot/NyayaBotWidget";
 import ErrorBoundaryWithDispatch from "./components/ui/ErrorBoundary";
 import { ErrorNotificationSnackbar } from "./hooks/useErrorHandling";
 
@@ -73,8 +74,9 @@ const EarningsPanel = lazy(() => import("./pages/lawyer/EarningsPanel"));
 // Shared
 const Pricing = lazy(() => import("./pages/shared/Pricing"));
 const Settings = lazy(() => import("./pages/shared/Settings"));
+const NyayaBotPage = lazy(() => import("./pages/NyayaBotPage"));
 
-// Layout
+// Layout 
 const ThemeSwitcher = lazy(() => import("./components/layout/ThemeSwitcher"));
 const LawyerSearch = lazy(() => import("./components/lawyer/LawyerSearch"));
 const ConsultationsPage = lazy(() => import("./pages/lawyer/ClientList")); // placeholder
@@ -144,6 +146,21 @@ function RootRedirect() {
   return <Navigate to={`/${persona?.toLowerCase()}/home`} replace />;
 }
 
+// ─── /settings redirect ───────────────────────────────────────────────────────
+
+function SettingsRedirect() {
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const persona = useSelector(selectUserPersona);
+  const loading = useSelector(selectAuthLoading);
+
+  if (loading) return <PageLoader />;
+  if (!isAuthenticated) {
+    const returnUrl = encodeURIComponent('/settings');
+    return <Navigate to={`/login?returnUrl=${returnUrl}`} replace />;
+  }
+  return <Navigate to={`/${persona}/settings`} replace />;
+}
+
 // ─── Main app layout (Navbar + Sidebar + Content + BottomNav) ─────────────────
 
 function AppLayout() {
@@ -162,7 +179,6 @@ function AppLayout() {
       <Navbar />
 
       <Box sx={{ display: "flex", flex: 1 }}>
-        <Sidebar />
         <Sidebar
           collapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed((v) => !v)}
@@ -188,7 +204,10 @@ function AppLayout() {
       </Box>
 
       <BottomNav />
-      <ThemeSwitcher />
+      <NyayaBotWidget /> 
+      <Suspense fallback={null}>
+        <ThemeSwitcher />
+      </Suspense>
     </Box>
   );
 }
@@ -234,6 +253,9 @@ const router = createBrowserRouter([
   // Root redirect
   { path: "/", element: <RootRedirect /> },
 
+  // /settings → /<persona>/settings (handles bookmarks and direct URL access)
+  { path: "/settings", element: <SettingsRedirect /> },
+
   // Auth pages — no layout
   {
     path: "/login",
@@ -259,6 +281,22 @@ const router = createBrowserRouter([
       <Suspense fallback={<PageLoader />}>
         <Pricing />
       </Suspense>
+    ),
+  },
+  {
+    path: "/nyayabot",
+    element: (
+      <ProtectedRoute>
+        <NyayaBotPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/nyayabot/:sessionId",
+    element: (
+      <ProtectedRoute>
+        <NyayaBotPage />
+      </ProtectedRoute>
     ),
   },
 
@@ -449,13 +487,13 @@ function AppBootstrap() {
   }, []);
 
   return (
-    <>
-      <ErrorBoundaryWithDispatch>
-        <ErrorNotificationSnackbar />
-        <GlobalSnackbars />
+    <ErrorBoundaryWithDispatch>
+      <ErrorNotificationSnackbar />
+      <GlobalSnackbars />
+      <Suspense fallback={<PageLoader />}>
         <RouterProvider router={router} />
-      </ErrorBoundaryWithDispatch>
-    </>
+      </Suspense>
+    </ErrorBoundaryWithDispatch>
   );
 }
 

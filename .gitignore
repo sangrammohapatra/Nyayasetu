@@ -9,6 +9,7 @@ dist/
 build/
 coverage/
 .vite/
+dev-dist/
 
 # Logs
 logs/

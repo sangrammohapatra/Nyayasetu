@@ -34,7 +34,7 @@ function useNavItems(persona, t) {
     const citizen = [
       { icon: '🏠', label: t('sidebar.home', 'Home'),          path: '/citizen/home' },
       { icon: '📝', label: t('sidebar.newDoc', 'New Document'), path: '/citizen/documents/new' },
-      { icon: '📂', label: t('sidebar.myDocs', 'My Documents'), path: '/citizen/documents' },
+      { icon: '📂', label: t('sidebar.myDocs', 'My Documents'), path: '/citizen/documents/myDocuments' },
       { icon: '⚖️', label: t('sidebar.caseTracker', 'Case Tracker'), path: '/citizen/cases' },
       { icon: '👨‍⚖️', label: t('sidebar.findLawyer', 'Find Lawyer'), path: '/citizen/lawyers' },
       { icon: '💎', label: t('sidebar.pricing', 'Pricing'),     path: '/pricing' },

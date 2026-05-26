@@ -105,14 +105,17 @@ function toGeminiHistory(messages) {
     }
   }
 
-  // Ensure history doesn't end on a 'model' turn (Gemini requirement)
-  // If it does, pop that message and prepend it to the latest user input
+  // Gemini requires history to START with a 'user' turn.
+  // The first message in a NyayaBot session is the AI greeting (model turn),
+  // which has no preceding user turn — drop any leading 'model' turns.
+  while (history.length > 0 && history[0].role === 'model') {
+    history.shift();
+  }
+
+  // Ensure history doesn't END on a 'user' turn (Gemini requirement).
+  // If it does, pop and merge into the current user message.
   let latestUserMessage = lastMsg.content;
-  if (history.length > 0 && history[history.length - 1].role === 'model') {
-    // Valid — history ends with model, new user message follows
-  } else if (history.length > 0 && history[history.length - 1].role === 'user') {
-    // History ends with user — Gemini won't accept this.
-    // Pop and prefix into the current message.
+  if (history.length > 0 && history[history.length - 1].role === 'user') {
     const extra = history.pop();
     latestUserMessage = `${extra.parts[0].text}\n${latestUserMessage}`;
   }
@@ -135,7 +138,9 @@ async function chat(messages, systemPrompt, stream = false) {
     const genAI = getGenAI();
     const model = genAI.getGenerativeModel({
       model: MODEL_NAME,
-      systemInstruction: systemPrompt || undefined,
+      systemInstruction: systemPrompt
+        ? { role: 'user', parts: [{ text: systemPrompt }] }
+        : undefined,
       safetySettings: SAFETY_SETTINGS,
       generationConfig: {
         temperature: 0.7,

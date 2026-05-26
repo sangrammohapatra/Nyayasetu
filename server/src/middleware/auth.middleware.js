@@ -28,7 +28,7 @@ const verifyToken = asyncHandler(async (req, res, next) => {
 
   req.user = {
     userId:  decoded.userId,
-    persona: decoded.persona,
+    persona: decoded.persona?.toLowerCase(),
     plan:    decoded.plan,
   };
 
@@ -58,7 +58,7 @@ const optionalAuth = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = {
       userId:  decoded.userId,
-      persona: decoded.persona,
+      persona: decoded.persona?.toLowerCase(),
       plan:    decoded.plan,
     };
   } catch {

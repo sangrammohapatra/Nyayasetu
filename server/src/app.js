@@ -16,8 +16,8 @@ const whatsappRoutes = require('./routes/whatsapp.routes');
 const jurisdictionRoutes = require('./routes/jurisdiction.routes');
 const notificationRoutes = require('./routes/notification.routes');
 const adminRoutes = require('./routes/admin.routes');
-// const templateRoutes = require('./routes/template.routes');
-
+const templateRoutes = require('./routes/template.routes');
+const nyayabotRoutes = require('./routes/nyayabotRoutes');
 // Error handler middleware
 const { errorHandler } = require('./middleware/error.middleware');
 
@@ -124,6 +124,7 @@ const otpLimiter = rateLimit({
 app.use('/v1', globalLimiter);
 app.use('/v1/chat/sessions/:id/message', aiLimiter);
 app.use('/v1/auth/send-otp', otpLimiter);
+app.use('/v1/nyayabot', nyayabotRoutes);
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
@@ -147,7 +148,7 @@ app.get('/v1/health', (req, res) => {
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
 app.use('/v1/auth', authRoutes);
-// app.use('/v1/templates', templateRoutes);
+app.use('/v1/templates', templateRoutes);
 app.use('/v1/chat', chatRoutes);
 app.use('/v1/documents', documentRoutes);
 app.use('/v1/cases', caseRoutes);
@@ -158,6 +159,7 @@ app.use('/v1/whatsapp', whatsappRoutes);
 app.use('/v1/jurisdiction', jurisdictionRoutes);
 app.use('/v1/notifications', notificationRoutes);
 app.use('/v1/admin', adminRoutes);
+app.use('/v1/nyayabot', nyayabotRoutes);
 
 // ─── 404 Handler ──────────────────────────────────────────────────────────────
 app.use((req, res) => {

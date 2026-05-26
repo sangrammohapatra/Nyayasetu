@@ -1,4 +1,56 @@
 {
+  "nyayabot": {
+    "fabLabel": "NyayaBot से पूछें",
+    "openBot": "NyayaBot खोलें",
+    "close": "NyayaBot बंद करें",
+    "loading": "NyayaBot शुरू हो रहा है…",
+    "starting": "NyayaBot शुरू हो रहा है…",
+    "headerSubtitle": "AI कानूनी सहायक · NyayaSetu",
+    "thinking": "सोच रहा हूं…",
+
+    "newChat": "नई बातचीत",
+    "recentChats": "हाल की बातचीत",
+    "noSessions": "अभी कोई बातचीत नहीं। कोई कानूनी सवाल पूछकर शुरू करें!",
+    "untitled": "अनाम बातचीत",
+    "messages": "संदेश",
+    "pin": "बातचीत पिन करें",
+    "unpin": "पिन हटाएं",
+    "moreOptions": "और विकल्प",
+    "shareWithLawyer": "वकील के साथ साझा करें",
+    "archive": "बातचीत संग्रहीत करें",
+    "delete": "बातचीत हटाएं",
+    "shareLinkCopied": "शेयर लिंक क्लिपबोर्ड पर कॉपी हो गया!",
+    "shareError": "शेयर लिंक नहीं बन सका। पुनः प्रयास करें।",
+
+    "inputPlaceholder": "अपने कानूनी अधिकारों, दस्तावेज़ों, या अदालत की प्रक्रियाओं के बारे में पूछें…",
+    "inputDisabledQuota": "दैनिक सीमा समाप्त। जारी रखने के लिए अपग्रेड करें।",
+    "send": "संदेश भेजें",
+    "startRecording": "वॉयस संदेश रिकॉर्ड करें",
+    "stopRecording": "रिकॉर्डिंग बंद करें",
+    "stopSend": "रोकें और भेजें",
+    "recording": "रिकॉर्डिंग हो रही है",
+    "voiceMessage": "वॉयस संदेश",
+
+    "quotaRemaining": "आज {{limit}} में से {{remaining}} संदेश शेष",
+    "quotaLow": "दैनिक सीमा लगभग समाप्त",
+    "quotaExhausted": "दैनिक सीमा समाप्त",
+    "quotaExhaustedMessage": "आपने {{plan}} प्लान पर आज के सभी NyayaBot संदेश उपयोग कर लिए हैं। अधिक के लिए अपग्रेड करें।",
+    "upgrade": "प्लान अपग्रेड करें",
+
+    "helpful": "यह सहायक था",
+    "notHelpful": "यह सहायक नहीं था",
+    "legalCitations": "कानूनी संदर्भ",
+    "viewOnKanoon": "Indian Kanoon पर पढ़ें",
+    "suggestedDocuments": "संबंधित दस्तावेज़ जो आप बना सकते हैं:",
+    "followUpQuestions": "आप यह भी पूछ सकते हैं:",
+
+    "greetingCitizen": "नमस्कार! 🙏 मैं NyayaBot हूं, NyayaSetu पर आपका AI कानूनी सहायक। मैं आपके अधिकार समझने, सही दस्तावेज़ दाखिल करने, या अदालती प्रक्रिया में मार्गदर्शन करने में मदद कर सकता हूं। आज आप क्या जानना चाहते हैं?",
+    "greetingLawyer": "स्वागत है! 🙏 मैं NyayaBot हूं, आपका AI कानूनी शोध सहायक। आज मैं आपके कानूनी काम में कैसे सहायता करूं?",
+
+    "disclaimer": "NyayaBot कानूनी जानकारी प्रदान करता है, कानूनी सलाह नहीं। अपनी विशेष स्थिति के लिए किसी योग्य वकील से परामर्श लें।",
+
+    "pageTitle": "NyayaBot — AI कानूनी सहायक"
+  },
   "auth": {
     "login_title": "वापस स्वागत है",
     "login_subtitle": "अपने कानूनी दस्तावेज़ और केस ट्रैकर तक पहुंचने के लिए साइन इन करें",

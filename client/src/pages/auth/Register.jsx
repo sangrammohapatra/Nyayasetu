@@ -673,7 +673,7 @@ function Register() {
     dispatch(clearError());
     const result = await dispatch(registerUser(merged));
     if (result.meta.requestStatus === "fulfilled") {
-      const persona = result.payload?.user?.persona || "citizen";
+      const persona = (result.payload?.user?.persona || "citizen").toLowerCase();
       navigate(`/${persona}/home`, { replace: true });
     }
   };

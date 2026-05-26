@@ -133,8 +133,13 @@ export const sendMessage = createAsyncThunk(
               if (parsed.delta) {
                 fullText += parsed.delta;
                 dispatch(addStreamDelta(parsed.delta));
-              } else if (parsed.dataComplete) {
-                dispatch(setDataComplete(true));
+              } else if (parsed.done) {
+                // Server signals end of stream with { done: true, dataComplete: bool }
+                if (parsed.dataComplete) {
+                  dispatch(setDataComplete(true));
+                }
+                dispatch(streamComplete(fullText));
+                return { sessionId, fullText };
               } else if (parsed.error) {
                 dispatch(streamAbort());
                 return rejectWithValue(parsed.error);
@@ -247,8 +252,22 @@ const chatSlice = createSlice({
       })
       .addCase(createSession.fulfilled, (state, action) => {
         state.loading = false;
-        state.currentSession = action.payload.session || action.payload;
-        state.messages = action.payload.session?.messages || [];
+        const raw = action.payload;
+        // Server returns { sessionId, firstMessage, template, progressPercent, ... }
+        // Normalize to a consistent shape with _id so the rest of the UI can use session._id
+        state.currentSession = raw.session
+          ? raw.session
+          : {
+              _id: raw.sessionId,
+              template: raw.template,
+              templateSlug: raw.template?.slug,
+              progressPercent: raw.progressPercent || 0,
+              status: 'active',
+            };
+        // Server delivers the first AI question in firstMessage, not in messages[]
+        state.messages = raw.firstMessage
+          ? [{ role: 'assistant', content: raw.firstMessage, createdAt: new Date().toISOString() }]
+          : (raw.session?.messages || []);
         state.dataComplete = false;
       })
       .addCase(createSession.rejected, (state, action) => {

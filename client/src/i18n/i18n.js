@@ -114,8 +114,9 @@ i18n
 
     // ── React-specific options ──────────────────────────────────────────────
     react: {
-      // Wait for translation to load before rendering (prevents flash)
-      useSuspense: true,
+        // Don't suspend during translation loading — components use fallback strings instead.
+      // Suspending inside route children causes React Router to treat it as an unrecoverable error.
+      useSuspense: false,
       // Bind i18n events to trigger re-renders
       bindI18n: 'languageChanged loaded',
       bindI18nStore: 'added removed',

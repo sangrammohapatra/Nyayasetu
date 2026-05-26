@@ -27,7 +27,7 @@ import subscriptionReducer from "./slices/subscriptionSlice";
 import notificationReducer from "./slices/notificationSlice";
 import lawyerReducer from "./slices/lawyerSlice";
 import errorReducer from "./slices/errorSlice";
-
+import nyayabotReducer from './slices/nyayabotSlice';
 // ─── Persist configs ─────────────────────────────────────────────────────────
 
 const authPersistConfig = {
@@ -49,6 +49,7 @@ const rootReducer = combineReducers({
   auth: persistReducer(authPersistConfig, authReducer),
   ui: persistReducer(uiPersistConfig, uiReducer),
   chat: chatReducer,
+  nyayabot: nyayabotReducer,
   document: documentReducer,
   case: caseReducer,
   subscription: subscriptionReducer,

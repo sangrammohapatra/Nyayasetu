@@ -134,6 +134,58 @@
     "no_docs_yet": "You haven't created any documents yet.",
     "create_first_doc": "Create a Document →"
   },
+  "nyayabot": {
+    "fabLabel": "Ask NyayaBot",
+    "openBot": "Open NyayaBot",
+    "close": "Close NyayaBot",
+    "loading": "Starting NyayaBot…",
+    "starting": "NyayaBot is starting…",
+    "headerSubtitle": "AI Legal Assistant · NyayaSetu",
+    "thinking": "Thinking…",
+
+    "newChat": "New Chat",
+    "recentChats": "Recent Chats",
+    "noSessions": "No conversations yet. Start by asking a legal question!",
+    "untitled": "Untitled conversation",
+    "messages": "messages",
+    "pin": "Pin conversation",
+    "unpin": "Unpin conversation",
+    "moreOptions": "More options",
+    "shareWithLawyer": "Share with a Lawyer",
+    "archive": "Archive conversation",
+    "delete": "Delete conversation",
+    "shareLinkCopied": "Share link copied to clipboard!",
+    "shareError": "Could not generate share link. Try again.",
+
+    "inputPlaceholder": "Ask about your legal rights, documents, or court procedures…",
+    "inputDisabledQuota": "Daily limit reached. Upgrade to continue.",
+    "send": "Send message",
+    "startRecording": "Record voice message",
+    "stopRecording": "Stop recording",
+    "stopSend": "Stop & Send",
+    "recording": "Recording",
+    "voiceMessage": "Voice message",
+
+    "quotaRemaining": "{{remaining}} of {{limit}} messages remaining today",
+    "quotaLow": "Almost at daily limit",
+    "quotaExhausted": "Daily limit reached",
+    "quotaExhaustedMessage": "You've used all your daily NyayaBot messages on the {{plan}} plan. Upgrade for more.",
+    "upgrade": "Upgrade plan",
+
+    "helpful": "This was helpful",
+    "notHelpful": "This was not helpful",
+    "legalCitations": "Legal References",
+    "viewOnKanoon": "Read on Indian Kanoon",
+    "suggestedDocuments": "Related documents you can create:",
+    "followUpQuestions": "You might also ask:",
+
+    "greetingCitizen": "Namaskar! 🙏 I'm NyayaBot, your AI legal assistant on NyayaSetu. I can help you understand your rights, find the right document to file, or guide you through court procedures. What legal question can I help with today?",
+    "greetingLawyer": "Welcome! I'm NyayaBot, your AI legal research assistant. How can I assist with your legal work today?",
+
+    "disclaimer": "NyayaBot provides legal information, not legal advice. Consult a qualified advocate for your specific situation.",
+
+    "pageTitle": "NyayaBot — AI Legal Assistant"
+  },
   "case": {
     "title": "My Court Cases",
     "add_case": "Add Case",

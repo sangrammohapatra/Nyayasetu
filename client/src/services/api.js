@@ -119,7 +119,7 @@ api.interceptors.response.use(
           { withCredentials: true }
         );
 
-        const { token: newToken, refreshToken: newRefreshToken } = response.data;
+        const { accessToken: newToken, refreshToken: newRefreshToken } = response.data;
 
         setAccessToken(newToken);
         if (newRefreshToken) {

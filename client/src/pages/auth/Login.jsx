@@ -2,7 +2,7 @@
  * client/src/pages/auth/Login.jsx
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -24,7 +24,7 @@ import { useTheme } from '@mui/material/styles';
 import {
   sendOTP, verifyOTP,
   selectAuthLoading, selectAuthError, selectOtpSent,
-  selectIsAuthenticated, selectUserPersona, clearError,
+  selectIsAuthenticated, selectUserPersona, clearError, resetOtpState,
 } from '../../store/slices/authSlice';
 import { setLanguage } from '../../store/slices/uiSlice';
 import { RADIUS, SHADOWS } from '../../theme/tokens';
@@ -206,9 +206,14 @@ function Login() {
 
   const returnUrl = searchParams.get('returnUrl') || `/${persona || 'citizen'}/home`;
 
+  // Only redirect users who arrive at /login already authenticated (e.g. back button after session restore).
+  // Post-login navigation is handled explicitly in handleVerifyOTP to support new-user → /register flow.
+  const alreadyAuthed = useRef(isAuthenticated);
   useEffect(() => {
-    if (isAuthenticated) navigate(decodeURIComponent(returnUrl), { replace: true });
-  }, [isAuthenticated, navigate, returnUrl]);
+    if (alreadyAuthed.current) {
+      navigate(decodeURIComponent(returnUrl), { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (otpSent) setCountdown(30);
@@ -245,8 +250,8 @@ function Login() {
       if (result.payload.isNewUser) {
         navigate('/register', { state: { phone: `+91${phone}` } });
       } else {
-        const userPersona = result.payload.user?.persona || 'citizen';
-        navigate(decodeURIComponent(returnUrl).replace('/citizen/', `/${userPersona}/`));
+        const userPersona = (result.payload.user?.persona || 'citizen').toLowerCase();
+        navigate(`/${userPersona}/home`);
       }
     }
   };
@@ -497,7 +502,7 @@ function Login() {
                     {' '}
                     <Typography component="span" variant="body2"
                       sx={{ color: 'var(--color-primary)', cursor: 'pointer', textDecoration: 'underline' }}
-                      onClick={() => { setOtp(''); dispatch(clearError()); }}>
+                      onClick={() => { setOtp(''); dispatch(resetOtpState()); }}>
                       {t('login.change', 'Change')}
                     </Typography>
                   </Typography>

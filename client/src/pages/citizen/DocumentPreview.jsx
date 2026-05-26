@@ -421,7 +421,7 @@ function DocumentPreview() {
         <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
             <Box
-              onClick={() => navigate('/citizen/documents')}
+              onClick={() => navigate('/citizen/documents/myDocuments')}
               sx={{ cursor: 'pointer', color: 'var(--color-text-secondary)', fontSize: '1.1rem', lineHeight: 1 }}>
               ←
             </Box>
