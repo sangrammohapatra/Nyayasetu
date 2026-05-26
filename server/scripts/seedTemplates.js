@@ -10,7 +10,7 @@
 
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const mongoose = require('mongoose');
-const DocumentTemplate = require('../src/models/DocumentTemplate');
+const DocumentTemplate = require('../src/models/DocumentTemplate.model');
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/nyayasetu';
 
@@ -562,6 +562,47 @@ Note: Landlord cannot forcibly evict. Eviction requires court order after notice
 ];
 
 /* ---------------------------------------------------------------------------
+ * Normalise seed data → model field names
+ * ------------------------------------------------------------------------ */
+
+function normalizeTemplate(tmpl) {
+  const { nameTranslations, estimatedTime, questionFlow, applicableActs, ...rest } = tmpl;
+
+  // nameTranslations { hi, mr, bn, ta } → individual flat fields
+  const langFields = {};
+  if (nameTranslations) {
+    if (nameTranslations.hi) langFields.nameHi = nameTranslations.hi;
+    if (nameTranslations.mr) langFields.nameMr = nameTranslations.mr;
+    if (nameTranslations.bn) langFields.nameBn = nameTranslations.bn;
+    if (nameTranslations.ta) langFields.nameTa = nameTranslations.ta;
+    if (nameTranslations.te) langFields.nameTe = nameTranslations.te;
+  }
+
+  // estimatedTime '5–10 min' → estimatedMinutes (take the lower bound)
+  let estimatedMinutes = 10;
+  if (estimatedTime) {
+    const m = estimatedTime.match(/(\d+)/);
+    if (m) estimatedMinutes = parseInt(m[1], 10);
+  }
+
+  // question entries: rename fields + add required order & label
+  const normalizedFlow = (questionFlow || []).map((q, i) => {
+    const { question, type, choices, required, ...qRest } = q;
+    return {
+      ...qRest,
+      order: i + 1,
+      label: q.key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+      questionText: question,
+      inputType: (type === 'choice' ? 'select' : type) || 'text',
+      ...(choices ? { options: choices } : {}),
+      isRequired: required !== undefined ? required : true,
+    };
+  });
+
+  return { ...rest, ...langFields, estimatedMinutes, questionFlow: normalizedFlow };
+}
+
+/* ---------------------------------------------------------------------------
  * Seed function
  * ------------------------------------------------------------------------ */
 
@@ -588,7 +629,7 @@ async function main() {
       continue;
     }
 
-    await DocumentTemplate.create({ ...tmpl, isActive: true });
+    await DocumentTemplate.create(normalizeTemplate({ ...tmpl, isActive: true }));
     console.log(`   ✅ Inserted: ${tmpl.slug} — ${tmpl.name}`);
     inserted++;
   }

@@ -15,14 +15,14 @@ const mongoose = require('mongoose');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 
-const User = require('../src/models/User');
-const AuditLog = require('../src/models/AuditLog');
+const User = require('../src/models/User.model');
+const AuditLog = require('../src/models/AuditLog.model');
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/nyayasetu';
 
 const ADMIN_EMAIL = 'admin@nyayasetu.in';
 const ADMIN_NAME = 'NyayaSetu Admin';
-const ADMIN_PHONE = '+910000000000'; // placeholder — change before production
+const ADMIN_PHONE = '+919178287528'; // dummy — change before production
 
 /**
  * Generate a random 16-character password.
@@ -62,7 +62,7 @@ async function main() {
   if (existingAdmin) {
     // Update existing admin — reset password and ensure correct fields
     existingAdmin.name = ADMIN_NAME;
-    existingAdmin.persona = 'admin';
+    existingAdmin.persona = 'ADMIN';
     existingAdmin.isEmailVerified = true;
     existingAdmin.passwordHash = passwordHash;
     existingAdmin.subscription = { plan: 'pro', validUntil: new Date('2099-12-31') };
@@ -85,7 +85,7 @@ async function main() {
       email: ADMIN_EMAIL,
       phone: ADMIN_PHONE,
       name: ADMIN_NAME,
-      persona: 'admin',
+      persona: 'ADMIN',
       isEmailVerified: true,
       passwordHash,
       preferredLanguage: 'en',

@@ -183,6 +183,12 @@ const FREE_TEMPLATE_SLUGS = [
   "rti_application",
 ];
 
+// Alias used by DocumentTemplate model pre-save hook
+const ALWAYS_FREE_TEMPLATES = FREE_TEMPLATE_SLUGS;
+
+// Pay-per-doc price alias used by DocumentTemplate model
+const PRICES = PAY_PER_DOC;
+
 // ─── CNR number validation regex ──────────────────────────────────────────────
 // Format: 2 uppercase letters + 2 digits + 6 digits + 4-digit year = 16 chars
 // Example: DLHC010012342024
@@ -268,6 +274,8 @@ module.exports = {
   PERSONA_TYPES,
   TEMPLATE_SLUGS,
   FREE_TEMPLATE_SLUGS,
+  ALWAYS_FREE_TEMPLATES,
+  PRICES,
   CNR_REGEX,
   INDIAN_PHONE_REGEX,
   PAGINATION,
