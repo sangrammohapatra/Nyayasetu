@@ -18,11 +18,13 @@ import FormControl from '@mui/material/FormControl';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 
 import {
-  sendOTP, verifyOTP,
+  sendOTP, verifyOTP, loginWithPassword,
   selectAuthLoading, selectAuthError, selectOtpSent,
   selectIsAuthenticated, selectUserPersona, clearError, resetOtpState,
 } from '../../store/slices/authSlice';
@@ -201,17 +203,26 @@ function Login() {
 
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginMode, setLoginMode] = useState('otp'); // 'otp' | 'password'
   const [countdown, setCountdown] = useState(0);
   const [localLang, setLocalLang] = useState(i18n.language || 'en');
 
-  const returnUrl = searchParams.get('returnUrl') || `/${persona || 'citizen'}/home`;
+  const rawReturnUrl = searchParams.get('returnUrl') || `/${persona || 'citizen'}/home`;
+  // Prevent redirect loops: if returnUrl points back to /login or /register, ignore it
+  const safeReturnUrl = ['/login', '/register'].some((p) =>
+    decodeURIComponent(rawReturnUrl).startsWith(p)
+  )
+    ? `/${persona || 'citizen'}/home`
+    : rawReturnUrl;
 
   // Only redirect users who arrive at /login already authenticated (e.g. back button after session restore).
   // Post-login navigation is handled explicitly in handleVerifyOTP to support new-user → /register flow.
   const alreadyAuthed = useRef(isAuthenticated);
   useEffect(() => {
     if (alreadyAuthed.current) {
-      navigate(decodeURIComponent(returnUrl), { replace: true });
+      navigate(decodeURIComponent(safeReturnUrl), { replace: true });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -261,10 +272,33 @@ function Login() {
     dispatch(sendOTP(`+91${phone}`));
   };
 
+  const handleLoginWithPassword = async (e) => {
+    e.preventDefault();
+    if (phone.length !== 10 || !password) return;
+    dispatch(clearError());
+    const result = await dispatch(loginWithPassword({ phone: `+91${phone}`, password }));
+    if (result.meta.requestStatus === 'fulfilled') {
+      const userPersona = (result.payload.user?.persona || 'citizen').toLowerCase();
+      if (userPersona === 'admin') {
+        navigate('/admin/dashboard');
+      } else {
+      navigate(`/${userPersona}/home`);
+      }
+    }
+  };
+
+  const handleModeSwitch = (mode) => {
+    setLoginMode(mode);
+    setOtp('');
+    setPassword('');
+    dispatch(clearError());
+    if (mode === 'otp') dispatch(resetOtpState());
+  };
+
   const FEATURES = [
-    { icon: '📄', key: 'login.feature1', fallback: 'AI-generated legal documents in minutes' },
-    { icon: '⚖️', key: 'login.feature2', fallback: 'Court case tracking with real-time alerts' },
-    { icon: '🌐', key: 'login.feature3', fallback: 'Available in 11 Indian languages' },
+    { icon: '📄', key: 'auth.feature1', fallback: 'AI-generated legal documents in minutes' },
+    { icon: '⚖️', key: 'auth.feature2', fallback: 'Court case tracking with real-time alerts' },
+    { icon: '🌐', key: 'auth.feature3', fallback: 'Available in 11 Indian languages' },
   ];
 
   return (
@@ -313,11 +347,11 @@ function Login() {
               lineHeight: 1.25,
               textShadow: '0 2px 8px rgba(0,0,0,0.2)',
             }}>
-              {t('login.tagline', 'न्याय सबके लिए')}
+              {t('auth.tagline', 'न्याय सबके लिए')}
             </Typography>
 
             <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.78)', mb: 4, lineHeight: 1.65 }}>
-              {t('login.taglineSub', 'Justice for every Indian, in every language')}
+              {t('auth.tagline_sub', 'Justice for every Indian, in every language')}
             </Typography>
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, alignItems: 'flex-start' }}>
@@ -396,15 +430,45 @@ function Login() {
                   NyayaSetu
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
-                  {t('login.bridgeToJustice', 'Bridge to Justice')}
+                  {t('auth.bridge_to_justice', 'Bridge to Justice')}
                 </Typography>
               </Box>
             </Box>
           </motion.div>
 
+          {/* Login mode tabs */}
+          <Box sx={{
+            display: 'flex', mb: 3,
+            background: 'var(--color-surface)',
+            borderRadius: `${RADIUS.md}px`,
+            border: '1.5px solid var(--color-border)',
+            overflow: 'hidden',
+          }}>
+            {[
+              { key: 'otp', label: t('auth.tabOTP', 'OTP Login') },
+              { key: 'password', label: t('auth.tabPassword', 'Password Login') },
+            ].map((tab) => (
+              <Button key={tab.key} fullWidth disableElevation
+                variant={loginMode === tab.key ? 'contained' : 'text'}
+                onClick={() => handleModeSwitch(tab.key)}
+                sx={{
+                  py: 1, borderRadius: 0, fontWeight: 600, fontSize: '0.875rem',
+                  background: loginMode === tab.key ? 'var(--color-primary)' : 'transparent',
+                  color: loginMode === tab.key ? '#fff' : 'var(--color-text-secondary)',
+                  '&:hover': {
+                    background: loginMode === tab.key
+                      ? 'var(--color-primary)'
+                      : 'var(--color-primary-alpha)',
+                  },
+                }}>
+                {tab.label}
+              </Button>
+            ))}
+          </Box>
+
           <AnimatePresence mode="wait">
-            {!otpSent ? (
-              /* ── Phone input step ── */
+            {loginMode === 'otp' && !otpSent && (
+              /* ── Phone input step (OTP mode) ── */
               <motion.div key="phone"
                 variants={stagger} initial="hidden" animate="show"
                 exit={{ opacity: 0, x: -30, transition: { duration: 0.22 } }}
@@ -414,10 +478,10 @@ function Login() {
                     fontFamily: "'Playfair Display', serif",
                     fontWeight: 700, color: 'var(--color-text)', mb: 0.75, lineHeight: 1.25,
                   }}>
-                    {t('login.welcome', 'Welcome back')}
+                    {t('auth.login_title', 'Welcome back')}
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3 }}>
-                    {t('login.enterPhone', 'Enter your phone number to receive an OTP')}
+                    {t('auth.phone_hint', 'Enter your phone number to receive an OTP')}
                   </Typography>
                 </motion.div>
 
@@ -425,7 +489,7 @@ function Login() {
                   <motion.div variants={fadeUp}>
                     <TextField
                       fullWidth
-                      label={t('login.phoneLabel', 'Mobile Number')}
+                      label={t('auth.phone_label', 'Mobile Number')}
                       value={phone}
                       onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                       inputMode="numeric"
@@ -469,7 +533,7 @@ function Login() {
                       }}>
                       {loading
                         ? <CircularProgress size={22} sx={{ color: '#fff' }} />
-                        : t('login.sendOTP', 'Send OTP')}
+                        : t('auth.send_otp', 'Send OTP')}
                     </Button>
                   </motion.div>
                 </motion.form>
@@ -479,11 +543,13 @@ function Login() {
                     display: 'block', textAlign: 'center', mt: 3,
                     color: 'var(--color-text-secondary)',
                   }}>
-                    {t('login.terms', 'By continuing, you agree to our Terms of Service and Privacy Policy.')}
+                    {t('auth.terms', 'By continuing, you agree to our Terms of Service and Privacy Policy.')}
                   </Typography>
                 </motion.div>
               </motion.div>
-            ) : (
+            )}
+
+            {loginMode === 'otp' && otpSent && (
               /* ── OTP verification step ── */
               <motion.div key="otp"
                 variants={stagger} initial="hidden" animate="show"
@@ -494,16 +560,16 @@ function Login() {
                     fontFamily: "'Playfair Display', serif",
                     fontWeight: 700, color: 'var(--color-text)', mb: 0.75,
                   }}>
-                    {t('login.enterOTP', 'Enter OTP')}
+                    {t('auth.otp_title', 'Enter OTP')}
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3 }}>
-                    {t('login.otpSentTo', 'Code sent to')} {' '}
+                    {t('auth.otp_sent_to', 'Code sent to')} {' '}
                     <strong style={{ color: 'var(--color-primary)' }}>+91 {phone}</strong>
                     {' '}
                     <Typography component="span" variant="body2"
                       sx={{ color: 'var(--color-primary)', cursor: 'pointer', textDecoration: 'underline' }}
                       onClick={() => { setOtp(''); dispatch(resetOtpState()); }}>
-                      {t('login.change', 'Change')}
+                      {t('auth.change', 'Change')}
                     </Typography>
                   </Typography>
                 </motion.div>
@@ -534,21 +600,130 @@ function Login() {
                       }}>
                       {loading
                         ? <CircularProgress size={22} sx={{ color: '#fff' }} />
-                        : t('login.verify', 'Verify & Continue')}
+                        : t('auth.verify', 'Verify & Continue')}
                     </Button>
                   </motion.div>
 
                   <motion.div variants={fadeUp} style={{ textAlign: 'center', marginTop: 20 }}>
                     {countdown > 0 ? (
                       <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
-                        {t('login.resendIn', 'Resend OTP in')} {countdown}s
+                        {t('auth.resend_in', 'Resend OTP in')} {countdown}s
                       </Typography>
                     ) : (
                       <Button variant="text" size="small" onClick={handleResend}
                         sx={{ color: 'var(--color-primary)', fontWeight: 600 }}>
-                        {t('login.resend', 'Resend OTP')}
+                        {t('auth.resend_otp', 'Resend OTP')}
                       </Button>
                     )}
+                  </motion.div>
+                </motion.form>
+              </motion.div>
+            )}
+
+            {loginMode === 'password' && (
+              /* ── Password login step ── */
+              <motion.div key="password-login"
+                variants={stagger} initial="hidden" animate="show"
+                exit={{ opacity: 0, x: 30, transition: { duration: 0.22 } }}
+              >
+                <motion.div variants={fadeUp}>
+                  <Typography variant="h4" sx={{
+                    fontFamily: "'Playfair Display', serif",
+                    fontWeight: 700, color: 'var(--color-text)', mb: 0.75, lineHeight: 1.25,
+                  }}>
+                    {t('auth.login_title', 'Welcome back')}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3 }}>
+                    {t('auth.enter_phone_password', 'Enter your phone number and password')}
+                  </Typography>
+                </motion.div>
+
+                <motion.form variants={stagger} onSubmit={handleLoginWithPassword}>
+                  <motion.div variants={fadeUp}>
+                    <TextField
+                      fullWidth
+                      label={t('auth.phone_label', 'Mobile Number')}
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      inputMode="numeric"
+                      autoComplete="tel"
+                      autoFocus
+                      required
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Typography sx={{ color: 'var(--color-text)', fontWeight: 600, fontSize: '0.95rem' }}>
+                              🇮🇳 +91
+                            </Typography>
+                          </InputAdornment>
+                        ),
+                      }}
+                      sx={{
+                        mb: 2,
+                        '& input': { fontFamily: "'JetBrains Mono', monospace", letterSpacing: 2 },
+                      }}
+                    />
+                  </motion.div>
+
+                  <motion.div variants={fadeUp}>
+                    <TextField
+                      fullWidth
+                      label={t('auth.password_label', 'Password')}
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete="current-password"
+                      required
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              onClick={() => setShowPassword((s) => !s)}
+                              edge="end"
+                              size="small"
+                              aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            >
+                              {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                      sx={{ mb: 2.5 }}
+                    />
+                  </motion.div>
+
+                  {error && (
+                    <motion.div variants={fadeUp}>
+                      <Alert severity="error" sx={{ mb: 2, borderRadius: `${RADIUS.md}px` }}
+                        onClose={() => dispatch(clearError())}>
+                        {error}
+                      </Alert>
+                    </motion.div>
+                  )}
+
+                  <motion.div variants={fadeUp}>
+                    <Button fullWidth variant="contained" type="submit"
+                      disabled={loading || phone.length !== 10 || !password}
+                      sx={{
+                        py: 1.5, fontWeight: 700, fontSize: '1rem',
+                        background: 'var(--color-primary)',
+                        borderRadius: `${RADIUS.md}px`,
+                        boxShadow: SHADOWS.md,
+                        '&:hover': { background: 'var(--color-primary-dark, var(--color-primary))' },
+                      }}>
+                      {loading
+                        ? <CircularProgress size={22} sx={{ color: '#fff' }} />
+                        : t('auth.login_btn', 'Login')}
+                    </Button>
+                  </motion.div>
+
+                  <motion.div variants={fadeUp}>
+                    <Typography variant="caption" sx={{
+                      display: 'block', textAlign: 'center', mt: 2.5,
+                      color: 'var(--color-text-secondary)',
+                    }}>
+                      {t('auth.no_password', "Don't have a password? Login with OTP first, then set one in your profile.")}
+                    </Typography>
                   </motion.div>
                 </motion.form>
               </motion.div>

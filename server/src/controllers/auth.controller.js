@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
 const User = require("../models/User.model");
 const LawyerProfile = require("../models/LawyerProfile.model");
 const AuditLog = require("../models/AuditLog.model");
@@ -687,11 +688,94 @@ const whatsappEntry = asyncHandler(async (req, res) => {
   });
 });
 
+// ─── loginWithPassword ────────────────────────────────────────────────────────
+
+const loginWithPassword = asyncHandler(async (req, res) => {
+  const rawPhone = req.body?.phone;
+  const { password } = req.body;
+
+  if (!rawPhone || !password) {
+    throw createError(400, "MISSING_FIELDS", "Phone and password are required");
+  }
+
+  const phone = normalizePhone(rawPhone);
+  if (!INDIAN_PHONE_REGEX.test(phone)) {
+    throw createError(400, "INVALID_PHONE", "Invalid phone number");
+  }
+
+  // Explicitly select passwordHash (it's excluded by default via select:false)
+  const user = await User.findOne({ phone }).select("+passwordHash");
+  if (!user || !user.passwordHash) {
+    // Don't reveal whether the account exists
+    throw createError(
+      401,
+      "INVALID_CREDENTIALS",
+      "Invalid phone number or password. Use OTP login if you haven't set a password.",
+    );
+  }
+
+  const isMatch = await bcrypt.compare(password, user.passwordHash);
+  if (!isMatch) {
+    await AuditLog.log(req, "auth.password_failed", "User", user._id, { phone }, false);
+    throw createError(401, "INVALID_CREDENTIALS", "Invalid phone number or password.");
+  }
+
+  user.isPhoneVerified = true;
+  user.lastActive = new Date();
+  await user.save();
+
+  const { accessToken, refreshToken } = signTokenPair(user);
+  await user.addRefreshToken(refreshToken);
+
+  await AuditLog.log(req, "user.login", "User", user._id, { phone, method: "password" });
+
+  res.status(200).json({
+    accessToken,
+    refreshToken,
+    user: safeUserResponse(user),
+    isNewUser: false,
+  });
+});
+
+// ─── setPassword ──────────────────────────────────────────────────────────────
+
+const setPassword = asyncHandler(async (req, res) => {
+  const { userId } = req.user;
+  const { password, currentPassword } = req.body;
+
+  if (!password || password.length < 8) {
+    throw createError(400, "WEAK_PASSWORD", "Password must be at least 8 characters");
+  }
+
+  const user = await User.findById(userId).select("+passwordHash");
+  if (!user) throw createError(404, "USER_NOT_FOUND", "User not found");
+
+  // If a password is already set, verify current password before allowing change
+  if (user.passwordHash) {
+    if (!currentPassword) {
+      throw createError(400, "CURRENT_PASSWORD_REQUIRED", "Current password is required to set a new one");
+    }
+    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isMatch) {
+      throw createError(401, "INVALID_CREDENTIALS", "Current password is incorrect");
+    }
+  }
+
+  user.passwordHash = await bcrypt.hash(password, 12);
+  await user.save();
+
+  await AuditLog.log(req, "user.password_set", "User", user._id, {});
+
+  res.status(200).json({ message: "Password set successfully" });
+});
+
 // ─── Exports ──────────────────────────────────────────────────────────────────
 
 module.exports = {
   sendOTPHandler,
   verifyOTPHandler,
+  loginWithPassword,
+  setPassword,
   register,
   getMe,
   updateMe,

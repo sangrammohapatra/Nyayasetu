@@ -154,6 +154,9 @@ const userSchema = new Schema(
     isPhoneVerified: { type: Boolean, default: false },
     lastOtpSentAt: { type: Date, default: null },
 
+    // ── Password auth (optional — users can set a password after OTP login) ──
+    passwordHash: { type: String, default: null, select: false },
+
     // ── Auth ─────────────────────────────────────────────────────────────────
     // Array of refresh tokens supports multi-device login (max MAX_REFRESH_TOKENS)
     // Rule #13: refresh tokens are an array on User

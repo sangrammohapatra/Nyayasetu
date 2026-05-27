@@ -5,6 +5,8 @@ const { body, validationResult } = require('express-validator');
 const {
   sendOTPHandler,
   verifyOTPHandler,
+  loginWithPassword,
+  setPassword,
   register,
   getMe,
   updateMe,
@@ -295,6 +297,43 @@ router.post(
  * Resp:  { message }
  */
 router.post('/logout', verifyToken, logout);
+
+/**
+ * POST /v1/auth/login-password
+ * Sign in with phone + password (for users who have set a password via /set-password).
+ * Falls back gracefully: if no password set, returns a clear message to use OTP.
+ *
+ * Body:  { phone, password }
+ * Resp:  { accessToken, refreshToken, user }
+ */
+router.post(
+  '/login-password',
+  validate([
+    phoneValidator,
+    body('password').notEmpty().withMessage('Password is required'),
+  ]),
+  loginWithPassword
+);
+
+/**
+ * POST /v1/auth/set-password
+ * Set or change the account password. Requires OTP login first (protected).
+ * If a password already exists, currentPassword must be provided to change it.
+ *
+ * Body:  { password, currentPassword? }
+ * Resp:  { message }
+ */
+router.post(
+  '/set-password',
+  verifyToken,
+  validate([
+    body('password')
+      .notEmpty().withMessage('Password is required')
+      .isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+    body('currentPassword').optional(),
+  ]),
+  setPassword
+);
 
 /**
  * POST /v1/auth/whatsapp-entry

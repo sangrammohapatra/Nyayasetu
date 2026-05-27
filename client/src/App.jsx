@@ -408,6 +408,14 @@ const router = createBrowserRouter([
           </Suspense>
         ),
       },
+      {
+        path: "analytics",
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            {/* <AdminAnalytics /> */}
+          </Suspense>
+        ),
+      },
     ],
   },
 

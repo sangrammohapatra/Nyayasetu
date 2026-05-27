@@ -46,7 +46,16 @@
     "tagline_sub": "Justice for every Indian, in every language",
     "good_morning": "Good morning",
     "good_afternoon": "Good afternoon",
-    "good_evening": "Good evening"
+    "good_evening": "Good evening",
+    "tabOTP": "Login with OTP",
+    "tabPhone": "Login with Phone",
+    "tabPassword": "Login with Password",
+    "otp_sent_to": "Code sent to",
+    "resend_in": "Resend OTP in",
+    "enter_phone_password": "Enter your phone number and password",
+    "password_label": "Password",
+    "login_btn": "Login",
+    "no_password": "Don't have a password? Login with OTP first, then set one in your profile."
   },
   "nav": {
     "home": "Home",

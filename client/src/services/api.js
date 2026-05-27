@@ -42,6 +42,9 @@ function setAccessToken(token) {
 function clearAuthStorage() {
   localStorage.removeItem('nyayasetu_token');
   localStorage.removeItem('nyayasetu_refresh_token');
+  // Also clear the redux-persist auth snapshot so stale tokens
+  // aren't rehydrated into the store on the next page load.
+  localStorage.removeItem('nyayasetu_auth');
 }
 
 /* ---------------------------------------------------------------------------
@@ -155,6 +158,8 @@ api.interceptors.response.use(
  * Force logout — clears Redux state and redirects to /login.
  * Uses dynamic import to avoid circular dependency with the store.
  */
+const AUTH_PAGES = ['/login', '/register'];
+
 function handleForcedLogout() {
   import('../store/store').then(({ default: store }) => {
     import('../store/slices/authSlice').then(({ forceLogout }) => {
@@ -162,9 +167,15 @@ function handleForcedLogout() {
     });
   });
 
-  // Redirect outside of React so it works even if the router is not mounted
-  const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
-  window.location.href = `/login?returnUrl=${returnUrl}`;
+  // Don't encode auth pages as returnUrl — that creates a redirect loop
+  // (e.g. /login?returnUrl=/login → navigates to /login → repeat).
+  const currentPath = window.location.pathname;
+  const isAuthPage = AUTH_PAGES.some((p) => currentPath.startsWith(p));
+  const to = isAuthPage
+    ? '/login'
+    : `/login?returnUrl=${encodeURIComponent(currentPath + window.location.search)}`;
+
+  window.location.href = to;
 }
 
 export default api;

@@ -34,6 +34,22 @@ export const verifyOTP = createAsyncThunk(
   }
 );
 
+export const loginWithPassword = createAsyncThunk(
+  'auth/loginWithPassword',
+  async ({ phone, password }, { rejectWithValue }) => {
+    try {
+      const { data } = await api.post('/auth/login-password', { phone, password });
+      if (data.accessToken) localStorage.setItem('nyayasetu_token', data.accessToken);
+      if (data.refreshToken) localStorage.setItem('nyayasetu_refresh_token', data.refreshToken);
+      return data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || err.response?.data?.error || 'Login failed'
+      );
+    }
+  }
+);
+
 export const register = createAsyncThunk(
   'auth/register',
   async (profileData, { rejectWithValue }) => {
@@ -159,6 +175,23 @@ const authSlice = createSlice({
         state.otpSent = false;
       })
       .addCase(verifyOTP.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
+
+    // loginWithPassword
+    builder
+      .addCase(loginWithPassword.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(loginWithPassword.fulfilled, (state, action) => {
+        state.loading = false;
+        state.token = action.payload.accessToken;
+        state.refreshToken = action.payload.refreshToken || state.refreshToken;
+        state.user = action.payload.user || null;
+      })
+      .addCase(loginWithPassword.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });

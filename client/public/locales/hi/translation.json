@@ -98,7 +98,16 @@
     "tagline_sub": "हर भारतीय के लिए न्याय, हर भाषा में",
     "good_morning": "सुप्रभात",
     "good_afternoon": "नमस्कार",
-    "good_evening": "शुभ संध्या"
+    "good_evening": "शुभ संध्या",
+    "tabOTP": "OTP से लॉगिन",
+    "tabPhone": "फ़ोन से लॉगिन",
+    "tabPassword": "पासवर्ड से लॉगिन",
+    "otp_sent_to": "कोड भेजा गया",
+    "resend_in": "OTP पुनः भेजें",
+    "enter_phone_password": "अपना मोबाइल नंबर और पासवर्ड दर्ज करें",
+    "password_label": "पासवर्ड",
+    "login_btn": "लॉगिन करें",
+    "no_password": "पासवर्ड नहीं है? पहले OTP से लॉगिन करें, फिर प्रोफ़ाइल में पासवर्ड सेट करें।"
   },
   "nav": {
     "home": "होम",
