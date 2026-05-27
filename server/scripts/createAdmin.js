@@ -91,6 +91,8 @@ async function main() {
       preferredLanguage: 'en',
       preferredTheme: 'default',
       registrationSource: 'web',
+      whatsappOptIn: true,
+      whatsappVerified: true,
       subscription: { plan: 'pro', validUntil: new Date('2099-12-31') },
       freeUsage: {
         docsGenerated: 0,

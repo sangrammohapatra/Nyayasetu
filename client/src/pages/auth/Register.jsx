@@ -15,6 +15,7 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
+import InputAdornment from "@mui/material/InputAdornment";
 import MenuItem from "@mui/material/MenuItem";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
@@ -99,6 +100,14 @@ const step1Schema = yup.object({
     .string()
     .min(2, "Name must be at least 2 characters")
     .required("Name is required"),
+  email: yup
+    .string()
+    .email("Please enter a valid email address")
+    .required("Email is required"),
+  phone: yup
+    .string()
+    .matches(/^\d{10}$/, "Enter a valid 10-digit phone number")
+    .required("Phone number is required"),
   state: yup.string().required("State is required"),
   district: yup.string().required("District is required"),
 });
@@ -131,7 +140,7 @@ const slideVariants = (direction) => ({
 
 // ─── Step components ──────────────────────────────────────────────────────────
 
-function Step1({ control, errors }) {
+function Step1({ control, errors, existingPhone }) {
   const { t } = useTranslation();
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
@@ -170,6 +179,70 @@ function Step1({ control, errors }) {
           />
         )}
       />
+
+      <Controller
+        name="email"
+        control={control}
+        render={({ field }) => (
+          <TextField
+            {...field}
+            label={t("register.email", "Email Address")}
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            fullWidth
+            error={!!errors.email}
+            helperText={errors.email?.message}
+          />
+        )}
+      />
+
+      {existingPhone ? (
+        <TextField
+          label={t("register.phone", "Phone Number")}
+          value={existingPhone.replace(/^\+91/, '')}
+          fullWidth
+          disabled
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Typography sx={{ color: "var(--color-text-secondary)", fontWeight: 600, fontSize: "0.95rem" }}>
+                  🇮🇳 +91
+                </Typography>
+              </InputAdornment>
+            ),
+          }}
+          helperText={t("register.phone_verified", "Verified via OTP")}
+          sx={{ "& input": { fontFamily: "'JetBrains Mono', monospace", letterSpacing: 2 } }}
+        />
+      ) : (
+        <Controller
+          name="phone"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              onChange={(e) => field.onChange(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              label={t("register.phone", "Phone Number")}
+              inputMode="numeric"
+              autoComplete="tel"
+              fullWidth
+              error={!!errors.phone}
+              helperText={errors.phone?.message}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Typography sx={{ color: "var(--color-text)", fontWeight: 600, fontSize: "0.95rem" }}>
+                      🇮🇳 +91
+                    </Typography>
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ "& input": { fontFamily: "'JetBrains Mono', monospace", letterSpacing: 2 } }}
+            />
+          )}
+        />
+      )}
 
       <Controller
         name="state"
@@ -626,6 +699,7 @@ function Register() {
   const error = useSelector(selectAuthError);
 
   const phone = location.state?.phone || "";
+  const email = location.state?.email || "";
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [formData, setFormData] = useState({});
@@ -640,6 +714,8 @@ function Register() {
     resolver: yupResolver(schemas[step]),
     defaultValues: {
       name: "",
+      email: email,
+      phone: phone ? phone.replace(/^\+91/, '') : "",
       state: "",
       district: "",
       persona: "citizen",
@@ -669,7 +745,8 @@ function Register() {
   };
 
   const onSubmit = async (values) => {
-    const merged = { ...formData, ...values, phone };
+    const resolvedPhone = phone || (values.phone ? `+91${values.phone}` : undefined);
+    const merged = { ...formData, ...values, phone: resolvedPhone };
     dispatch(clearError());
     const result = await dispatch(registerUser(merged));
     if (result.meta.requestStatus === "fulfilled") {
@@ -679,7 +756,7 @@ function Register() {
   };
 
   const stepComponents = [
-    <Step1 key={0} control={control} errors={errors} />,
+    <Step1 key={0} control={control} errors={errors} existingPhone={phone} />,
     <Step2 key={1} control={control} errors={errors} watch={watch} />,
     <Step3 key={2} control={control} watch={watch} />,
   ];

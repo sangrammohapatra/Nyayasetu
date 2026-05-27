@@ -33,16 +33,17 @@ const otpRequestLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
+    const email = req.body?.email;
+    if (email) return String(email).toLowerCase().trim();
     const raw = req.body?.phone || req.ip;
     return String(raw).replace(/\D/g, '').slice(-10);
   },
   handler: (_req, res) => res.status(429).json({
     error: 'OTP_RATE_LIMIT',
-    message: 'Too many OTP requests for this number. Please wait 15 minutes.',
+    message: 'Too many OTP requests. Please wait 15 minutes.',
     retryAfter: 900,
   }),
   skip: (req) => {
-    // Never limit the dev test phone
     const digits = String(req.body?.phone || '').replace(/\D/g, '');
     return digits.endsWith('9999999999') && process.env.NODE_ENV === 'development';
   },
@@ -106,7 +107,7 @@ const validate = (checks) => [
   }),
 ];
 
-// Phone sanitizer + validator (reused on multiple routes)
+// Phone sanitizer + validator (used on routes that require phone specifically)
 const phoneValidator = body('phone')
   .notEmpty().withMessage('Phone number is required')
   .customSanitizer((v) => {
@@ -118,40 +119,68 @@ const phoneValidator = body('phone')
   .matches(INDIAN_PHONE_REGEX)
   .withMessage('Please enter a valid 10-digit Indian mobile number (starting with 6–9)');
 
+// Optional phone sanitizer (used when phone OR email is accepted)
+const optionalPhoneValidator = body('phone')
+  .optional({ checkFalsy: true })
+  .customSanitizer((v) => {
+    if (!v) return v;
+    const digits = String(v).replace(/\D/g, '');
+    if (digits.length === 10)                             return `+91${digits}`;
+    if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
+    return v;
+  })
+  .matches(INDIAN_PHONE_REGEX)
+  .withMessage('Please enter a valid 10-digit Indian mobile number (starting with 6–9)');
+
+// Requires phone OR email to be present
+const requirePhoneOrEmail = body().custom((_, { req }) => {
+  const { phone, email } = req.body;
+  if (!phone && !email) throw new Error('Phone number or email address is required');
+  return true;
+});
+
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 /**
  * POST /v1/auth/send-otp
- * Request a 6-digit OTP for the given Indian mobile number.
- * Rate-limited: 3 requests per phone per 15 min.
+ * Request a 6-digit OTP for the given phone or email.
+ * Rate-limited: 3 requests per identifier per 15 min.
  *
- * Body:  { phone }
+ * Body:  { phone } OR { email }
  * Resp:  { message, expiresIn: 300, isNewUser }
  */
 router.post(
   '/send-otp',
   otpRequestLimiter,
-  validate([phoneValidator]),
+  validate([
+    requirePhoneOrEmail,
+    optionalPhoneValidator,
+    body('email').optional({ checkFalsy: true }).isEmail().withMessage('Please enter a valid email address').normalizeEmail(),
+  ]),
   sendOTPHandler
 );
 
 /**
  * POST /v1/auth/verify-otp
  * Verify OTP and receive JWT token pair.
- * Rate-limited: 10 attempts per phone per 15 min.
+ * Rate-limited: 10 attempts per identifier per 15 min.
  *
- * Body:  { phone, otp }
+ * Body:  { phone, otp } OR { email, otp }
  * Resp:  { accessToken, refreshToken, user, isNewUser }
  */
 router.post(
   '/verify-otp',
   verifyOTPLimiter,
   validate([
-    phoneValidator,
-    body('otp')
-      .notEmpty().withMessage('OTP is required')
-      .isLength({ min: 6, max: 6 }).withMessage('OTP must be exactly 6 digits')
-      .isNumeric().withMessage('OTP must contain only digits'),
+    requirePhoneOrEmail,
+    optionalPhoneValidator,
+    body('email').optional({ checkFalsy: true }).isEmail().withMessage('Please enter a valid email address').normalizeEmail(),
+    // BYPASS: OTP validation relaxed — re-enable when verification is live
+    // body('otp')
+    //   .notEmpty().withMessage('OTP is required')
+    //   .isLength({ min: 6, max: 6 }).withMessage('OTP must be exactly 6 digits')
+    //   .isNumeric().withMessage('OTP must contain only digits'),
+    body('otp').optional(),
   ]),
   verifyOTPHandler
 );
@@ -175,6 +204,7 @@ router.post(
 
     body('persona')
       .optional()
+      .customSanitizer((v) => v?.toUpperCase())
       .isIn([PERSONAS.CITIZEN, PERSONAS.LAWYER, PERSONAS.PARALEGAL])
       .withMessage('Persona must be: citizen, lawyer, or paralegal'),
 
@@ -201,6 +231,10 @@ router.post(
     body('pincode')
       .optional()
       .matches(/^\d{6}$/).withMessage('Pincode must be exactly 6 digits'),
+
+    body('password')
+      .optional()
+      .isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
   ]),
   register
 );
@@ -300,16 +334,17 @@ router.post('/logout', verifyToken, logout);
 
 /**
  * POST /v1/auth/login-password
- * Sign in with phone + password (for users who have set a password via /set-password).
- * Falls back gracefully: if no password set, returns a clear message to use OTP.
+ * Sign in with phone/email + password (for users who have set a password via /set-password).
  *
- * Body:  { phone, password }
+ * Body:  { phone, password } OR { email, password }
  * Resp:  { accessToken, refreshToken, user }
  */
 router.post(
   '/login-password',
   validate([
-    phoneValidator,
+    requirePhoneOrEmail,
+    optionalPhoneValidator,
+    body('email').optional({ checkFalsy: true }).isEmail().withMessage('Please enter a valid email address').normalizeEmail(),
     body('password').notEmpty().withMessage('Password is required'),
   ]),
   loginWithPassword

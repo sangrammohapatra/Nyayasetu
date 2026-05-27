@@ -9,36 +9,45 @@ import api from '../../services/api';
 
 export const sendOTP = createAsyncThunk(
   'auth/sendOTP',
-  async (phone, { rejectWithValue }) => {
+  async (identifier, { rejectWithValue }) => {
     try {
-      const { data } = await api.post('/auth/send-otp', { phone });
+      const isEmail = typeof identifier === 'string' && identifier.includes('@');
+      const body = isEmail ? { email: identifier } : { phone: identifier };
+      const { data } = await api.post('/auth/send-otp', body);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to send OTP');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to send OTP');
     }
   }
 );
 
 export const verifyOTP = createAsyncThunk(
   'auth/verifyOTP',
-  async ({ phone, otp }, { rejectWithValue }) => {
+  async ({ phone, email, otp }, { rejectWithValue }) => {
     try {
-      const { data } = await api.post('/auth/verify-otp', { phone, otp });
-      // Persist tokens
+      const identifier = email || phone;
+      const isEmail = !!email || (typeof identifier === 'string' && identifier.includes('@'));
+      const body = isEmail ? { email: identifier, otp } : { phone: identifier, otp };
+      const { data } = await api.post('/auth/verify-otp', body);
       if (data.accessToken) localStorage.setItem('nyayasetu_token', data.accessToken);
       if (data.refreshToken) localStorage.setItem('nyayasetu_refresh_token', data.refreshToken);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'OTP verification failed');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'OTP verification failed');
     }
   }
 );
 
 export const loginWithPassword = createAsyncThunk(
   'auth/loginWithPassword',
-  async ({ phone, password }, { rejectWithValue }) => {
+  async ({ phone, email, password }, { rejectWithValue }) => {
     try {
-      const { data } = await api.post('/auth/login-password', { phone, password });
+      const identifier = email || phone;
+      const isEmail = !!email || (typeof identifier === 'string' && identifier.includes('@'));
+      const body = isEmail
+        ? { email: identifier, password }
+        : { phone: identifier, password };
+      const { data } = await api.post('/auth/login-password', body);
       if (data.accessToken) localStorage.setItem('nyayasetu_token', data.accessToken);
       if (data.refreshToken) localStorage.setItem('nyayasetu_refresh_token', data.refreshToken);
       return data;
@@ -84,6 +93,19 @@ export const updateMe = createAsyncThunk(
       return data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.error || 'Failed to update profile');
+    }
+  }
+);
+
+export const setPassword = createAsyncThunk(
+  'auth/setPassword',
+  async ({ password, currentPassword }, { rejectWithValue }) => {
+    try {
+      const body = currentPassword ? { password, currentPassword } : { password };
+      const { data } = await api.post('/auth/set-password', body);
+      return data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to set password');
     }
   }
 );

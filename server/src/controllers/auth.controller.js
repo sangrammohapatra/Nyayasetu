@@ -6,6 +6,10 @@ const LawyerProfile = require("../models/LawyerProfile.model");
 const AuditLog = require("../models/AuditLog.model");
 const redisConfig = require("../config/redis");
 const { sendOTP } = require("../services/notification/smsService");
+const {
+  sendEmail,
+  otpEmail: otpEmailTemplate,
+} = require("../services/notification/emailService");
 const { createError } = require("../middleware/error.middleware");
 const asyncHandler = require("../utils/asyncHandler");
 const logger = require("../utils/logger");
@@ -49,6 +53,16 @@ const memoryOtpStore = new Map();
 const memoryOtpAttemptStore = new Map();
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
+
+function isEmailIdentifier(value) {
+  return typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function maskEmail(email) {
+  const [local, domain] = email.split("@");
+  const masked = local.length <= 3 ? `${local[0]}***` : `${local.slice(0, 3)}***`;
+  return `${masked}@${domain}`;
+}
 
 function normalizePhone(raw) {
   if (!raw) return null;
@@ -198,9 +212,54 @@ async function checkOTPAttempts(phone) {
 
 const sendOTPHandler = asyncHandler(async (req, res) => {
   const rawPhone = req.body?.phone;
-  if (!rawPhone)
-    throw createError(400, "PHONE_REQUIRED", "Phone number is required");
+  const rawEmail = req.body?.email;
 
+  if (!rawPhone && !rawEmail) {
+    throw createError(400, "IDENTIFIER_REQUIRED", "Phone number or email address is required");
+  }
+
+  const isDev = process.env.NODE_ENV === "development";
+
+  // ── Email OTP flow ────────────────────────────────────────────────────────
+  if (rawEmail) {
+    const email = String(rawEmail).trim().toLowerCase();
+    if (!isEmailIdentifier(email)) {
+      throw createError(400, "INVALID_EMAIL", "Please provide a valid email address");
+    }
+
+    await checkOTPAttempts(email);
+
+    const otp = generateOTP();
+    const otpStore = await setOtpValue(email, otp);
+    if (otpStore === "memory") {
+      logger.warn(`[sendOTP] Redis unavailable — using in-memory OTP store for ${email}`);
+    }
+
+    try {
+      await sendEmail({
+        to: email,
+        subject: "Your NyayaSetu Login Code",
+        html: otpEmailTemplate(otp),
+      });
+    } catch (err) {
+      await deleteOtpValue(email);
+      logger.error(`[sendOTP] Email dispatch failed for ${email}: ${err.message}`);
+      throw createError(503, "EMAIL_FAILED", "Unable to send OTP email. Please try again.");
+    }
+
+    const existingUser = await User.findOne({ email }).select("_id").lean();
+    await AuditLog.log(req, "otp.requested", "User", null, { email, isNewUser: !existingUser });
+    logger.info(`[sendOTP] OTP emailed to ${maskEmail(email)}`);
+
+    return res.status(200).json({
+      message: `OTP sent to ${maskEmail(email)}`,
+      expiresIn: 300,
+      isNewUser: !existingUser,
+      ...(isDev && { _devOtp: otp }),
+    });
+  }
+
+  // ── Phone OTP flow ────────────────────────────────────────────────────────
   const phone = normalizePhone(rawPhone);
   if (!INDIAN_PHONE_REGEX.test(phone)) {
     throw createError(
@@ -212,49 +271,29 @@ const sendOTPHandler = asyncHandler(async (req, res) => {
 
   await checkOTPAttempts(phone);
 
-  const isDev = process.env.NODE_ENV === "development";
   const isTestPhone = phone === DEV_PHONE;
   const otp = isDev && isTestPhone ? DEFAULT_DEV_OTP : generateOTP();
 
-  // Always store OTP (including for dev test phone) so verifyOTP can find it
   const otpStore = await setOtpValue(phone, otp);
   if (otpStore === "memory") {
-    logger.warn(
-      `[sendOTP] Redis unavailable — using in-memory OTP store for ${phone}`,
-    );
+    logger.warn(`[sendOTP] Redis unavailable — using in-memory OTP store for ${phone}`);
   }
 
-  // Skip actual SMS for dev test phone
   if (!(isDev && isTestPhone)) {
     try {
       await sendOTP(phone, otp);
     } catch (err) {
       await deleteOtpValue(phone);
-      logger.error(
-        `[sendOTP] SMS dispatch failed for ${phone}: ${err.message}`,
-      );
-      throw createError(
-        503,
-        "SMS_FAILED",
-        "Unable to send OTP. Please check your phone number and try again.",
-      );
+      logger.error(`[sendOTP] SMS dispatch failed for ${phone}: ${err.message}`);
+      throw createError(503, "SMS_FAILED", "Unable to send OTP. Please check your phone number and try again.");
     }
   }
 
-  await User.findOneAndUpdate(
-    { phone },
-    { $set: { lastOtpSentAt: new Date() } },
-  );
+  await User.findOneAndUpdate({ phone }, { $set: { lastOtpSentAt: new Date() } });
 
   const existingUser = await User.findOne({ phone }).select("_id").lean();
-  await AuditLog.log(req, "otp.requested", "User", null, {
-    phone,
-    isNewUser: !existingUser,
-  });
-
-  logger.info(
-    `[sendOTP] OTP dispatched to ${phone}${isDev && isTestPhone ? " [DEV TEST]" : ""}`,
-  );
+  await AuditLog.log(req, "otp.requested", "User", null, { phone, isNewUser: !existingUser });
+  logger.info(`[sendOTP] OTP dispatched to ${phone}${isDev && isTestPhone ? " [DEV TEST]" : ""}`);
 
   res.status(200).json({
     message: `OTP sent to ${phone.slice(0, 6)}XXXX${phone.slice(-2)}`,
@@ -269,58 +308,100 @@ const sendOTPHandler = asyncHandler(async (req, res) => {
 const verifyOTPHandler = asyncHandler(async (req, res) => {
   const { otp: rawOtp } = req.body;
   const rawPhone = req.body?.phone;
+  const rawEmail = req.body?.email;
 
-  if (!rawPhone || !rawOtp) {
-    throw createError(400, "MISSING_FIELDS", "Phone and OTP are required");
+  if (!rawPhone && !rawEmail) {
+    throw createError(400, "IDENTIFIER_REQUIRED", "Phone number or email is required");
+  }
+  // BYPASS: OTP field no longer required while verification is disabled
+  // if (!rawOtp) {
+  //   throw createError(400, "OTP_REQUIRED", "OTP is required");
+  // }
+
+  // const otp = String(rawOtp).trim();
+  // const isDev = process.env.NODE_ENV === "development";
+
+  // ── Email OTP verify ───────────────────────────────────────────────────────
+  if (rawEmail) {
+    const email = String(rawEmail).trim().toLowerCase();
+    if (!isEmailIdentifier(email)) {
+      throw createError(400, "INVALID_EMAIL", "Invalid email address");
+    }
+
+    // BYPASS: OTP verification commented out — re-enable when SMS/email is live
+    // await checkOTPAttempts(email);
+    // const storedOTP = await getOtpValue(email);
+    // if (!storedOTP) {
+    //   throw createError(400, "OTP_EXPIRED", "OTP has expired or was not requested. Please request a new OTP.");
+    // }
+    // const otpBuf = Buffer.from(otp.padEnd(10));
+    // const expectedBuf = Buffer.from(String(storedOTP).padEnd(10));
+    // const isMatch = otpBuf.length === expectedBuf.length && crypto.timingSafeEqual(otpBuf, expectedBuf);
+    // if (!isMatch) {
+    //   await incrementOtpAttemptsValue(email);
+    //   await AuditLog.log(req, "otp.failed", "User", null, { email }, false);
+    //   throw createError(400, "INVALID_OTP", "Incorrect OTP. Please try again.");
+    // }
+    // await deleteOtpValue(email);
+    // await clearOtpAttemptsValue(email);
+
+    let user = await User.findOne({ email });
+    const isNewUser = !user;
+
+    if (isNewUser) {
+      user = await User.create({
+        email,
+        registrationSource: req.body.source || "web",
+        lastActive: new Date(),
+      });
+      logger.info(`[verifyOTP] New user created for ${maskEmail(email)}, _id: ${user._id}`);
+    } else {
+      user.lastActive = new Date();
+      await user.save();
+    }
+
+    const { accessToken, refreshToken } = signTokenPair(user);
+    await user.addRefreshToken(refreshToken);
+    await AuditLog.log(req, "user.login", "User", user._id, { email, isNewUser });
+
+    return res.status(200).json({
+      accessToken,
+      refreshToken,
+      user: safeUserResponse(user),
+      isNewUser,
+    });
   }
 
+  // ── Phone OTP verify ───────────────────────────────────────────────────────
   const phone = normalizePhone(rawPhone);
-  const otp = String(rawOtp).trim();
-
   if (!INDIAN_PHONE_REGEX.test(phone)) {
     throw createError(400, "INVALID_PHONE", "Invalid phone number");
   }
 
-  await checkOTPAttempts(phone);
+  // BYPASS: OTP verification commented out — re-enable when SMS/email is live
+  // const otp = String(rawOtp).trim();
+  // const isDev = process.env.NODE_ENV === "development";
+  // await checkOTPAttempts(phone);
+  // const isTestPhone = phone === DEV_PHONE;
+  // const storedOTP = await getOtpValue(phone);
+  // const isDevBypass = isDev && isTestPhone && otp === DEFAULT_DEV_OTP;
+  // if (!storedOTP && !isDevBypass) {
+  //   throw createError(400, "OTP_EXPIRED", "OTP has expired or was not requested. Please request a new OTP.");
+  // }
+  // const expectedOtp = storedOTP ? String(storedOTP) : DEFAULT_DEV_OTP;
+  // const otpBuf = Buffer.from(otp.padEnd(10));
+  // const expectedBuf = Buffer.from(expectedOtp.padEnd(10));
+  // const isMatch =
+  //   otpBuf.length === expectedBuf.length &&
+  //   crypto.timingSafeEqual(otpBuf, expectedBuf);
+  // if (!isMatch) {
+  //   await incrementOtpAttemptsValue(phone);
+  //   await AuditLog.log(req, "otp.failed", "User", null, { phone }, false);
+  //   throw createError(400, "INVALID_OTP", "Incorrect OTP. Please try again.");
+  // }
+  // await deleteOtpValue(phone);
+  // await clearOtpAttemptsValue(phone);
 
-  const isDev = process.env.NODE_ENV === "development";
-  const isTestPhone = phone === DEV_PHONE;
-
-  // Retrieve stored OTP (from Redis or in-memory fallback)
-  const storedOTP = await getOtpValue(phone);
-
-  // Allow the request if:
-  //   (a) a stored OTP exists (normal flow), OR
-  //   (b) dev mode + test phone + correct hardcoded OTP (belt-and-suspenders)
-  const isDevBypass = isDev && isTestPhone && otp === DEFAULT_DEV_OTP;
-
-  if (!storedOTP && !isDevBypass) {
-    throw createError(
-      400,
-      "OTP_EXPIRED",
-      "OTP has expired or was not requested. Please request a new OTP.",
-    );
-  }
-
-  // Timing-safe comparison. For dev bypass use the hardcoded OTP as the expected value.
-  const expectedOtp = storedOTP ? String(storedOTP) : DEFAULT_DEV_OTP;
-  const otpBuf = Buffer.from(otp.padEnd(10));
-  const expectedBuf = Buffer.from(expectedOtp.padEnd(10));
-  const isMatch =
-    otpBuf.length === expectedBuf.length &&
-    crypto.timingSafeEqual(otpBuf, expectedBuf);
-
-  if (!isMatch) {
-    await incrementOtpAttemptsValue(phone);
-    await AuditLog.log(req, "otp.failed", "User", null, { phone }, false);
-    throw createError(400, "INVALID_OTP", "Incorrect OTP. Please try again.");
-  }
-
-  // Single-use: delete OTP and clear attempt counter
-  await deleteOtpValue(phone);
-  await clearOtpAttemptsValue(phone);
-
-  // Find or create user
   let user = await User.findOne({ phone });
   const isNewUser = !user;
 
@@ -340,7 +421,6 @@ const verifyOTPHandler = asyncHandler(async (req, res) => {
 
   const { accessToken, refreshToken } = signTokenPair(user);
   await user.addRefreshToken(refreshToken);
-
   await AuditLog.log(req, "user.login", "User", user._id, { phone, isNewUser });
 
   res.status(200).json({
@@ -355,11 +435,17 @@ const verifyOTPHandler = asyncHandler(async (req, res) => {
 
 const register = asyncHandler(async (req, res) => {
   const { userId } = req.user;
-  const { name, state, district, persona, preferredLanguage, email, pincode } =
+  const { name, state, district, persona, preferredLanguage, email, pincode, password } =
     req.body;
 
   if (!name || !name.trim())
     throw createError(400, "NAME_REQUIRED", "Name is required");
+
+  if (password !== undefined) {
+    if (typeof password !== "string" || password.length < 8) {
+      throw createError(400, "WEAK_PASSWORD", "Password must be at least 8 characters");
+    }
+  }
 
   const validPersonas = Object.values(PERSONA_MAP).filter(
     (p) => p !== PERSONA_MAP.ADMIN,
@@ -393,6 +479,8 @@ const register = asyncHandler(async (req, res) => {
       );
   }
 
+  const passwordHash = password ? await bcrypt.hash(password, 12) : undefined;
+
   const updates = {
     name: name.trim(),
     persona: selectedPersona,
@@ -401,6 +489,7 @@ const register = asyncHandler(async (req, res) => {
     ...(pincode && { pincode: pincode.trim() }),
     ...(email && { email: email.toLowerCase().trim() }),
     ...(preferredLanguage && { preferredLanguage }),
+    ...(passwordHash && { passwordHash }),
     lastActive: new Date(),
   };
 
@@ -692,42 +781,57 @@ const whatsappEntry = asyncHandler(async (req, res) => {
 
 const loginWithPassword = asyncHandler(async (req, res) => {
   const rawPhone = req.body?.phone;
+  const rawEmail = req.body?.email;
   const { password } = req.body;
 
-  if (!rawPhone || !password) {
-    throw createError(400, "MISSING_FIELDS", "Phone and password are required");
+  if (!rawPhone && !rawEmail) {
+    throw createError(400, "MISSING_FIELDS", "Phone number or email is required");
+  }
+  if (!password) {
+    throw createError(400, "MISSING_FIELDS", "Password is required");
   }
 
-  const phone = normalizePhone(rawPhone);
-  if (!INDIAN_PHONE_REGEX.test(phone)) {
-    throw createError(400, "INVALID_PHONE", "Invalid phone number");
+  let user;
+  let logIdentifier;
+
+  if (rawEmail) {
+    const email = String(rawEmail).trim().toLowerCase();
+    if (!isEmailIdentifier(email)) {
+      throw createError(400, "INVALID_EMAIL", "Invalid email address");
+    }
+    user = await User.findOne({ email }).select("+passwordHash");
+    logIdentifier = { email, method: "password" };
+  } else {
+    const phone = normalizePhone(rawPhone);
+    if (!INDIAN_PHONE_REGEX.test(phone)) {
+      throw createError(400, "INVALID_PHONE", "Invalid phone number");
+    }
+    user = await User.findOne({ phone }).select("+passwordHash");
+    logIdentifier = { phone, method: "password" };
   }
 
-  // Explicitly select passwordHash (it's excluded by default via select:false)
-  const user = await User.findOne({ phone }).select("+passwordHash");
   if (!user || !user.passwordHash) {
-    // Don't reveal whether the account exists
     throw createError(
       401,
       "INVALID_CREDENTIALS",
-      "Invalid phone number or password. Use OTP login if you haven't set a password.",
+      "Invalid credentials. Use OTP login if you haven't set a password.",
     );
   }
 
   const isMatch = await bcrypt.compare(password, user.passwordHash);
   if (!isMatch) {
-    await AuditLog.log(req, "auth.password_failed", "User", user._id, { phone }, false);
-    throw createError(401, "INVALID_CREDENTIALS", "Invalid phone number or password.");
+    await AuditLog.log(req, "auth.password_failed", "User", user._id, logIdentifier, false);
+    throw createError(401, "INVALID_CREDENTIALS", "Invalid credentials.");
   }
 
-  user.isPhoneVerified = true;
+  if (user.phone) user.isPhoneVerified = true;
   user.lastActive = new Date();
   await user.save();
 
   const { accessToken, refreshToken } = signTokenPair(user);
   await user.addRefreshToken(refreshToken);
 
-  await AuditLog.log(req, "user.login", "User", user._id, { phone, method: "password" });
+  await AuditLog.log(req, "user.login", "User", user._id, logIdentifier);
 
   res.status(200).json({
     accessToken,
