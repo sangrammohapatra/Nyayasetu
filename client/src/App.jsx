@@ -63,6 +63,7 @@ const DocumentPreview = lazy(() => import("./pages/citizen/DocumentPreview"));
 const MyDocuments = lazy(() => import("./pages/citizen/MyDocuments"));
 const CaseDashboard = lazy(() => import("./pages/citizen/CaseDashboard"));
 const LawyerProfile = lazy(() => import("./pages/citizen/LawyerProfile"));
+const CitizenProfile = lazy(() => import("./pages/citizen/CitizenProfile"));
 
 // Lawyer
 const LawyerHome = lazy(() => import("./pages/lawyer/LawyerHome"));
@@ -335,6 +336,7 @@ const router = createBrowserRouter([
         ),
       },
       { path: "lawyers/:lawyerId", element: <LawyerProfile /> },
+      { path: "profile", element: <CitizenProfile /> },
       { path: "settings", element: <Settings /> },
     ],
   },

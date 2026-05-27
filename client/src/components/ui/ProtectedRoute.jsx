@@ -21,9 +21,12 @@ function ProtectedRoute({ children, allowedPersonas }) {
   const persona = useSelector(selectUserPersona);
   const loading = useSelector(selectAuthLoading);
 
-  // Show a full-screen spinner while the auth state is being resolved
-  // (e.g. on first load when redux-persist is rehydrating).
-  if (loading) {
+  // Block ONLY on the initial auth check: token exists but user hasn't loaded yet.
+  // Do NOT block on subsequent getMe refreshes (loading=true with user already present)
+  // — that would unmount children, triggering another getMe call and looping forever.
+  const initializing = loading && !isAuthenticated;
+
+  if (initializing) {
     return (
       <Box
         sx={{

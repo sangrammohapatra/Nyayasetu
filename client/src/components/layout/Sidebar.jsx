@@ -37,6 +37,7 @@ function useNavItems(persona, t) {
       { icon: '📂', label: t('sidebar.myDocs', 'My Documents'), path: '/citizen/documents/myDocuments' },
       { icon: '⚖️', label: t('sidebar.caseTracker', 'Case Tracker'), path: '/citizen/cases' },
       { icon: '👨‍⚖️', label: t('sidebar.findLawyer', 'Find Lawyer'), path: '/citizen/lawyers' },
+      { icon: '👤', label: t('sidebar.profile', 'My Profile'),  path: '/citizen/profile' },
       { icon: '💎', label: t('sidebar.pricing', 'Pricing'),     path: '/pricing' },
       { icon: '⚙️', label: t('sidebar.settings', 'Settings'),   path: '/settings' },
     ];

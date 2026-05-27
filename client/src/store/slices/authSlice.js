@@ -125,6 +125,20 @@ export const logout = createAsyncThunk(
   }
 );
 
+export const deactivateAccount = createAsyncThunk(
+  'auth/deactivateAccount',
+  async (_, { rejectWithValue }) => {
+    try {
+      await api.delete('/profile/account');
+      localStorage.removeItem('nyayasetu_token');
+      localStorage.removeItem('nyayasetu_refresh_token');
+      return null;
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to deactivate account');
+    }
+  }
+);
+
 // ─── Initial state ────────────────────────────────────────────────────────────
 
 const initialState = {
@@ -273,6 +287,19 @@ const authSlice = createSlice({
         state.refreshToken = null;
         state.error = null;
         state.otpSent = false;
+      });
+
+    // deactivateAccount
+    builder
+      .addCase(deactivateAccount.fulfilled, (state) => {
+        state.user = null;
+        state.token = null;
+        state.refreshToken = null;
+        state.error = null;
+        state.otpSent = false;
+      })
+      .addCase(deactivateAccount.rejected, (state, action) => {
+        state.error = action.payload;
       });
   },
 });
