@@ -723,7 +723,7 @@ function CitizenHome() {
                 cursor: "pointer",
                 fontWeight: 600,
               }}
-              onClick={() => navigate("/citizen/documents/myDocuments")}
+              onClick={() => navigate("/citizen/documents")}
             >
               {t("home.viewAll", "View all →")}
             </Typography>

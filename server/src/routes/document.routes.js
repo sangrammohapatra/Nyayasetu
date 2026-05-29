@@ -85,7 +85,6 @@ router.get(
 router.get(
   '/:id/pdf',
   validate([param('id').isMongoId().withMessage('Invalid document ID')]),
-  checkFeatureAccess('pdf_download'),
   getPDF
 );
 

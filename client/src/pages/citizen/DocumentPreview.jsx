@@ -335,25 +335,26 @@ function DocumentPreview() {
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
   const pollRef = useRef(null);
 
-  const isGenerating = !doc || doc.status === 'generating' || doc.status === 'active';
+  // Document has no status field — completion is tracked via session.status and content
+  const isGenerating = !doc || (!doc.content && doc.session?.status !== 'completed');
 
-  // Load document & poll while generating
+  // Load document & poll while still generating (content is empty)
   useEffect(() => {
     dispatch(getDocument(documentId));
 
-    const startPoll = () => {
-      pollRef.current = setInterval(() => {
-        dispatch(getDocument(documentId));
-      }, 2000);
-    };
+    pollRef.current = setInterval(() => {
+      dispatch(getDocument(documentId));
+    }, 4000);
 
-    startPoll();
     return () => clearInterval(pollRef.current);
   }, [documentId, dispatch]);
 
-  // Stop polling once document is complete
+  // Stop polling once the AI has filled in the content
   useEffect(() => {
-    if (doc && doc.status === 'completed') {
+    const isComplete =
+      doc?.session?.status === 'completed' ||
+      (doc?.content && doc.content.length > 0);
+    if (isComplete) {
       clearInterval(pollRef.current);
     }
   }, [doc]);
@@ -370,16 +371,23 @@ function DocumentPreview() {
   };
 
   const handleDownload = async () => {
-    const isPaid = doc?.isPaid || plan === 'basic' || plan === 'pro';
-    if (isPaid) {
-      try {
-        const result = await dispatch(getPDF(documentId));
-        if (result.payload?.pdfUrl) {
-          window.open(result.payload.pdfUrl, '_blank');
+    const canDownload = doc?.isPaid || plan === 'basic' || plan === 'pro';
+    if (canDownload) {
+      const result = await dispatch(getPDF(documentId));
+      if (result.payload?.pdfUrl) {
+        window.open(result.payload.pdfUrl, '_blank');
+      } else if (result.error || result.payload?.error) {
+        // PDF locked (free-tier doc that isn't always-free) — send to pricing
+        const errCode = result.payload?.error || result.payload?.code;
+        if (errCode === 'PDF_LOCKED' || result.meta?.requestStatus === 'rejected') {
+          setSnack({ open: true, msg: 'PDF download requires a paid plan. Redirecting to pricing…', severity: 'info' });
+          setTimeout(() => navigate('/citizen/pricing'), 1500);
+        } else {
+          setSnack({ open: true, msg: result.payload?.message || 'Could not download PDF. Please try again.', severity: 'error' });
         }
-      } catch (_) {}
+      }
     } else {
-      // Open Razorpay checkout for pay-per-doc
+      // Free user, unpaid doc — offer pay-per-doc via Razorpay
       try {
         const { data } = await api.post('/payments/create-order', { documentId });
         openCheckout({
@@ -400,7 +408,7 @@ function DocumentPreview() {
           },
           onDismiss: () => {},
         });
-      } catch (err) {
+      } catch {
         setSnack({ open: true, msg: 'Could not initiate payment. Please try again.', severity: 'error' });
       }
     }
@@ -421,7 +429,7 @@ function DocumentPreview() {
         <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
             <Box
-              onClick={() => navigate('/citizen/documents/myDocuments')}
+              onClick={() => navigate('/citizen/documents')}
               sx={{ cursor: 'pointer', color: 'var(--color-text-secondary)', fontSize: '1.1rem', lineHeight: 1 }}>
               ←
             </Box>
