@@ -81,42 +81,10 @@ const NyayaBotPage = lazy(() => import("./pages/NyayaBotPage"));
 const ThemeSwitcher = lazy(() => import("./components/layout/ThemeSwitcher"));
 const LawyerSearch = lazy(() => import("./components/lawyer/LawyerSearch"));
 const ConsultationsPage = lazy(() => import("./pages/lawyer/ClientList")); // placeholder
-const AdminDashboard = lazy(() =>
-  Promise.resolve({
-    default: () => (
-      <AnimatedPage>
-        <Box sx={{ p: 4 }}>Admin Dashboard</Box>
-      </AnimatedPage>
-    ),
-  }),
-);
-const AdminUsers = lazy(() =>
-  Promise.resolve({
-    default: () => (
-      <AnimatedPage>
-        <Box sx={{ p: 4 }}>Admin Users</Box>
-      </AnimatedPage>
-    ),
-  }),
-);
-const AdminLawyers = lazy(() =>
-  Promise.resolve({
-    default: () => (
-      <AnimatedPage>
-        <Box sx={{ p: 4 }}>Admin Lawyers</Box>
-      </AnimatedPage>
-    ),
-  }),
-);
-const AdminTemplates = lazy(() =>
-  Promise.resolve({
-    default: () => (
-      <AnimatedPage>
-        <Box sx={{ p: 4 }}>Admin Templates</Box>
-      </AnimatedPage>
-    ),
-  }),
-);
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const AdminUsers     = lazy(() => import('./pages/admin/AdminUsers'));
+const AdminLawyers   = lazy(() => import('./pages/admin/AdminLawyers'));
+const AdminTemplates = lazy(() => import('./pages/admin/AdminTemplates'));
 
 // ─── Page loading fallback ────────────────────────────────────────────────────
 
@@ -144,7 +112,8 @@ function RootRedirect() {
 
   if (loading) return <PageLoader />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  return <Navigate to={`/${persona?.toLowerCase()}/home`} replace />;
+  const home = persona === 'admin' ? '/admin/dashboard' : `/${persona}/home`;
+  return <Navigate to={home} replace />;
 }
 
 // ─── /settings redirect ───────────────────────────────────────────────────────
@@ -206,9 +175,9 @@ function AppLayout() {
 
       <BottomNav />
       <NyayaBotWidget /> 
-      <Suspense fallback={null}>
+      {/* <Suspense fallback={null}>
         <ThemeSwitcher />
-      </Suspense>
+      </Suspense> */}
     </Box>
   );
 }
@@ -409,15 +378,7 @@ const router = createBrowserRouter([
             <AdminTemplates />
           </Suspense>
         ),
-      },
-      {
-        path: "analytics",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            {/* <AdminAnalytics /> */}
-          </Suspense>
-        ),
-      },
+      }
     ],
   },
 

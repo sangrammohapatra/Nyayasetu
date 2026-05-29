@@ -49,7 +49,6 @@ function useBottomNavItems(persona, t, unread) {
     { icon: '👥', label: t('nav.users', 'Users'),          path: '/admin/users' },
     { icon: '📄', label: t('nav.templates', 'Templates'),  path: '/admin/templates' },
     { icon: '⚖️', label: t('nav.lawyers', 'Lawyers'),     path: '/admin/lawyers' },
-    { icon: '📈', label: t('nav.stats', 'Stats'),          path: '/admin/analytics' },
   ];
 
   return ({ citizen, lawyer, paralegal: lawyer, admin }[persona] || citizen);

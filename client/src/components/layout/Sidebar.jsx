@@ -57,7 +57,6 @@ function useNavItems(persona, t) {
       { icon: '👥', label: t('sidebar.users', 'Users'),          path: '/admin/users' },
       { icon: '📄', label: t('sidebar.templates', 'Templates'),  path: '/admin/templates' },
       { icon: '⚖️', label: t('sidebar.lawyers', 'Lawyers'),     path: '/admin/lawyers' },
-      { icon: '📈', label: t('sidebar.analytics', 'Analytics'), path: '/admin/analytics' },
     ];
 
     return { citizen, lawyer, paralegal: lawyer, admin }[persona] || citizen;
