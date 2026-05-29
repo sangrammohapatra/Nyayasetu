@@ -16,6 +16,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import FormControl from '@mui/material/FormControl';
 import Alert from '@mui/material/Alert';
+import Snackbar from '@mui/material/Snackbar';
 import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import Chip from '@mui/material/Chip';
@@ -260,6 +261,9 @@ function Login() {
   const [regCountdown, setRegCountdown] = useState(0);
   const [regErrors, setRegErrors] = useState({});
 
+  const [snackOpen, setSnackOpen] = useState(false);
+  const [snackMsg, setSnackMsg] = useState({ message: '', severity: 'error' });
+
   // Derived for login identifier
   const identifierIsEmail = looksLikeEmail(identifier);
   const identifierIsPhone = looksLikePhone(identifier);
@@ -291,6 +295,13 @@ function Login() {
   }, [regCountdown]);
 
   useEffect(() => () => { dispatch(clearError()); }, [dispatch]);
+
+  useEffect(() => {
+    if (error) {
+      setSnackMsg({ message: error, severity: 'error' });
+      setSnackOpen(true);
+    }
+  }, [error]);
 
   // ── Lang change ───────────────────────────────────────────────────────────
   const handleLangChange = (e) => {
@@ -640,12 +651,6 @@ function Login() {
                           />
                         </motion.div>
 
-                        {error && (
-                          <motion.div variants={fadeUp}>
-                            <Alert severity="error" sx={{ mb: 2, borderRadius: `${RADIUS.md}px` }} onClose={() => dispatch(clearError())}>{error}</Alert>
-                          </motion.div>
-                        )}
-
                         <motion.div variants={fadeUp}>
                           <Button fullWidth variant="contained" type="submit"
                             disabled={loading || (identifierIsPhone && identifier.length !== 10) || (identifierIsEmail && !identifier.includes('@')) || (!identifier)}
@@ -688,12 +693,6 @@ function Login() {
                         <motion.div variants={fadeUp} style={{ marginBottom: 24 }}>
                           <OTPInput value={otp} onChange={setOtp} disabled={loading} />
                         </motion.div>
-
-                        {error && (
-                          <motion.div variants={fadeUp}>
-                            <Alert severity="error" sx={{ mb: 2, borderRadius: `${RADIUS.md}px` }} onClose={() => dispatch(clearError())}>{error}</Alert>
-                          </motion.div>
-                        )}
 
                         <motion.div variants={fadeUp}>
                           <Button fullWidth variant="contained" type="submit"
@@ -768,12 +767,6 @@ function Login() {
                             sx={{ mb: 2.5 }}
                           />
                         </motion.div>
-
-                        {error && (
-                          <motion.div variants={fadeUp}>
-                            <Alert severity="error" sx={{ mb: 2, borderRadius: `${RADIUS.md}px` }} onClose={() => dispatch(clearError())}>{error}</Alert>
-                          </motion.div>
-                        )}
 
                         <motion.div variants={fadeUp}>
                           <Button fullWidth variant="contained" type="submit"
@@ -1117,6 +1110,22 @@ function Login() {
 
         </Box>
       </Box>
+
+      <Snackbar
+        open={snackOpen}
+        autoHideDuration={5000}
+        onClose={() => { setSnackOpen(false); dispatch(clearError()); }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          severity={snackMsg.severity}
+          variant="filled"
+          onClose={() => { setSnackOpen(false); dispatch(clearError()); }}
+          sx={{ minWidth: 280 }}
+        >
+          {snackMsg.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

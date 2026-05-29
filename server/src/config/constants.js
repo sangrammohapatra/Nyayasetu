@@ -219,7 +219,7 @@ const RATE_LIMITS = {
 // ─── JWT defaults ─────────────────────────────────────────────────────────────
 
 const JWT = {
-  ACCESS_EXPIRY: process.env.JWT_EXPIRES_IN || "15m",
+  ACCESS_EXPIRY:  process.env.JWT_EXPIRES_IN         || "1h",
   REFRESH_EXPIRY: process.env.JWT_REFRESH_EXPIRES_IN || "30d",
   MAX_REFRESH_TOKENS: 5, // max devices simultaneously logged in
 };
@@ -250,6 +250,28 @@ const COMMISSION = {
   DEFAULT_PLATFORM_PERCENT: 10, // platform takes 10%, lawyer gets 90%
   PROFESSIONAL_PERCENT: 10,
   FIRM_PERCENT: 8, // 92% to lawyer on firm plan
+};
+
+// ─── Chat session status ──────────────────────────────────────────────────────
+// Must stay in sync with ChatSession.model.js status enum.
+// State machine: active → data_complete → generating → completed
+//                active → abandoned / paused
+
+const SESSION_STATUS = {
+  ACTIVE:        'active',
+  DATA_COMPLETE: 'data_complete',
+  GENERATING:    'generating',
+  COMPLETED:     'completed',
+  ABANDONED:     'abandoned',
+  PAUSED:        'paused',
+};
+
+// ─── Document access types ────────────────────────────────────────────────────
+
+const DOCUMENT_ACCESS_TYPES = {
+  FREE_TIER:    'free_tier',
+  SUBSCRIPTION: 'subscription',
+  PAY_PER_DOC:  'pay_per_doc',
 };
 
 // ─── Consultation modes ───────────────────────────────────────────────────────
@@ -288,4 +310,6 @@ module.exports = {
   COMMISSION,
   CONSULTATION_MODES,
   HEARING_ALERTS,
+  SESSION_STATUS,
+  DOCUMENT_ACCESS_TYPES,
 };

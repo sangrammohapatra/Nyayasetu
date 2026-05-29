@@ -124,34 +124,60 @@ function ChatFlow() {
     }).catch(() => {});
   }, [templateSlug]);
 
-  // Create or load session on mount
+  // Create a fresh session whenever this template is opened.
+  // We always start fresh — stale Redux state from a previous visit (e.g. a
+  // session with no messages due to Gemini quota failure) would otherwise
+  // prevent the new session from being created and leave the chat blank.
   useEffect(() => {
     if (!templateSlug) return;
-    if (!session || session.template?.slug !== templateSlug) {
-      dispatch(clearChat());
-      dispatch(createSession({ templateSlug, language: reduxLang || 'en' }));
-    }
-    return () => {
-      // Don't clear on unmount so the user can navigate back and resume
-    };
-  }, [templateSlug]);
+    dispatch(clearChat());
+    dispatch(createSession({ templateSlug, language: reduxLang || 'en' }));
+  }, [templateSlug]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When data collection is complete → show generating overlay → poll for doc
+  // When data collection is complete → trigger generation → poll for completion
   useEffect(() => {
     if (!dataComplete || navigatedRef.current || !session) return;
     navigatedRef.current = true;
     setShowGenerating(true);
 
-    const poll = setInterval(async () => {
+    let poll;
+    let pollCount = 0;
+    const MAX_POLLS = 60; // 5 minutes at 5-second intervals
+
+    async function startGeneration() {
+      let documentId;
       try {
-        const { data } = await api.get(`/documents?sessionId=${session._id}&limit=1`);
-        const docs = data.documents || data.items || [];
-        if (docs.length > 0 && docs[0].status === 'completed') {
+        const { data } = await api.post('/documents/generate', { sessionId: session._id });
+        documentId = data.documentId;
+      } catch (err) {
+        // Document may already exist for this session (e.g. page refresh) — fall back to list
+        try {
+          const { data } = await api.get(`/documents?sessionId=${session._id}&limit=1`);
+          const docs = data.documents || [];
+          if (docs.length > 0) documentId = docs[0]._id;
+        } catch (_) {}
+      }
+
+      if (!documentId) return;
+
+      poll = setInterval(async () => {
+        pollCount += 1;
+        if (pollCount > MAX_POLLS) {
           clearInterval(poll);
-          navigate(`/citizen/documents/${docs[0]._id}`, { replace: true });
+          return;
         }
-      } catch (_) {}
-    }, 2000);
+        try {
+          const { data } = await api.get(`/documents/${documentId}`);
+          const doc = data.document || data;
+          if (doc.status === 'completed') {
+            clearInterval(poll);
+            navigate(`/citizen/documents/${documentId}`, { replace: true });
+          }
+        } catch (_) {}
+      }, 5000);
+    }
+
+    startGeneration();
 
     return () => clearInterval(poll);
   }, [dataComplete, session, navigate]);

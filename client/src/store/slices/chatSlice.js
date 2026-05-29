@@ -142,7 +142,7 @@ export const sendMessage = createAsyncThunk(
                 return { sessionId, fullText };
               } else if (parsed.error) {
                 dispatch(streamAbort());
-                return rejectWithValue(parsed.error);
+                return rejectWithValue(parsed.message || 'AI response failed. Please try again.');
               }
             } catch (_) {
               // Non-JSON SSE line — treat as raw delta

@@ -51,6 +51,18 @@ async function withRetry(fn, maxRetries = 3, baseDelayMs = 1000) {
       const isTransient = err?.status >= 500 || err?.message?.includes('503');
 
       if (!(isRateLimit || isTransient) || attempt === maxRetries) {
+        // Surface a clean, user-facing message for quota exhaustion so the
+        // controller's sseError sends something meaningful to the client.
+        if (isRateLimit) {
+          const isDaily = err?.message?.toLowerCase().includes('per day') ||
+            err?.message?.toLowerCase().includes('free tier') ||
+            err?.message?.toLowerCase().includes('day');
+          throw new Error(
+            isDaily
+              ? 'Daily AI request limit reached. Please try again tomorrow or upgrade your plan.'
+              : 'AI service is busy right now. Please wait a moment and try again.'
+          );
+        }
         throw err;
       }
 
@@ -171,7 +183,7 @@ async function chat(messages, systemPrompt, stream = false) {
           if (delta) yield delta;
         }
       } catch (err) {
-        logger.error('[gemini] Stream error:', err.message);
+        logger.error('[gemini] Stream error:', { error: err.message, status: err?.status });
         throw err;
       }
     }

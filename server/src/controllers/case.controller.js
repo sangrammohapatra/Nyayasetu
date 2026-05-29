@@ -300,7 +300,7 @@ const shareWithLawyer = asyncHandler(async (req, res) => {
         `NyayaSetu: A client has shared case "${caseDoc.caseTitle}" (CNR: ${caseDoc.cnrNumber}) with you. Log in to review.`
       );
     } catch (smsErr) {
-      logger.warn('[case/shareWithLawyer] SMS notification failed:', smsErr.message);
+      logger.warn('[case/shareWithLawyer] SMS notification failed:', { error: smsErr.message });
     }
   }
 

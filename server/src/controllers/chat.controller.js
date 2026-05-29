@@ -157,7 +157,7 @@ const createSession = asyncHandler(async (req, res) => {
     session.messages.push({ role: 'assistant', content: firstMessage, isQuestion: true, createdAt: new Date() });
     await session.save();
   } catch (aiErr) {
-    logger.error('[chat/createSession] Failed to get first question:', aiErr.message);
+    logger.error('[chat/createSession] Failed to get first question:', { error: aiErr.message });
     // Don't crash — return session without first message, client will call sendMessage
     await session.save();
   }
@@ -306,7 +306,7 @@ const sendMessage = asyncHandler(async (req, res) => {
       });
     }
   } catch (err) {
-    logger.error(`[chat/sendMessage] Stream error for session ${sessionId}:`, err.message);
+    logger.error(`[chat/sendMessage] Stream error for session ${sessionId}:`, { error: err.message });
     sseError(res, 'An error occurred while processing your message. Please try again.');
     return;
   }
@@ -440,7 +440,7 @@ const voiceMessage = asyncHandler(async (req, res) => {
     const { transcribe } = require('../services/voice/voiceService');
     transcribedText = await transcribe(req.file.buffer, req.file.mimetype, session.userLanguage);
   } catch (err) {
-    logger.error('[chat/voiceMessage] Transcription failed:', err.message);
+    logger.error('[chat/voiceMessage] Transcription failed:', { error: err.message });
     throw createError(503, 'TRANSCRIPTION_FAILED', 'Audio transcription failed. Please try typing your response.');
   }
 

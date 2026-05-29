@@ -39,7 +39,7 @@ async function connectRedis() {
 
     redisClient.on('error', (err) => {
       // Log but don't crash — app degrades gracefully without Redis
-      logger.error('Redis client error:', err.message);
+      logger.error('Redis client error:', { error: err.message });
     });
 
     redisClient.on('close', () => {
@@ -58,7 +58,7 @@ async function connectRedis() {
     await redisClient.connect();
     logger.info(`Redis connected → ${redisUrl.replace(/\/\/.*@/, '//*****@')}`);
   } catch (error) {
-    logger.error('Redis connection failed:', error.message);
+    logger.error('Redis connection failed:', { error: error.message });
     logger.warn('Continuing without Redis — Bull queues and session caching will be unavailable');
     // Don't throw — let the server start anyway
   }

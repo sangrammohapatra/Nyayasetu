@@ -20,6 +20,7 @@ const {
   PERSONAS,
   MAX_REFRESH_TOKENS,
   SUPPORTED_LANGUAGES,
+  JWT,
 } = require("../config/constants");
 
 const DEV_PHONE = CONFIG_DEV_PHONE || "+919999999999";
@@ -177,12 +178,12 @@ function signTokenPair(user) {
     plan: user.subscription?.plan || "free",
   };
   const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || "15m",
+    expiresIn: JWT.ACCESS_EXPIRY,
   });
   const refreshToken = jwt.sign(
     { userId: user._id.toString(), type: "refresh" },
     process.env.JWT_REFRESH_SECRET,
-    { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "30d" },
+    { expiresIn: JWT.REFRESH_EXPIRY },
   );
   return { accessToken, refreshToken };
 }

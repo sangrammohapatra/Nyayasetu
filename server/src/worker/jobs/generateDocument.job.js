@@ -187,7 +187,7 @@ module.exports = async function processGenerateDocument(job) {
         priority:  'high',
       });
     } catch (recoveryErr) {
-      logger.error('[job/generateDocument] Recovery also failed:', recoveryErr.message);
+      logger.error('[job/generateDocument] Recovery also failed:', { error: recoveryErr.message });
     }
 
     throw err; // Re-throw so Bull marks job as failed and triggers retry
@@ -254,13 +254,13 @@ async function sendCompletionNotifications({ user, document, template }) {
         const message = `✅ NyayaSetu: Your ${template.name} is ready! View it here: ${process.env.CLIENT_URL}/documents/${document._id}`;
         await sendSMS(user.whatsappNumber, message);
       } catch (smsErr) {
-        logger.warn('[job/generateDocument] WhatsApp notification failed:', smsErr.message);
+        logger.warn('[job/generateDocument] WhatsApp notification failed:', { error: smsErr.message });
       }
     }
 
     logger.info(`[job/generateDocument] Notifications sent for doc: ${document._id}`);
   } catch (err) {
     // Notification failure must never crash the job
-    logger.error('[job/generateDocument] Notification error:', err.message);
+    logger.error('[job/generateDocument] Notification error:', { error: err.message });
   }
 }

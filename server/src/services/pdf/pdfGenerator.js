@@ -440,7 +440,7 @@ async function generateLegalDocument(document, user, template) {
       doc.flushPages();
       doc.end();
     } catch (err) {
-      logger.error('[pdfGenerator] Failed:', err.message);
+      logger.error('[pdfGenerator] Failed:', { error: err.message });
       reject(err);
     }
   });

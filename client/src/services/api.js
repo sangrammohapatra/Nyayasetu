@@ -48,13 +48,58 @@ function clearAuthStorage() {
 }
 
 /* ---------------------------------------------------------------------------
- * Request interceptor — attach Bearer token
+ * Helpers — token expiry check (no library needed, JWT payload is base64)
+ * ------------------------------------------------------------------------ */
+
+function getTokenExpiresInSeconds(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp - Math.floor(Date.now() / 1000);
+  } catch {
+    return null;
+  }
+}
+
+async function proactiveRefresh(token) {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken || isRefreshing) return;
+
+  isRefreshing = true;
+  try {
+    const response = await axios.post(
+      `${BASE_URL}/auth/refresh`,
+      { refreshToken },
+      { withCredentials: true }
+    );
+    const { accessToken: newToken, refreshToken: newRefreshToken } = response.data;
+    setAccessToken(newToken);
+    if (newRefreshToken) localStorage.setItem('nyayasetu_refresh_token', newRefreshToken);
+    import('../store/store').then(({ default: store }) => {
+      import('../store/slices/authSlice').then(({ setToken }) => {
+        store.dispatch(setToken({ token: newToken }));
+      });
+    });
+  } catch {
+    // If proactive refresh fails, let the 401 path handle it
+  } finally {
+    isRefreshing = false;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Request interceptor — attach Bearer token + proactive refresh if expiring soon
  * ------------------------------------------------------------------------ */
 api.interceptors.request.use(
-  (config) => {
+  async (config) => {
     const token = getAccessToken();
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      const expiresIn = getTokenExpiresInSeconds(token);
+      // Refresh proactively when token expires in under 60 s
+      if (expiresIn !== null && expiresIn < 60) {
+        await proactiveRefresh(token);
+      }
+      // Re-read in case proactiveRefresh just updated it
+      config.headers.Authorization = `Bearer ${getAccessToken()}`;
     }
     return config;
   },
@@ -85,11 +130,19 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Only handle 401s that haven't already been retried
+    // A 401 from an auth endpoint means wrong credentials, not an expired session.
+    // Attempting a token refresh here would clear storage and force-logout the user.
+    const isAuthEndpoint = originalRequest?.url &&
+      ['/auth/login', '/auth/send-otp', '/auth/verify-otp', '/auth/register'].some(
+        (ep) => originalRequest.url.includes(ep)
+      );
+
+    // Only handle 401s that haven't already been retried (and not on auth endpoints)
     if (
       error.response &&
       error.response.status === 401 &&
-      !originalRequest._retried
+      !originalRequest._retried &&
+      !isAuthEndpoint
     ) {
       // If we're already refreshing, queue this request
       if (isRefreshing) {

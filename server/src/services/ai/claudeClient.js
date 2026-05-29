@@ -148,7 +148,7 @@ async function chat(messages, systemPrompt, stream = false) {
           }
         }
       } catch (err) {
-        logger.error('[claude] Stream error:', err.message);
+        logger.error('[claude] Stream error:', { error: err.message });
         throw err;
       }
     }

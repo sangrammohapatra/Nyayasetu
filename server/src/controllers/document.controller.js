@@ -202,7 +202,8 @@ const listDocuments = asyncHandler(async (req, res) => {
   const status   = req.query.status;
 
   const filter = { user: userId, isDeleted: false };
-  if (status) filter['session.status'] = status;
+  if (req.query.sessionId) filter.session = req.query.sessionId;
+  if (status) filter.status = status;
 
   let query = DocumentModel.find(filter)
     .populate('template', 'name slug category icon complexity pricePayPerDoc')
@@ -333,7 +334,7 @@ const explainClauseHandler = asyncHandler(async (req, res) => {
     }
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
   } catch (err) {
-    logger.error('[document/explainClause] Error:', err.message);
+    logger.error('[document/explainClause] Error:', { error: err.message });
     res.write(`data: ${JSON.stringify({ error: true, message: 'Explanation failed. Please try again.', done: true })}\n\n`);
   }
 
