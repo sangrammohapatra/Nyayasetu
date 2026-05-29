@@ -9,7 +9,7 @@
  *    at {court}. Prepared by NyayaSetu."
  */
 
-const logger = require('../../../server/src/utils/logger');
+const logger = require('../../utils/logger');
 
 /**
  * Main processor.
@@ -72,7 +72,7 @@ async function sendHearingAlert(job) {
 
   // ── 1. Web (in-app) notification — always send ────────────────────────────
   try {
-    const Notification = require('../../../server/src/models/Notification.model');
+    const Notification = require('../../models/Notification.model');
 
     await Notification.createForUser({
       userId,
@@ -109,7 +109,7 @@ async function sendHearingAlert(job) {
   if (shouldWhatsApp) {
     const phone = userWhatsApp || userPhone;
     try {
-      const { sendSMS } = require('../../../server/src/services/notification/smsService');
+      const { sendSMS } = require('../../services/notification/smsService');
       await sendSMS(phone, whatsappMessage);
 
       results.whatsapp = 'sent';
@@ -128,7 +128,7 @@ async function sendHearingAlert(job) {
   // ── 3. Email notification ─────────────────────────────────────────────────
   if (alertChannels.email && userEmail) {
     try {
-      const { sendHearingAlertEmail } = require('../../../server/src/services/notification/emailService');
+      const { sendHearingAlertEmail } = require('../../services/notification/emailService');
 
       await sendHearingAlertEmail({
         to:          userEmail,
@@ -154,7 +154,7 @@ async function sendHearingAlert(job) {
 
   // ── 4. Record alert sent on the CaseTracker document ──────────────────────
   try {
-    const CaseTracker = require('../../../server/src/models/CaseTracker.model');
+    const CaseTracker = require('../../models/CaseTracker.model');
 
     // Mark the specific hearing's alertSent flag
     await CaseTracker.findOneAndUpdate(

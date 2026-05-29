@@ -235,7 +235,7 @@ documentTemplateSchema.virtual('priceFormatted').get(function () {
 });
 
 documentTemplateSchema.virtual('requiredFields').get(function () {
-  return this.questionFlow.filter((q) => q.isRequired).map((q) => q.key);
+  return (this.questionFlow || []).filter((q) => q.isRequired).map((q) => q.key);
 });
 
 // ─── Static Methods ────────────────────────────────────────────────────────────

@@ -9,7 +9,7 @@
  * same hearing, even if the worker crashed and restarted.
  */
 
-const logger = require('../../../server/src/utils/logger');
+const logger = require('../../utils/logger');
 
 /**
  * Main processor — receives the Bull job object.
@@ -20,8 +20,8 @@ async function checkHearingDates(job, alertQueue) {
   logger.info(`[checkHearingDates] Job ${job.id} started at ${new Date().toISOString()}`);
   await job.progress(5);
 
-  const CaseTracker = require('../../../server/src/models/CaseTracker.model');
-  const { getCaseStatus } = require('../../../server/src/services/ecourts/ecourtsClient');
+  const CaseTracker = require('../../models/CaseTracker.model');
+  const { getCaseStatus } = require('../../services/ecourts/ecourtsClient');
 
   // ── Find all cases that have a hearing coming up within their alertDaysBefore window ──
   // We cast a wider net (7 days) and let each case's alertDaysBefore filter in the job
@@ -58,7 +58,7 @@ async function checkHearingDates(job, alertQueue) {
         const freshData = await getCaseStatus(caseDoc.cnrNumber);
 
         // Use findOneAndUpdate to avoid race conditions
-        const CaseTrackerModel = require('../../../server/src/models/CaseTracker.model');
+        const CaseTrackerModel = require('../../models/CaseTracker.model');
         await CaseTrackerModel.findByIdAndUpdate(caseDoc._id, {
           $set: {
             caseTitle:       freshData.caseTitle     || caseDoc.caseTitle,

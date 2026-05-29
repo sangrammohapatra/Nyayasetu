@@ -12,20 +12,25 @@ async function connectRedis() {
   const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 
   try {
-    redisClient = new Redis(redisUrl, {
+    // Force TLS for any non-local Redis host (Upstash, Redis Cloud, etc.)
+    const parsed = new URL(redisUrl.replace(/^redis:\/\//, 'http://').replace(/^rediss:\/\//, 'https://'));
+    const isLocal = ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname);
+    const isTLS   = redisUrl.startsWith('rediss://') || !isLocal;
+    redisClient = new Redis(redisUrl.replace(/^redis:\/\//, isTLS ? 'rediss://' : 'redis://'), {
+      ...(isTLS ? { tls: { rejectUnauthorized: false, servername: parsed.hostname } } : {}),
       maxRetriesPerRequest: 3,
       retryStrategy(times) {
         if (times > 10) {
           logger.error('Redis: Max retries reached. Giving up.');
-          return null; // Stop retrying
+          return null;
         }
-        const delay = Math.min(times * 500, 3000); // 500ms, 1s, 1.5s... max 3s
+        const delay = Math.min(times * 500, 3000);
         logger.warn(`Redis: Retry attempt ${times}, waiting ${delay}ms...`);
         return delay;
       },
-      enableOfflineQueue: true, // Queue commands while reconnecting
+      enableOfflineQueue: true,
       connectTimeout: 10000,
-      lazyConnect: true, // Don't auto-connect; we call .connect() explicitly
+      lazyConnect: true,
     });
 
     // ── Event Handlers ─────────────────────────────────────────────────────

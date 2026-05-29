@@ -16,10 +16,10 @@
  */
 
 // Load env before anything else (worker is a standalone process)
-require('dotenv').config({ path: require('path').join(__dirname, '../../../server/.env') });
+
 
 const mongoose   = require('mongoose');
-const logger     = require('../../../server/src/utils/logger');
+const logger     = require('../../utils/logger');
 
 // ─── Lazy DB connection (only connect once per worker process) ─────────────────
 
@@ -27,7 +27,7 @@ let dbConnected = false;
 
 async function ensureDbConnected() {
   if (dbConnected) return;
-  const { connectDB } = require('../../../server/src/config/db');
+  const { connectDB } = require('../../config/db');
   await connectDB();
   dbConnected = true;
 }
@@ -43,18 +43,18 @@ module.exports = async function processGenerateDocument(job) {
   await ensureDbConnected();
 
   // ── Lazy-load models and services (after DB connection) ───────────────────
-  const ChatSession      = require('../../../server/src/models/ChatSession.model');
-  const DocumentModel    = require('../../../server/src/models/Document.model');
-  const DocumentTemplate = require('../../../server/src/models/DocumentTemplate.model');
-  const JurisdictionRule = require('../../../server/src/models/JurisdictionRule.model');
-  const LegalAct         = require('../../../server/src/models/LegalAct.model');
-  const User             = require('../../../server/src/models/User.model');
-  const Notification     = require('../../../server/src/models/Notification.model');
+  const ChatSession      = require('../../models/ChatSession.model');
+  const DocumentModel    = require('../../models/Document.model');
+  const DocumentTemplate = require('../../models/DocumentTemplate.model');
+  const JurisdictionRule = require('../../models/JurisdictionRule.model');
+  const LegalAct         = require('../../models/LegalAct.model');
+  const User             = require('../../models/User.model');
+  const Notification     = require('../../models/Notification.model');
 
-  const { generateDocument }      = require('../../../server/src/services/ai/documentEngine');
-  const { generateLegalDocument } = require('../../../server/src/services/pdf/pdfGenerator');
-  const { uploadPDF }             = require('../../../server/src/services/storage/storageProvider');
-  const { SESSION_STATUS }        = require('../../../server/src/config/constants');
+  const { generateDocument }      = require('../../services/ai/documentEngine');
+  const { generateLegalDocument } = require('../../services/pdf/pdfGenerator');
+  const { uploadPDF }             = require('../../services/storage/storageProvider');
+  const { SESSION_STATUS }        = require('../../config/constants');
 
   let document = null;
   let session  = null;
@@ -233,7 +233,7 @@ function escapeHtml(text) {
  */
 async function sendCompletionNotifications({ user, document, template }) {
   try {
-    const Notification = require('../../../server/src/models/Notification.model');
+    const Notification = require('../../models/Notification.model');
 
     // Always send in-app web notification
     await Notification.createForUser({
@@ -250,7 +250,7 @@ async function sendCompletionNotifications({ user, document, template }) {
     // WhatsApp notification if opted in
     if (user.whatsappOptIn && user.whatsappNumber) {
       try {
-        const { sendSMS } = require('../../../server/src/services/notification/smsService');
+        const { sendSMS } = require('../../services/notification/smsService');
         const message = `✅ NyayaSetu: Your ${template.name} is ready! View it here: ${process.env.CLIENT_URL}/documents/${document._id}`;
         await sendSMS(user.whatsappNumber, message);
       } catch (smsErr) {

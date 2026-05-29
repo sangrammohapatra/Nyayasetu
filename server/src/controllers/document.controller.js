@@ -23,10 +23,23 @@ const {
 
 let _documentQueue = null;
 
+function buildBullRedisOpts(url) {
+  const parsed = new URL(url.replace(/^rediss?:\/\//, 'http://'));
+  const isLocal = ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname);
+  if (isLocal) return { url };
+  return {
+    host:     parsed.hostname,
+    port:     Number(parsed.port) || 6380,
+    password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
+    tls:      { rejectUnauthorized: false, servername: parsed.hostname },
+  };
+}
+
 function getDocumentQueue() {
   if (!_documentQueue) {
     const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-    _documentQueue = new Bull(QUEUE_NAMES.DOCUMENTS, redisUrl, {
+    _documentQueue = new Bull(QUEUE_NAMES.DOCUMENTS, {
+      redis: buildBullRedisOpts(redisUrl),
       defaultJobOptions: {
         attempts:      3,
         backoff:       { type: 'exponential', delay: 5000 },
@@ -69,11 +82,18 @@ const generateDocument = asyncHandler(async (req, res) => {
   if (!session)                     throw createError(404, 'SESSION_NOT_FOUND', 'Session not found');
   if (!session.user.equals(userId)) throw createError(403, 'FORBIDDEN', 'Session does not belong to you');
 
-  if (session.status !== SESSION_STATUS.DATA_COMPLETE) {
+  const resumableStatuses = [SESSION_STATUS.DATA_COMPLETE, SESSION_STATUS.GENERATING];
+  if (!resumableStatuses.includes(session.status)) {
     throw createError(400, 'SESSION_NOT_READY',
       `Session must be in "data_complete" status. Current status: "${session.status}". ` +
       'Complete the chat conversation first.'
     );
+  }
+
+  // Recover stuck "generating" sessions (Bull job failed without resetting status)
+  if (session.status === SESSION_STATUS.GENERATING) {
+    session.status = SESSION_STATUS.DATA_COMPLETE;
+    await session.save();
   }
 
   const template = session.template;
@@ -150,7 +170,7 @@ const getDocument = asyncHandler(async (req, res) => {
   const { userId, plan }   = req.user;
 
   const document = await DocumentModel.findById(documentId)
-    .populate('template', 'name slug category complexity icon')
+    .populate('template', 'name slug category complexity icon pricePayPerDoc isAlwaysFree')
     .populate('session',  'status progressPercent userState userLanguage');
 
   if (!document)                       throw createError(404, 'DOCUMENT_NOT_FOUND', 'Document not found');

@@ -17,6 +17,7 @@
 'use strict';
 
 const path = require('path');
+// server/src/worker/ → up 2 levels → server/ where .env lives
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
 const mongoose = require('mongoose');
@@ -33,11 +34,22 @@ const logger = require('../utils/logger');
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/nyayasetu';
 const REDIS_URL  = process.env.REDIS_URL  || 'redis://localhost:6379';
 
-const REDIS_OPTS = {
-  redis: REDIS_URL.startsWith('rediss://')
-    ? { url: REDIS_URL, tls: {} }
-    : { url: REDIS_URL },
-};
+function buildRedisOpts(url) {
+  // Normalise URL so URL() can parse it
+  const parsed = new URL(url.replace(/^rediss?:\/\//, 'http://'));
+  const isLocal = ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname);
+  if (isLocal) return { url };
+
+  // Non-local Redis (Upstash, Redis Cloud, etc.) — always use TLS + SNI
+  return {
+    host:     parsed.hostname,
+    port:     Number(parsed.port) || 6380,
+    password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
+    tls:      { rejectUnauthorized: false, servername: parsed.hostname },
+  };
+}
+
+const REDIS_OPTS = { redis: buildRedisOpts(REDIS_URL) };
 
 async function connectMongo() {
   try {
@@ -59,25 +71,22 @@ const notificationQueue = new Bull('notifications',   REDIS_OPTS);
 // ─── Job processors (lazy-required to give Mongoose time to connect first) ────
 
 function loadProcessors() {
-  const checkHearingDatesJob  = require('./jobs/checkHearingDates');
-  const sendHearingAlertJob   = require('./jobs/sendHearingAlert');
-  const generateDocumentJob   = require('./jobs/generateDocument');
-  const resetFreeQuotaJob     = require('./jobs/resetFreeQuota');
-  const sendMonthlyReminderJob= require('./jobs/sendMonthlyReminder');
+  // Note: filenames use the .job.js suffix; exports vary per file
+  const { checkHearingDates } = require('./jobs/checkHearingDates.job');
+  const { sendHearingAlert }  = require('./jobs/sendHearingAlert.job');
+  const generateDocumentJob   = require('./jobs/generateDocument.job'); // exports fn directly
+  const resetFreeQuotaJob     = require('./jobs/resetFreeQuota');       // exports { process }
 
   // ── Hearing alerts ─────────────────────────────────────────────────────────
-  // Concurrency 1 — single daily scan, sequential
-  hearingAlertQueue.process('checkHearingDates', 1, checkHearingDatesJob.process);
-  // Concurrency 5 — individual alert sends can be parallelised
-  hearingAlertQueue.process('sendHearingAlert',  5, sendHearingAlertJob.process);
+  hearingAlertQueue.process('checkHearingDates', 1, checkHearingDates);
+  hearingAlertQueue.process('sendHearingAlert',  5, sendHearingAlert);
 
   // ── Document generation ────────────────────────────────────────────────────
-  // Concurrency 3 — limit concurrent AI calls to control rate limits
-  documentQueue.process('generateDocument', 3, generateDocumentJob.process);
+  documentQueue.process('generateDocument', 3, generateDocumentJob);
 
   // ── Subscription / quota management ───────────────────────────────────────
-  subscriptionQueue.process('resetFreeQuota',      1, resetFreeQuotaJob.process);
-  notificationQueue.process('sendMonthlyReminder', 2, sendMonthlyReminderJob.process);
+  subscriptionQueue.process('resetFreeQuota', 1, resetFreeQuotaJob.process);
+  // sendMonthlyReminder job file not yet implemented — processor omitted
 
   logger.info('[worker] All job processors registered');
 }

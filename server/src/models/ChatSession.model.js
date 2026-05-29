@@ -173,11 +173,11 @@ chatSessionSchema.virtual('isComplete').get(function () {
 });
 
 chatSessionSchema.virtual('messageCount').get(function () {
-  return this.messages.length;
+  return (this.messages || []).length;
 });
 
 chatSessionSchema.virtual('userMessageCount').get(function () {
-  return this.messages.filter((m) => m.role === 'user').length;
+  return (this.messages || []).filter((m) => m.role === 'user').length;
 });
 
 // ─── Pre-save Hooks ────────────────────────────────────────────────────────────

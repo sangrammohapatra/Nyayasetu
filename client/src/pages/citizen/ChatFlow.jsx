@@ -20,9 +20,15 @@ import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
 
 import {
-  createSession, sendMessage, loadSession,
+  createSession, sendMessage, loadSession, abandonSession,
   selectCurrentSession, selectMessages, selectIsStreaming,
   selectStreamBuffer, selectDataComplete, selectChatLoading, selectChatError,
   clearChat, clearChatError,
@@ -84,6 +90,136 @@ function GeneratingOverlay() {
 }
 
 /* ---------------------------------------------------------------------------
+ * Resume session dialog
+ * ------------------------------------------------------------------------ */
+function ResumeDialog({ session, onResume, onStartFresh, loading }) {
+  const { t } = useTranslation();
+
+  const isDataReady = session?.status === 'data_complete' || session?.status === 'generating';
+  const templateName = session?.template?.name || 'document';
+  const progress = session?.progressPercent || 0;
+  const lastActivity = session?.lastMessageAt
+    ? new Date(session.lastMessageAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+    : null;
+
+  return (
+    <Dialog
+      open
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 3,
+          background: 'var(--color-surface)',
+          border: '1px solid var(--color-border)',
+        },
+      }}
+    >
+      <DialogTitle sx={{
+        fontFamily: "'Playfair Display', serif",
+        fontWeight: 700,
+        color: 'var(--color-text)',
+        pb: 0.5,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+      }}>
+        <span style={{ fontSize: 28 }}>⚖️</span>
+        {isDataReady
+          ? t('chat.resume.titleReady', 'Resume Document Generation')
+          : t('chat.resume.titleActive', 'Continue Where You Left Off')}
+      </DialogTitle>
+
+      <DialogContent sx={{ pt: 1.5 }}>
+        <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 2 }}>
+          {isDataReady
+            ? t('chat.resume.descReady',
+                'You\'ve already answered all questions for {{name}}. Resume to generate your document without re-answering.',
+                { name: templateName })
+            : t('chat.resume.descActive',
+                'You\'re {{progress}}% through collecting information for {{name}}.',
+                { progress, name: templateName })}
+        </Typography>
+
+        {!isDataReady && (
+          <Box sx={{ mb: 2 }}>
+            <LinearProgress
+              variant="determinate"
+              value={progress}
+              sx={{
+                height: 6, borderRadius: 3,
+                background: 'var(--color-border)',
+                '& .MuiLinearProgress-bar': {
+                  background: 'var(--color-primary)',
+                  borderRadius: 3,
+                },
+              }}
+            />
+            <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', mt: 0.5, display: 'block' }}>
+              {progress}% {t('chat.resume.complete', 'complete')}
+            </Typography>
+          </Box>
+        )}
+
+        {isDataReady && (
+          <Box sx={{
+            display: 'flex', alignItems: 'center', gap: 1,
+            px: 1.5, py: 1,
+            background: 'var(--color-primary-alpha)',
+            borderRadius: 2,
+            border: '1px solid var(--color-primary)',
+            mb: 1,
+          }}>
+            <Typography sx={{ fontSize: 18 }}>✅</Typography>
+            <Typography variant="caption" sx={{ color: 'var(--color-primary)', fontWeight: 600 }}>
+              {t('chat.resume.dataReady', 'All information collected — ready to generate')}
+            </Typography>
+          </Box>
+        )}
+
+        {lastActivity && (
+          <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
+            {t('chat.resume.lastActivity', 'Last activity: {{date}}', { date: lastActivity })}
+          </Typography>
+        )}
+      </DialogContent>
+
+      <DialogActions sx={{ px: 3, pb: 2.5, gap: 1, flexDirection: 'column', alignItems: 'stretch' }}>
+        <Button
+          variant="contained"
+          fullWidth
+          onClick={onResume}
+          disabled={loading}
+          sx={{
+            background: 'var(--color-primary)',
+            color: '#fff',
+            borderRadius: 2,
+            fontWeight: 700,
+            py: 1.2,
+            '&:hover': { background: 'var(--color-primary-dark, var(--color-primary))' },
+          }}
+        >
+          {loading
+            ? <CircularProgress size={20} sx={{ color: '#fff' }} />
+            : isDataReady
+              ? t('chat.resume.generateBtn', 'Generate Document')
+              : t('chat.resume.continueBtn', 'Continue Session')}
+        </Button>
+        <Button
+          variant="text"
+          fullWidth
+          onClick={onStartFresh}
+          disabled={loading}
+          sx={{ color: 'var(--color-text-secondary)', borderRadius: 2 }}
+        >
+          {t('chat.resume.startFreshBtn', 'Start Over')}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+/* ---------------------------------------------------------------------------
  * Main component
  * ------------------------------------------------------------------------ */
 function ChatFlow() {
@@ -107,6 +243,10 @@ function ChatFlow() {
   const [templateMeta, setTemplateMeta] = useState(null);
   const [showGenerating, setShowGenerating] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  // 'checking' while querying for existing sessions, 'resume-dialog' when one is found, 'ready' otherwise
+  const [initPhase, setInitPhase] = useState('checking');
+  const [resumeCandidate, setResumeCandidate] = useState(null);
+  const [resumeLoading, setResumeLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const navigatedRef = useRef(false);
@@ -124,14 +264,45 @@ function ChatFlow() {
     }).catch(() => {});
   }, [templateSlug]);
 
-  // Create a fresh session whenever this template is opened.
-  // We always start fresh — stale Redux state from a previous visit (e.g. a
-  // session with no messages due to Gemini quota failure) would otherwise
-  // prevent the new session from being created and leave the chat blank.
+  // On mount, check for a resumable session for this template before creating a new one.
   useEffect(() => {
     if (!templateSlug) return;
-    dispatch(clearChat());
-    dispatch(createSession({ templateSlug, language: reduxLang || 'en' }));
+    let cancelled = false;
+
+    async function initSession() {
+      try {
+        const { data } = await api.get(
+          `/chat/sessions?templateSlug=${encodeURIComponent(templateSlug)}&limit=10`
+        );
+        if (cancelled) return;
+
+        const sessions = data.sessions || [];
+        // A session is resumable when the user made real progress or data is already complete
+        const resumable = sessions.find((s) =>
+          (s.status === 'active' && s.progressPercent > 0) ||
+          s.status === 'data_complete' ||
+          s.status === 'generating'
+        );
+
+        if (resumable) {
+          setResumeCandidate(resumable);
+          setInitPhase('resume-dialog');
+        } else {
+          dispatch(clearChat());
+          dispatch(createSession({ templateSlug, language: reduxLang || 'en' }));
+          setInitPhase('ready');
+        }
+      } catch {
+        if (cancelled) return;
+        // On any error just start fresh
+        dispatch(clearChat());
+        dispatch(createSession({ templateSlug, language: reduxLang || 'en' }));
+        setInitPhase('ready');
+      }
+    }
+
+    initSession();
+    return () => { cancelled = true; };
   }, [templateSlug]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When data collection is complete → trigger generation → poll for completion
@@ -169,7 +340,12 @@ function ChatFlow() {
         try {
           const { data } = await api.get(`/documents/${documentId}`);
           const doc = data.document || data;
-          if (doc.status === 'completed') {
+          // Document model has no status field — completion is on session.status
+          // and content being populated by the Bull job
+          const isComplete =
+            doc.session?.status === 'completed' ||
+            (doc.content && doc.content.length > 0);
+          if (isComplete) {
             clearInterval(poll);
             navigate(`/citizen/documents/${documentId}`, { replace: true });
           }
@@ -202,6 +378,27 @@ function ChatFlow() {
     inputRef.current?.focus();
   };
 
+  const handleResume = useCallback(async () => {
+    setResumeLoading(true);
+    dispatch(clearChat());
+    await dispatch(loadSession(resumeCandidate._id));
+    setInitPhase('ready');
+    setResumeLoading(false);
+    // If status was data_complete/generating, dataComplete selector is now true →
+    // the generation useEffect fires automatically on next render
+  }, [resumeCandidate, dispatch]);
+
+  const handleStartFresh = useCallback(async () => {
+    setInitPhase('ready');
+    if (resumeCandidate) {
+      // Fire and forget — don't block the new session on this
+      dispatch(abandonSession(resumeCandidate._id));
+    }
+    navigatedRef.current = false;
+    dispatch(clearChat());
+    dispatch(createSession({ templateSlug, language: reduxLang || 'en' }));
+  }, [resumeCandidate, templateSlug, reduxLang, dispatch]);
+
   const handleLangChange = (code) => {
     dispatch(setLanguage(code));
     setLangOpen(false);
@@ -215,6 +412,19 @@ function ChatFlow() {
     displayMessages.push({ role: 'assistant', content: streamBuffer, _streaming: true });
   } else if (isStreaming) {
     displayMessages.push({ role: 'assistant', typing: true, content: '' });
+  }
+
+  // Show a spinner while checking for resumable sessions
+  if (initPhase === 'checking') {
+    return (
+      <Box sx={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: { xs: 'calc(100vh - 56px)', md: 'calc(100vh - 64px)' },
+        background: 'var(--color-bg)',
+      }}>
+        <CircularProgress size={36} sx={{ color: 'var(--color-primary)' }} />
+      </Box>
+    );
   }
 
   return (
@@ -426,6 +636,16 @@ function ChatFlow() {
           </motion.div>
         </Box>
       </Box>
+
+      {/* Resume session dialog */}
+      {initPhase === 'resume-dialog' && resumeCandidate && (
+        <ResumeDialog
+          session={resumeCandidate}
+          onResume={handleResume}
+          onStartFresh={handleStartFresh}
+          loading={resumeLoading}
+        />
+      )}
 
       {/* Generating overlay */}
       <AnimatePresence>

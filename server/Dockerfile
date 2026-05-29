@@ -65,3 +65,10 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["node", "src/server.js"]
+
+# ── Worker (production) ────────────────────────────────────────────────────────
+# Same image, different entry point. Override CMD at deploy time:
+#   docker run <image> node src/worker/worker.js
+# On Railway/Render: set Start Command = "node src/worker/worker.js"
+FROM production AS worker
+CMD ["node", "src/worker/worker.js"]

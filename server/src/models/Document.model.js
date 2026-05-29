@@ -119,8 +119,8 @@ const documentSchema = new Schema(
     },
     content: {
       type: String,
-      required: [true, 'Document content is required'],
-      // Raw legal document text (formal English)
+      default: '',
+      // Populated by the Bull job after generation; empty string is valid for stub documents
     },
     contentHtml: {
       type: String,
@@ -190,10 +190,8 @@ const documentSchema = new Schema(
     // ── Sharing ───────────────────────────────────────────────────────────────
     shareToken: {
       type: String,
-      unique: true,
-      sparse: true,
       default: null,
-      // Set when user chooses to share; UUID v4
+      // Set when user chooses to share; UUID v4. Uniqueness enforced by the sparse index below.
     },
     shareTokenExpiresAt: { type: Date, default: null },
     isShareable: { type: Boolean, default: false },
@@ -245,7 +243,7 @@ const documentSchema = new Schema(
 // ─── Indexes ───────────────────────────────────────────────────────────────────
 documentSchema.index({ user: 1, createdAt: -1 });
 documentSchema.index({ user: 1, isDeleted: 1 });
-documentSchema.index({ shareToken: 1 }, { sparse: true });
+documentSchema.index({ shareToken: 1 }, { unique: true, sparse: true });
 documentSchema.index({ templateSlug: 1 });
 documentSchema.index({ accessType: 1 });
 documentSchema.index({ linkedCase: 1 }, { sparse: true });

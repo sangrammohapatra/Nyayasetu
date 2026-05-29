@@ -364,6 +364,7 @@ const listSessions = asyncHandler(async (req, res) => {
 
   const filter = { user: userId };
   if (status) filter.status = status;
+  if (req.query.templateSlug) filter.templateSlug = req.query.templateSlug;
 
   const [sessions, total] = await Promise.all([
     ChatSession.find(filter)
