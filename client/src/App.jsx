@@ -75,7 +75,6 @@ const EarningsPanel = lazy(() => import("./pages/lawyer/EarningsPanel"));
 // Shared
 const Pricing = lazy(() => import("./pages/shared/Pricing"));
 const Settings = lazy(() => import("./pages/shared/Settings"));
-const NyayaBotPage = lazy(() => import("./pages/NyayaBotPage"));
 
 // Layout 
 const ThemeSwitcher = lazy(() => import("./components/layout/ThemeSwitcher"));
@@ -253,23 +252,6 @@ const router = createBrowserRouter([
       </Suspense>
     ),
   },
-  {
-    path: "/nyayabot",
-    element: (
-      <ProtectedRoute>
-        <NyayaBotPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/nyayabot/:sessionId",
-    element: (
-      <ProtectedRoute>
-        <NyayaBotPage />
-      </ProtectedRoute>
-    ),
-  },
-
   // Shared document link (no auth)
   {
     path: "/shared/:shareToken",

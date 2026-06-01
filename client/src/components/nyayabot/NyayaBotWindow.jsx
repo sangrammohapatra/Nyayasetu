@@ -168,7 +168,8 @@ export default function NyayaBotWindow({ sessionId, compact = false, onClose, on
   // Focus input when widget opens
   useEffect(() => {
     if (!compact) return;
-    setTimeout(() => inputRef.current?.focus(), 150);
+    const id = setTimeout(() => inputRef.current?.focus(), 150);
+    return () => clearTimeout(id);
   }, [compact]);
 
   // ── Voice input ─────────────────────────────────────────────────────────
@@ -295,6 +296,7 @@ export default function NyayaBotWindow({ sessionId, compact = false, onClose, on
           anchorEl={menuAnchor}
           open={Boolean(menuAnchor)}
           onClose={() => setMenuAnchor(null)}
+          sx={{ zIndex: 1500 }}
           PaperProps={{
             sx: { minWidth: 180, bgcolor: 'var(--color-surface)', color: 'var(--color-text)' }
           }}

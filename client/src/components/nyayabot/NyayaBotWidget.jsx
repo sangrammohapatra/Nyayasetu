@@ -68,7 +68,7 @@ export default function NyayaBotWidget() {
   const isOpen = useSelector((s) => s.nyayabot.isWidgetOpen);
   const widgetSessionId = useSelector((s) => s.nyayabot.widgetSessionId);
   const creating = useSelector((s) => s.nyayabot.creating);
-  const isAuthenticated = useSelector((s) => !!s.auth.accessToken);
+  const isAuthenticated = useSelector((s) => !!s.auth.token);
   const [showLabel, setShowLabel] = React.useState(false);
 
   // Show the FAB label after 3 seconds on first visit
