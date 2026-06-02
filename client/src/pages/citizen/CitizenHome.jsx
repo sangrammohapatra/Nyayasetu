@@ -513,14 +513,14 @@ function CitizenHome() {
       delay: 0.36,
     },
   ];
-
+console.log(t("home.there"))
   const firstName = user?.name?.split(" ")[0] || t("home.there", "there");
   const greeting =
     new Date().getHours() < 12
-      ? t("home.goodMorning", "Good morning")
+      ? t("home.good_morning", "Good Morning")
       : new Date().getHours() < 17
-        ? t("home.goodAfternoon", "Good afternoon")
-        : t("home.goodEvening", "Good evening");
+        ? t("home.good_afternoon", "Good Afternoon")
+        : t("home.good_evening", "Good Evening");
 
   return (
     <AnimatedPage>
@@ -579,7 +579,20 @@ function CitizenHome() {
               variant="body2"
               sx={{ color: "rgba(255,255,255,0.78)", mb: 0.5 }}
             >
-              {greeting}, {firstName} 👋
+              {greeting}, {firstName}
+              <lord-icon
+                src={"https://cdn.lordicon.com/zubhquzc.json"}
+                trigger="loop"
+                delay="500"
+                target=".ns-nav-item"
+                style={{
+                  width: 22,
+                  height: 22,
+                  flexShrink: 0,
+                  "--lord-icon-primary": "currentColor",
+                  "--lord-icon-secondary": "currentColor",
+                }}
+              />
             </Typography>
             <Typography
               variant={isMobile ? "h5" : "h4"}

@@ -27,34 +27,51 @@ import { RADIUS, SHADOWS } from '../../theme/tokens';
 const SIDEBAR_FULL = 240;
 const SIDEBAR_COLLAPSED = 64;
 
+// ─── Lordicon CDN icon URLs ───────────────────────────────────────────────────
+
+const IC = {
+  home:          'https://cdn.lordicon.com/wmwqvixz.json',
+  newDoc:        'https://cdn.lordicon.com/mubdgyyw.json',
+  myDocs:        'https://cdn.lordicon.com/jqqjtvlf.json',
+  caseTracker:   'https://cdn.lordicon.com/warimioc.json',
+  findLawyer:    'https://cdn.lordicon.com/kkvxgpti.json',
+  pricing:       'https://cdn.lordicon.com/qhviklyi.json',
+  clients:       'https://cdn.lordicon.com/oqjlkyvy.json',
+  cases:         'https://cdn.lordicon.com/gjjvytyq.json',
+  consultations: 'https://cdn.lordicon.com/slduhdil.json',
+  earnings:      'https://cdn.lordicon.com/rfbqeber.json',
+  dashboard:     'https://cdn.lordicon.com/dxoycpzg.json',
+  users:         'https://cdn.lordicon.com/oqjlkyvy.json',
+  templates:     'https://cdn.lordicon.com/wloilxuq.json',
+  lawyers:       'https://cdn.lordicon.com/mxxgldoo.json',
+};
+
 // ─── Nav definitions per persona ─────────────────────────────────────────────
 
 function useNavItems(persona, t) {
   return useMemo(() => {
     const citizen = [
-      { icon: '🏠', label: t('sidebar.home', 'Home'),          path: '/citizen/home' },
-      { icon: '📝', label: t('sidebar.newDoc', 'New Document'), path: '/citizen/documents/new' },
-      { icon: '📂', label: t('sidebar.myDocs', 'My Documents'), path: '/citizen/documents' },
-      { icon: '⚖️', label: t('sidebar.caseTracker', 'Case Tracker'), path: '/citizen/cases' },
-      { icon: '👨‍⚖️', label: t('sidebar.findLawyer', 'Find Lawyer'), path: '/citizen/lawyers' },
-      // { icon: '⚙️', label: t('sidebar.settings', 'Settings'),  path: '/citizen/settings' },
-      { icon: '💎', label: t('sidebar.pricing', 'Pricing'),     path: '/pricing' },
+      { icon: IC.home,        label: t('sidebar.home',        'Home'),          path: '/citizen/home' },
+      { icon: IC.newDoc,      label: t('sidebar.newDoc',      'New Document'),  path: '/citizen/documents/new' },
+      { icon: IC.myDocs,      label: t('sidebar.myDocs',      'My Documents'),  path: '/citizen/documents' },
+      { icon: IC.caseTracker, label: t('sidebar.caseTracker', 'Case Tracker'),  path: '/citizen/cases' },
+      { icon: IC.findLawyer,  label: t('sidebar.findLawyer',  'Find Lawyer'),   path: '/citizen/lawyers' },
+      { icon: IC.pricing,     label: t('sidebar.pricing',     'Pricing'),       path: '/pricing' },
     ];
 
     const lawyer = [
-      { icon: '🏠', label: t('sidebar.home', 'Home'),              path: '/lawyer/home' },
-      { icon: '👥', label: t('sidebar.clients', 'My Clients'),     path: '/lawyer/clients' },
-      { icon: '📋', label: t('sidebar.cases', 'Cases'),             path: '/lawyer/cases' },
-      { icon: '📅', label: t('sidebar.consultations', 'Consultations'), path: '/lawyer/consultations' },
-      { icon: '💰', label: t('sidebar.earnings', 'Earnings'),      path: '/lawyer/earnings' },
-      { icon: '⚙️', label: t('sidebar.settings', 'Settings'),      path: '/lawyer/settings' },
+      { icon: IC.home,          label: t('sidebar.home',          'Home'),          path: '/lawyer/home' },
+      { icon: IC.clients,       label: t('sidebar.clients',       'My Clients'),    path: '/lawyer/clients' },
+      { icon: IC.cases,         label: t('sidebar.cases',         'Cases'),         path: '/lawyer/cases' },
+      { icon: IC.consultations, label: t('sidebar.consultations', 'Consultations'), path: '/lawyer/consultations' },
+      { icon: IC.earnings,      label: t('sidebar.earnings',      'Earnings'),      path: '/lawyer/earnings' },
     ];
 
     const admin = [
-      { icon: '📊', label: t('sidebar.dashboard', 'Dashboard'),  path: '/admin/dashboard' },
-      { icon: '👥', label: t('sidebar.users', 'Users'),          path: '/admin/users' },
-      { icon: '📄', label: t('sidebar.templates', 'Templates'),  path: '/admin/templates' },
-      { icon: '⚖️', label: t('sidebar.lawyers', 'Lawyers'),     path: '/admin/lawyers' },
+      { icon: IC.dashboard, label: t('sidebar.dashboard', 'Dashboard'),  path: '/admin/dashboard' },
+      { icon: IC.users,     label: t('sidebar.users',     'Users'),      path: '/admin/users' },
+      { icon: IC.templates, label: t('sidebar.templates', 'Templates'),  path: '/admin/templates' },
+      { icon: IC.lawyers,   label: t('sidebar.lawyers',   'Lawyers'),    path: '/admin/lawyers' },
     ];
 
     return { citizen, lawyer, paralegal: lawyer, admin }[persona] || citizen;
@@ -69,6 +86,7 @@ function NavItem({ icon, label, path, collapsed, isActive }) {
   const item = (
     <motion.div whileHover={{ x: 3 }} transition={{ duration: 0.15 }}>
       <Box
+        className="ns-nav-item"
         onClick={() => navigate(path)}
         sx={{
           display: 'flex',
@@ -90,7 +108,6 @@ function NavItem({ icon, label, path, collapsed, isActive }) {
             background: isActive ? 'var(--color-primary-alpha)' : 'var(--color-overlay)',
             color: 'var(--color-primary)',
           },
-          // Left accent bar
           '&::before': isActive ? {
             content: '""',
             position: 'absolute',
@@ -104,7 +121,19 @@ function NavItem({ icon, label, path, collapsed, isActive }) {
           } : {},
         }}
       >
-        <Typography sx={{ fontSize: 19, flexShrink: 0, lineHeight: 1 }}>{icon}</Typography>
+        <lord-icon
+          src={icon}
+          trigger="loop-on-hover"
+          delay="500"
+          target=".ns-nav-item"
+          style={{
+            width: 22,
+            height: 22,
+            flexShrink: 0,
+            '--lord-icon-primary': 'currentColor',
+            '--lord-icon-secondary': 'currentColor',
+          }}
+        />
         {!collapsed && (
           <Typography variant="body2" sx={{ fontWeight: isActive ? 700 : 500, whiteSpace: 'nowrap' }}>
             {label}
