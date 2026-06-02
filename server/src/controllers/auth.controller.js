@@ -509,6 +509,9 @@ const register = asyncHandler(async (req, res) => {
         experience: 0,
         barCouncilNumber: `PENDING-${userId}`,
         barCouncilState: state || "Pending",
+        practicingStates: state ? [state] : [],
+        isVerified: process.env.NODE_ENV === "development",
+        verificationStatus: process.env.NODE_ENV === "development" ? "approved" : "pending",
       });
     }
   }

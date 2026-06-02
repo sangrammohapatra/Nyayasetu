@@ -57,9 +57,15 @@ const searchLawyers = asyncHandler(async (req, res) => {
   const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 10));
   const skip = (pageNum - 1) * limitNum;
 
-  const filter = { isVerified: true };
+  const isDev = process.env.NODE_ENV === 'development';
+  const filter = isDev ? {} : { isVerified: true };
 
-  if (state) filter.practicingStates = { $in: [state] };
+  if (state) {
+    filter.$or = isDev
+      // Dev: match state OR profiles with no states set yet (incomplete setup)
+      ? [{ practicingStates: { $in: [state] } }, { practicingStates: { $size: 0 } }]
+      : [{ practicingStates: { $in: [state] } }];
+  }
   if (specialisation) filter.specialisations = { $in: [specialisation] };
   if (district) filter.district = district;
   if (minRating) {
@@ -232,7 +238,8 @@ const applyAsLawyer = asyncHandler(async (req, res) => {
           bio: bio || '',
           consultationFee: parseInt(consultationFee, 10),
           district: district || '',
-          isVerified: false,
+          isVerified: process.env.NODE_ENV === 'development',
+          verificationStatus: process.env.NODE_ENV === 'development' ? 'approved' : 'pending',
           ...(certificateUrl ? { barCouncilCertificateUrl: certificateUrl } : {}),
         },
       },

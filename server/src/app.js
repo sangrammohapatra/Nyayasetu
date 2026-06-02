@@ -153,7 +153,7 @@ app.use('/v1/templates', templateRoutes);
 app.use('/v1/chat', chatRoutes);
 app.use('/v1/documents', documentRoutes);
 app.use('/v1/cases', caseRoutes);
-app.use('/v1/lawyers', lawyerRoutes);
+app.use('/v1', lawyerRoutes);
 app.use('/v1/payments', paymentRoutes);
 app.use('/v1/subscriptions', subscriptionRoutes);
 app.use('/v1/whatsapp', whatsappRoutes);

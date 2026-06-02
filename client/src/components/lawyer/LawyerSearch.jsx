@@ -39,6 +39,7 @@ const INDIAN_STATES = [
   "Kerala",
   "Madhya Pradesh",
   "Maharashtra",
+  "Odisha",
   "Punjab",
   "Rajasthan",
   "Tamil Nadu",
