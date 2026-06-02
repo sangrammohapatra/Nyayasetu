@@ -85,12 +85,13 @@ const optionalAuth = (req, res, next) => {
  * @param {...string} personas — one or more persona strings
  */
 function requirePersona(...personas) {
+  const allowed = personas.map((p) => p.toLowerCase());
   return (req, res, next) => {
     if (!req.user) {
       return next(createError(401, 'UNAUTHORIZED', 'Authentication required'));
     }
 
-    if (!personas.includes(req.user.persona)) {
+    if (!allowed.includes(req.user.persona)) {
       return next(
         createError(
           403,

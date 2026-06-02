@@ -288,20 +288,24 @@ const updateLawyerProfile = asyncHandler(async (req, res) => {
   const userId = req.user.userId;
 
   const ALLOWED = [
-    'specialisations', 'practicingStates', 'experience', 'bio',
-    'consultationFee', 'district', 'isAvailableForConsultation', 'preferredModes',
+    'barCouncilNumber', 'barCouncilState', 'enrollmentYear',
+    'specialisations', 'practicingStates', 'practicingCourts',
+    'experience', 'languages', 'bio',
+    'consultationFee', 'consultationModes', 'isAcceptingClients',
+    'isPublic', 'district',
   ];
+
+  const ARRAY_FIELDS = ['specialisations', 'practicingStates', 'practicingCourts', 'languages', 'consultationModes'];
 
   const updates = {};
   for (const field of ALLOWED) {
     if (req.body[field] !== undefined) updates[field] = req.body[field];
   }
 
-  if (updates.specialisations && !Array.isArray(updates.specialisations)) {
-    updates.specialisations = String(updates.specialisations).split(',').map(s => s.trim()).filter(Boolean);
-  }
-  if (updates.practicingStates && !Array.isArray(updates.practicingStates)) {
-    updates.practicingStates = String(updates.practicingStates).split(',').map(s => s.trim()).filter(Boolean);
+  for (const field of ARRAY_FIELDS) {
+    if (updates[field] !== undefined && !Array.isArray(updates[field])) {
+      updates[field] = String(updates[field]).split(',').map(s => s.trim()).filter(Boolean);
+    }
   }
 
   if (Object.keys(updates).length === 0) {

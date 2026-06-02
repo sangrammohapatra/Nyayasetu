@@ -588,7 +588,8 @@
     "active_sessions": "Active Sessions",
     "sessions_desc": "NyayaSetu keeps you logged in on up to 5 devices.",
     "logout_all": "Logout from All Devices",
-    "confirm_logout_all": "Log out from all devices?"
+    "confirm_logout_all": "Log out from all devices?",
+    "lawyerProfile":"Lawyer Profile"
   },
   "home": {
     "hero": "आपका कानूनी अधिकार, हमारी ज़िम्मेदारी",

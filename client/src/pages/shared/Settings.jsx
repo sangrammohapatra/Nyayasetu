@@ -43,11 +43,13 @@ import {
   selectUser,
   selectUserPersona,
   selectUserPlan,
+  selectLawyerProfile,
   updateMe,
   setPassword,
   deactivateAccount,
   logout,
 } from "../../store/slices/authSlice";
+import { updateLawyerProfile } from "../../store/slices/lawyerSlice";
 import {
   selectFreeUsage,
   getCurrentSubscription,
@@ -160,6 +162,44 @@ const LANGUAGES = [
   { code: "ml", label: "Malayalam", native: "മലയാളം" },
   { code: "pa", label: "Punjabi", native: "ਪੰਜਾਬੀ" },
   { code: "ur", label: "Urdu", native: "اردو" },
+];
+
+const SPECIALISATIONS = [
+  { id: "criminal",             label: "Criminal Law" },
+  { id: "civil",                label: "Civil Litigation" },
+  { id: "family",               label: "Family Law" },
+  { id: "property",             label: "Property Law" },
+  { id: "consumer",             label: "Consumer Protection" },
+  { id: "labour",               label: "Labour Law" },
+  { id: "corporate",            label: "Corporate Law" },
+  { id: "intellectual_property",label: "Intellectual Property" },
+  { id: "tax",                  label: "Taxation" },
+  { id: "constitutional",       label: "Constitutional Law" },
+  { id: "environmental",        label: "Environmental Law" },
+  { id: "cyber",                label: "Cyber Law" },
+  { id: "immigration",          label: "Immigration" },
+  { id: "rti",                  label: "RTI" },
+  { id: "startup",              label: "Startup & Corporate" },
+  { id: "other",                label: "Other" },
+];
+
+const PRACTICING_COURTS = [
+  { id: "supreme_court",   label: "Supreme Court" },
+  { id: "high_court",      label: "High Court" },
+  { id: "district_court",  label: "District Court" },
+  { id: "consumer_forum",  label: "Consumer Forum" },
+  { id: "labour_court",    label: "Labour Court" },
+  { id: "family_court",    label: "Family Court" },
+  { id: "magistrate_court",label: "Magistrate Court" },
+  { id: "tribunal",        label: "Tribunal" },
+  { id: "other",           label: "Other" },
+];
+
+const CONSULTATION_MODES = [
+  { id: "chat",      label: "💬 Chat",      desc: "Text-based consultation" },
+  { id: "phone",     label: "📞 Phone",     desc: "Voice call" },
+  { id: "video",     label: "📹 Video",     desc: "Video conference" },
+  { id: "in_person", label: "🏛️ In-Person", desc: "Meet at office/court" },
 ];
 
 const SAMPLE_TEXTS = {
@@ -1235,6 +1275,260 @@ function SubscriptionSection() {
   );
 }
 
+// ─── Section: Lawyer Profile ─────────────────────────────────────────────────
+
+function LawyerProfileSection({ lawyerProfile, showSnack }) {
+  const dispatch = useDispatch();
+
+  const [form, setForm] = useState({
+    barCouncilNumber: "",
+    barCouncilState: "",
+    experience: 0,
+    bio: "",
+    specialisations: [],
+    practicingStates: [],
+    practicingCourts: [],
+    languages: [],
+    consultationFee: 500,
+    consultationModes: [],
+    isAcceptingClients: true,
+    isPublic: true,
+  });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!lawyerProfile) return;
+    setForm({
+      barCouncilNumber: lawyerProfile.barCouncilNumber || "",
+      barCouncilState:  lawyerProfile.barCouncilState  || "",
+      experience:       lawyerProfile.experience        ?? 0,
+      bio:              lawyerProfile.bio               || "",
+      specialisations:  lawyerProfile.specialisations   || [],
+      practicingStates: lawyerProfile.practicingStates  || [],
+      practicingCourts: lawyerProfile.practicingCourts  || [],
+      languages:        lawyerProfile.languages         || [],
+      consultationFee:  lawyerProfile.consultationFee   ? Math.round(lawyerProfile.consultationFee / 100) : 500,
+      consultationModes:lawyerProfile.consultationModes || [],
+      isAcceptingClients: lawyerProfile.isAcceptingClients ?? true,
+      isPublic:          lawyerProfile.isPublic          ?? true,
+    });
+  }, [lawyerProfile]);
+
+  const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
+
+  const toggleChip = (key, val) =>
+    setForm((f) => ({
+      ...f,
+      [key]: f[key].includes(val) ? f[key].filter((x) => x !== val) : [...f[key], val],
+    }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    const result = await dispatch(updateLawyerProfile({
+      ...form,
+      consultationFee: form.consultationFee * 100,
+    }));
+    setSaving(false);
+    updateLawyerProfile.fulfilled.match(result)
+      ? showSnack("Lawyer profile saved!")
+      : showSnack(result.payload || "Failed to save profile.", "error");
+  };
+
+  const boxSx = {
+    p: 2.5, border: "1px solid var(--color-border)",
+    borderRadius: `${RADIUS.lg}px`, background: "var(--color-surface)",
+  };
+  const chipSx = (active) => ({
+    cursor: "pointer", fontWeight: active ? 700 : 500, m: 0.4,
+    background: active ? "var(--color-primary)" : "var(--color-surface)",
+    color:      active ? "#fff" : "var(--color-text-secondary)",
+    border:     active ? "none" : "1px solid var(--color-border)",
+    "&:hover":  { background: active ? "var(--color-primary)" : "var(--color-overlay)" },
+  });
+
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: "var(--color-text)" }}>
+        ⚖️ Lawyer Profile
+      </Typography>
+
+      {/* Practice details */}
+      <Box sx={boxSx}>
+        <Typography variant="body2" sx={{ fontWeight: 600, color: "var(--color-text)", mb: 2 }}>
+          📋 Practice Details
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6}>
+            <TextField fullWidth size="small" label="Bar Council Enrollment Number"
+              value={form.barCouncilNumber}
+              onChange={(e) => set("barCouncilNumber", e.target.value)}
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: `${RADIUS.md}px` } }} />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Bar Council State</InputLabel>
+              <Select value={form.barCouncilState} label="Bar Council State"
+                onChange={(e) => set("barCouncilState", e.target.value)}
+                sx={{ borderRadius: `${RADIUS.md}px` }}>
+                {INDIAN_STATES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <TextField fullWidth size="small" label="Years of Experience" type="number"
+              value={form.experience}
+              onChange={(e) => set("experience", Math.max(0, parseInt(e.target.value) || 0))}
+              inputProps={{ min: 0, max: 60 }}
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: `${RADIUS.md}px` } }} />
+          </Grid>
+          <Grid item xs={12}>
+            <TextField fullWidth multiline rows={4} size="small" label="Professional Bio"
+              value={form.bio}
+              onChange={(e) => set("bio", e.target.value)}
+              inputProps={{ maxLength: 2000 }}
+              helperText={`${form.bio.length}/2000`}
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: `${RADIUS.md}px` } }} />
+          </Grid>
+        </Grid>
+      </Box>
+
+      {/* Specialisations */}
+      <Box sx={boxSx}>
+        <Typography variant="body2" sx={{ fontWeight: 600, color: "var(--color-text)", mb: 1.5 }}>
+          🎓 Areas of Practice
+        </Typography>
+        <Box sx={{ display: "flex", flexWrap: "wrap", mb: -0.5 }}>
+          {SPECIALISATIONS.map((s) => {
+            const active = form.specialisations.includes(s.id);
+            return (
+              <Chip key={s.id} label={s.label} size="small" clickable
+                onClick={() => toggleChip("specialisations", s.id)} sx={chipSx(active)} />
+            );
+          })}
+        </Box>
+      </Box>
+
+      {/* Practicing states */}
+      <Box sx={boxSx}>
+        <Typography variant="body2" sx={{ fontWeight: 600, color: "var(--color-text)", mb: 1.5 }}>
+          📍 States of Practice
+        </Typography>
+        <Box sx={{ display: "flex", flexWrap: "wrap", mb: -0.5 }}>
+          {INDIAN_STATES.map((s) => {
+            const active = form.practicingStates.includes(s);
+            return (
+              <Chip key={s} label={s} size="small" clickable
+                onClick={() => toggleChip("practicingStates", s)} sx={chipSx(active)} />
+            );
+          })}
+        </Box>
+      </Box>
+
+      {/* Practicing courts */}
+      <Box sx={boxSx}>
+        <Typography variant="body2" sx={{ fontWeight: 600, color: "var(--color-text)", mb: 1.5 }}>
+          🏛️ Courts of Practice
+        </Typography>
+        <Box sx={{ display: "flex", flexWrap: "wrap", mb: -0.5 }}>
+          {PRACTICING_COURTS.map((c) => {
+            const active = form.practicingCourts.includes(c.id);
+            return (
+              <Chip key={c.id} label={c.label} size="small" clickable
+                onClick={() => toggleChip("practicingCourts", c.id)} sx={chipSx(active)} />
+            );
+          })}
+        </Box>
+      </Box>
+
+      {/* Languages */}
+      <Box sx={boxSx}>
+        <Typography variant="body2" sx={{ fontWeight: 600, color: "var(--color-text)", mb: 1.5 }}>
+          🌐 Languages
+        </Typography>
+        <Box sx={{ display: "flex", flexWrap: "wrap", mb: -0.5 }}>
+          {LANGUAGES.map((l) => {
+            const active = form.languages.includes(l.code);
+            return (
+              <Chip key={l.code} label={l.native} size="small" clickable
+                onClick={() => toggleChip("languages", l.code)} sx={chipSx(active)} />
+            );
+          })}
+        </Box>
+      </Box>
+
+      {/* Consultation settings */}
+      <Box sx={boxSx}>
+        <Typography variant="body2" sx={{ fontWeight: 600, color: "var(--color-text)", mb: 2 }}>
+          💼 Consultation Settings
+        </Typography>
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={12} sm={5}>
+            <TextField fullWidth size="small" label="Consultation Fee (₹)" type="number"
+              value={form.consultationFee}
+              onChange={(e) => set("consultationFee", Math.max(0, parseInt(e.target.value) || 0))}
+              inputProps={{ min: 0 }}
+              InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+              helperText="Per consultation (0 = Free)"
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: `${RADIUS.md}px` } }} />
+          </Grid>
+        </Grid>
+
+        <Typography variant="caption" sx={{ fontWeight: 600, color: "var(--color-text)", mb: 1, display: "block" }}>
+          Consultation Modes
+        </Typography>
+        <Box sx={{ display: "flex", flexWrap: "wrap", mb: 2, mx: -0.5 }}>
+          {CONSULTATION_MODES.map((m) => {
+            const active = form.consultationModes.includes(m.id);
+            return (
+              <Chip key={m.id} label={m.label} clickable
+                onClick={() => toggleChip("consultationModes", m.id)}
+                sx={{ ...chipSx(active), height: 32, fontSize: "0.8rem" }} />
+            );
+          })}
+        </Box>
+
+        <FormControlLabel
+          sx={{ mb: 1.5, display: "flex", width: "100%", justifyContent: "space-between", ml: 0 }}
+          labelPlacement="start"
+          control={
+            <Switch checked={form.isAcceptingClients} onChange={(e) => set("isAcceptingClients", e.target.checked)}
+              sx={{ "& .MuiSwitch-thumb": { background: "var(--color-primary)" } }} />
+          }
+          label={
+            <Box>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>Accepting New Clients</Typography>
+              <Typography variant="caption" sx={{ color: "var(--color-text-secondary)" }}>
+                Toggle off to pause incoming consultation requests
+              </Typography>
+            </Box>
+          }
+        />
+        <FormControlLabel
+          sx={{ display: "flex", width: "100%", justifyContent: "space-between", ml: 0 }}
+          labelPlacement="start"
+          control={
+            <Switch checked={form.isPublic} onChange={(e) => set("isPublic", e.target.checked)}
+              sx={{ "& .MuiSwitch-thumb": { background: "var(--color-primary)" } }} />
+          }
+          label={
+            <Box>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>Public Profile</Typography>
+              <Typography variant="caption" sx={{ color: "var(--color-text-secondary)" }}>
+                Visible in lawyer search results
+              </Typography>
+            </Box>
+          }
+        />
+      </Box>
+
+      <Button variant="contained" onClick={handleSave} disabled={saving}
+        sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 700, background: "var(--color-primary)", width: "fit-content" }}>
+        {saving ? <CircularProgress size={20} sx={{ color: "#fff" }} /> : "Save Lawyer Profile"}
+      </Button>
+    </Box>
+  );
+}
+
 // ─── Section: Security ────────────────────────────────────────────────────────
 
 function SecuritySection({ showSnack }) {
@@ -1543,6 +1837,19 @@ function SecuritySection({ showSnack }) {
   );
 }
 
+// ─── Section icon — renders LordIcon URL or emoji string ─────────────────────
+
+function SectionIcon({ icon, size = 22 }) {
+  if (typeof icon === "string" && icon.startsWith("https://")) {
+    return (
+      <lord-icon src={icon} trigger="loop-on-hover" delay="500"
+        style={{ width: size, height: size, flexShrink: 0,
+          "--lord-icon-primary": "currentColor", "--lord-icon-secondary": "currentColor" }} />
+    );
+  }
+  return <Typography sx={{ fontSize: size, lineHeight: 1, flexShrink: 0 }}>{icon}</Typography>;
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 function Settings() {
@@ -1550,8 +1857,11 @@ function Settings() {
   const muiTheme = useMuiTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down("md"));
 
-  const user = useSelector(selectUser);
-  const persona = useSelector(selectUserPersona);
+  const user          = useSelector(selectUser);
+  const persona       = useSelector(selectUserPersona);
+  const lawyerProfile = useSelector(selectLawyerProfile);
+  const isLawyer      = persona === "lawyer" || persona === "paralegal";
+
   const [activeTab, setActiveTab] = useState("account");
   const [snack, setSnack] = useState({
     open: false,
@@ -1562,13 +1872,24 @@ function Settings() {
   const showSnack = (msg, severity = "success") =>
     setSnack({ open: true, msg, severity });
 
+  const sections = [
+    { id: "account",         icon: IC.account,  label: "Account" },
+    ...(isLawyer ? [{ id: "lawyerProfile", icon: "⚖️", label: "Lawyer Profile" }] : []),
+    { id: "appearance",      icon: "🎨",         label: "Appearance" },
+    { id: "language",        icon: "🌐",         label: "Language" },
+    { id: "notificationSec", icon: "🔔",         label: "Notifications" },
+    { id: "subscription",    icon: "💎",         label: "Subscription" },
+    { id: "security",        icon: IC.security,  label: "Security" },
+  ];
+
   const sectionContent = {
-    account: <AccountSection user={user} showSnack={showSnack} />,
-    appearance: <AppearanceSection />,
-    language: <LanguageSection />,
+    account:       <AccountSection user={user} showSnack={showSnack} />,
+    lawyerProfile: <LawyerProfileSection lawyerProfile={lawyerProfile} showSnack={showSnack} />,
+    appearance:    <AppearanceSection />,
+    language:      <LanguageSection />,
     notificationSec: <NotificationsSection user={user} showSnack={showSnack} />,
-    subscription: <SubscriptionSection />,
-    security: <SecuritySection showSnack={showSnack} />,
+    subscription:  <SubscriptionSection />,
+    security:      <SecuritySection showSnack={showSnack} />,
   };
 
   return (
@@ -1611,7 +1932,7 @@ function Settings() {
 
         {isMobile ? (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-            {SECTIONS.map((sec) => (
+            {sections.map((sec) => (
               <MuiAccordion
                 key={sec.id}
                 elevation={0}
@@ -1627,23 +1948,8 @@ function Settings() {
                   expandIcon={<Typography sx={{ fontSize: 14 }}>▾</Typography>}
                 >
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                    <lord-icon
-                      src={sec.icon}
-                      trigger="loop-on-hover"
-                      delay="500"
-                      target=".ns-nav-item"
-                      style={{
-                        width: 22,
-                        height: 22,
-                        flexShrink: 0,
-                        "--lord-icon-primary": "currentColor",
-                        "--lord-icon-secondary": "currentColor",
-                      }}
-                    />
-                    <Typography
-                      variant="body2"
-                      sx={{ fontWeight: 600, color: "var(--color-text)" }}
-                    >
+                    <SectionIcon icon={sec.icon} />
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: "var(--color-text)" }}>
                       {t(`settings.${sec.id}`, sec.label)}
                     </Typography>
                   </Box>
@@ -1668,7 +1974,7 @@ function Settings() {
                   overflow: "hidden",
                 }}
               >
-                {SECTIONS.map((sec) => {
+                {sections.map((sec) => {
                   const isActive = activeTab === sec.id;
                   return (
                     <Box
@@ -1700,23 +2006,8 @@ function Settings() {
                         },
                       }}
                     >
-                      <lord-icon
-                        src={sec.icon}
-                        trigger="loop-on-hover"
-                        delay="500"
-                        target=".ns-nav-item"
-                        style={{
-                          width: 22,
-                          height: 22,
-                          flexShrink: 0,
-                          "--lord-icon-primary": "currentColor",
-                          "--lord-icon-secondary": "currentColor",
-                        }}
-                      />
-                      <Typography
-                        variant="body2"
-                        sx={{ fontWeight: isActive ? 700 : 500 }}
-                      >
+                      <SectionIcon icon={sec.icon} />
+                      <Typography variant="body2" sx={{ fontWeight: isActive ? 700 : 500 }}>
                         {t(`settings.${sec.id}`, sec.label)}
                       </Typography>
                     </Box>

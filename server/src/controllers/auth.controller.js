@@ -551,9 +551,7 @@ const getMe = asyncHandler(async (req, res) => {
     user.persona === PERSONA_MAP.PARALEGAL
   ) {
     lawyerProfile = await LawyerProfile.findOne({ user: user._id })
-      .select(
-        "isVerified verificationStatus lawyerPlan averageRating totalConsultations barCouncilNumber specialisations",
-      )
+      .select("-ratings -verificationDocs -__v")
       .lean();
   }
 

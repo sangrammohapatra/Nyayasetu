@@ -143,6 +143,7 @@ export const deactivateAccount = createAsyncThunk(
 
 const initialState = {
   user: null,
+  lawyerProfile: null,
   token: localStorage.getItem('nyayasetu_token') || null,
   refreshToken: localStorage.getItem('nyayasetu_refresh_token') || null,
   loading: false,
@@ -258,6 +259,7 @@ const authSlice = createSlice({
       .addCase(getMe.fulfilled, (state, action) => {
         state.loading = false;
         state.user = action.payload.user || action.payload;
+        state.lawyerProfile = action.payload.lawyerProfile ?? state.lawyerProfile;
       })
       .addCase(getMe.rejected, (state, action) => {
         state.loading = false;
@@ -309,6 +311,7 @@ export const { clearError, setUser, setToken, forceLogout, resetOtpState } = aut
 // ─── Selectors ───────────────────────────────────────────────────────────────
 
 export const selectUser = (state) => state.auth.user;
+export const selectLawyerProfile = (state) => state.auth.lawyerProfile;
 export const selectIsAuthenticated = (state) => !!state.auth.token && !!state.auth.user;
 export const selectUserPlan = (state) =>
   state.auth.user?.subscription?.plan || 'free';
