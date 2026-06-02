@@ -27,33 +27,22 @@ import api from '../../services/api';
 
 // ─── Category config ──────────────────────────────────────────────────────────
 
-const CATEGORIES = [
-  { slug: 'all',        label: t('newDoc.category_all', 'All'),        icon: '📋' },
-  { slug: 'consumer',   label: t('newDoc.category_consumer', 'Consumer'),   icon: '🛒' },
-  { slug: 'property',   label: t('newDoc.category_property', 'Property'),   icon: '🏠' },
-  { slug: 'employment', label: t('newDoc.category_employment', 'Employment'), icon: '💼' },
-  { slug: 'family',     label: t('newDoc.category_family', 'Family'),     icon: '👨‍👩‍👧' },
-  { slug: 'criminal',   label: t('newDoc.category_criminal', 'Criminal'),   icon: '⚖️' },
-  { slug: 'rti',        label: t('newDoc.category_rti', 'RTI'),        icon: '📑' },
-  { slug: 'civil',      label: t('newDoc.category_civil', 'Civil'),      icon: '🏛️' },
-  { slug: 'financial',  label: t('newDoc.category_financial', 'Financial'),  icon: '💰' },
-  { slug: 'labour',     label: t('newDoc.category_labour', 'Labour'),     icon: '👷' },
-  { slug: 'startup',    label: t('newDoc.category_startup', 'Startup'),    icon: '🚀' },
+// Slugs and icons are static; labels are translated inside components via useTranslation.
+const CATEGORY_DEFS = [
+  { slug: 'all',        tKey: 'newDoc.category_all',        fallback: 'All',        icon: '📋' },
+  { slug: 'consumer',   tKey: 'newDoc.category_consumer',   fallback: 'Consumer',   icon: '🛒' },
+  { slug: 'property',   tKey: 'newDoc.category_property',   fallback: 'Property',   icon: '🏠' },
+  { slug: 'employment', tKey: 'newDoc.category_employment', fallback: 'Employment', icon: '💼' },
+  { slug: 'family',     tKey: 'newDoc.category_family',     fallback: 'Family',     icon: '👨‍👩‍👧' },
+  { slug: 'criminal',   tKey: 'newDoc.category_criminal',   fallback: 'Criminal',   icon: '⚖️' },
+  { slug: 'rti',        tKey: 'newDoc.category_rti',        fallback: 'RTI',        icon: '📑' },
+  { slug: 'civil',      tKey: 'newDoc.category_civil',      fallback: 'Civil',      icon: '🏛️' },
+  { slug: 'financial',  tKey: 'newDoc.category_financial',  fallback: 'Financial',  icon: '💰' },
+  { slug: 'labour',     tKey: 'newDoc.category_labour',     fallback: 'Labour',     icon: '👷' },
+  { slug: 'startup',    tKey: 'newDoc.category_startup',    fallback: 'Startup',    icon: '🚀' },
 ];
 
-const CATEGORY_ICONS = Object.fromEntries(CATEGORIES.map((c) => [c.slug, c.icon]));
-
-const COMPLEXITY_STYLES = {
-  simple:   { label: t('newDoc.complexity_simple', 'Simple'),   color: 'var(--color-success)', bg: 'rgba(46,125,50,0.1)' },
-  moderate: { label: t('newDoc.complexity_moderate', 'Moderate'), color: 'var(--color-warning)', bg: 'rgba(230,81,0,0.1)' },
-  complex:  { label: t('newDoc.complexity_complex', 'Complex'),  color: 'var(--color-error)',   bg: 'rgba(198,40,40,0.1)' },
-};
-
-const PLAN_STYLES = {
-  free:  { label: t('newDoc.plan_free', '🆓 FREE'), bg: 'rgba(46,125,50,0.12)', color: 'var(--color-success)' },
-  basic: { label: t('newDoc.plan_basic', '⭐ BASIC'), bg: 'var(--color-primary-alpha)', color: 'var(--color-primary)' },
-  pro:   { label: t('newDoc.plan_pro', '🚀 PRO'),   bg: 'rgba(230,81,0,0.12)',       color: 'var(--color-warning)' },
-};
+const CATEGORY_ICONS = Object.fromEntries(CATEGORY_DEFS.map((c) => [c.slug, c.icon]));
 
 function getPlanRequired(template) {
   if (template.pricePayPerDoc === 0) return 'free';
@@ -91,6 +80,18 @@ function TemplateCard({ template, onSelect, delay = 0 }) {
   const isAlwaysFree = template.pricePayPerDoc === 0;
   const canAccess = isAlwaysFree || hasFeature(persona, plan, 'pdf_download') ||
     plan === requiredPlan || plan === 'pro';
+
+  const COMPLEXITY_STYLES = {
+    simple:   { label: t('newDoc.complexity_simple',   'Simple'),   color: 'var(--color-success)', bg: 'rgba(46,125,50,0.1)'  },
+    moderate: { label: t('newDoc.complexity_moderate', 'Moderate'), color: 'var(--color-warning)', bg: 'rgba(230,81,0,0.1)'   },
+    complex:  { label: t('newDoc.complexity_complex',  'Complex'),  color: 'var(--color-error)',   bg: 'rgba(198,40,40,0.1)'  },
+  };
+
+  const PLAN_STYLES = {
+    free:  { label: t('newDoc.plan_free',  '🆓 FREE'),   bg: 'rgba(46,125,50,0.12)',  color: 'var(--color-success)' },
+    basic: { label: t('newDoc.plan_basic', '⭐ BASIC'),  bg: 'var(--color-primary-alpha)', color: 'var(--color-primary)' },
+    pro:   { label: t('newDoc.plan_pro',   '🚀 PRO'),    bg: 'rgba(230,81,0,0.12)',   color: 'var(--color-warning)' },
+  };
 
   const complexity = COMPLEXITY_STYLES[template.complexity] || COMPLEXITY_STYLES.simple;
   const planStyle = PLAN_STYLES[requiredPlan] || PLAN_STYLES.free;
@@ -198,6 +199,11 @@ function NewDocument() {
   const navigate = useNavigate();
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
+
+  const CATEGORIES = useMemo(
+    () => CATEGORY_DEFS.map((c) => ({ ...c, label: t(c.tKey, c.fallback) })),
+    [t],
+  );
 
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);

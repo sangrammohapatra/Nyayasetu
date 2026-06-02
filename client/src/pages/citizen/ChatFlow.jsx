@@ -73,10 +73,10 @@ function GeneratingOverlay() {
       <Typography variant="h5" sx={{
         fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-primary)',
       }}>
-        {t('chat.generating', 'Generating your document…')}
+        {t('myDocs.generating', 'Generating your document…')}
       </Typography>
       <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', textAlign: 'center', maxWidth: 280 }}>
-        {t('chat.generatingDesc', 'Our AI is crafting a professional legal document tailored to your situation.')}
+        {t('myDocs.generating_desc', 'Our AI is crafting a professional legal document tailored to your situation.')}
       </Typography>
       <Box sx={{ width: 240 }}>
         <LinearProgress sx={{
@@ -126,17 +126,17 @@ function ResumeDialog({ session, onResume, onStartFresh, loading }) {
       }}>
         <span style={{ fontSize: 28 }}>⚖️</span>
         {isDataReady
-          ? t('chat.resume.titleReady', 'Resume Document Generation')
-          : t('chat.resume.titleActive', 'Continue Where You Left Off')}
+          ? t('myDocs.resume_title_ready', 'Resume Document Generation')
+          : t('myDocs.resume_title_active', 'Continue Where You Left Off')}
       </DialogTitle>
 
       <DialogContent sx={{ pt: 1.5 }}>
         <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 2 }}>
           {isDataReady
-            ? t('chat.resume.descReady',
+            ? t('myDocs.resume_desc_ready',
                 'You\'ve already answered all questions for {{name}}. Resume to generate your document without re-answering.',
                 { name: templateName })
-            : t('chat.resume.descActive',
+            : t('myDocs.resume_desc_active',
                 'You\'re {{progress}}% through collecting information for {{name}}.',
                 { progress, name: templateName })}
         </Typography>
@@ -156,7 +156,7 @@ function ResumeDialog({ session, onResume, onStartFresh, loading }) {
               }}
             />
             <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', mt: 0.5, display: 'block' }}>
-              {progress}% {t('chat.resume.complete', 'complete')}
+              {progress}% {t('myDocs.resume_complete', 'complete')}
             </Typography>
           </Box>
         )}
@@ -172,14 +172,14 @@ function ResumeDialog({ session, onResume, onStartFresh, loading }) {
           }}>
             <Typography sx={{ fontSize: 18 }}>✅</Typography>
             <Typography variant="caption" sx={{ color: 'var(--color-primary)', fontWeight: 600 }}>
-              {t('chat.resume.dataReady', 'All information collected — ready to generate')}
+              {t('myDocs.resume_data_ready', 'All information collected — ready to generate')}
             </Typography>
           </Box>
         )}
 
         {lastActivity && (
           <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
-            {t('chat.resume.lastActivity', 'Last activity: {{date}}', { date: lastActivity })}
+            {t('myDocs.resume_last_activity', 'Last activity: {{date}}', { date: lastActivity })}
           </Typography>
         )}
       </DialogContent>
@@ -202,8 +202,8 @@ function ResumeDialog({ session, onResume, onStartFresh, loading }) {
           {loading
             ? <CircularProgress size={20} sx={{ color: '#fff' }} />
             : isDataReady
-              ? t('chat.resume.generateBtn', 'Generate Document')
-              : t('chat.resume.continueBtn', 'Continue Session')}
+              ? t('myDocs.resume_generate_btn', 'Generate Document')
+              : t('myDocs.resume_continue_btn', 'Continue Session')}
         </Button>
         <Button
           variant="text"
@@ -212,7 +212,7 @@ function ResumeDialog({ session, onResume, onStartFresh, loading }) {
           disabled={loading}
           sx={{ color: 'var(--color-text-secondary)', borderRadius: 2 }}
         >
-          {t('chat.resume.startFreshBtn', 'Start Over')}
+          {t('myDocs.resume_start_fresh_btn', 'Start Over')}
         </Button>
       </DialogActions>
     </Dialog>
@@ -453,7 +453,7 @@ function ChatFlow() {
               {templateMeta?.name || templateSlug}
             </Typography>
             <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
-              {t('chat.aiAssistant', 'NyayaSetu AI · Collecting information')}
+              {t('myDocs.chat_ai_assistant', 'NyayaSetu AI · Collecting information')}
             </Typography>
           </Box>
           {progress > 0 && (
@@ -500,7 +500,7 @@ function ChatFlow() {
                 style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-primary)' }}
               />
               <Typography variant="caption" sx={{ color: 'var(--color-primary)', fontWeight: 600 }}>
-                {t('chat.aiThinking', 'AI is thinking…')}
+                {t('myDocs.chat_ai_thinking', 'AI is thinking…')}
               </Typography>
             </Box>
           </motion.div>
@@ -520,7 +520,7 @@ function ChatFlow() {
             <Box sx={{ textAlign: 'center' }}>
               <Typography sx={{ fontSize: 48, mb: 1.5 }}>⚖️</Typography>
               <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
-                {t('chat.starting', 'Starting conversation…')}
+                {t('myDocs.chat_starting', 'Starting conversation…')}
               </Typography>
             </Box>
           </Box>
@@ -595,7 +595,7 @@ function ChatFlow() {
             multiline
             maxRows={4}
             fullWidth
-            placeholder={t('chat.inputPlaceholder', 'Type your answer…')}
+            placeholder={t('myDocs.chat_input_placeholder', 'Type your answer…')}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}

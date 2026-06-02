@@ -124,7 +124,7 @@ function LawyerProfile() {
       <AnimatedPage>
         <Box sx={{ textAlign: 'center', py: 10 }}>
           <Typography sx={{ fontSize: 52, mb: 2 }}>🔍</Typography>
-          <Typography variant="h6" sx={{ color: 'var(--color-text)' }}>{t('lawyerProfile.notFound', 'Lawyer not found')}</Typography>
+          <Typography variant="h6" sx={{ color: 'var(--color-text)' }}>{t('lawyer.not_found', 'Lawyer not found')}</Typography>
           <Button onClick={() => navigate('/citizen/lawyers')} sx={{ mt: 2, color: 'var(--color-primary)' }}>← Back to Lawyers</Button>
         </Box>
       </AnimatedPage>
@@ -188,7 +188,7 @@ function LawyerProfile() {
                 </Box>
 
                 <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mb: 1 }}>
-                  {lawyer.experience} {t('lawyer.yearsExp', 'years experience')}
+                  {lawyer.experience} {t('lawyer.experience', 'years experience')}
                   {lawyer.district && ` · ${lawyer.district}`}
                 </Typography>
 
@@ -221,7 +221,7 @@ function LawyerProfile() {
                       '&:disabled': { background: 'rgba(255,255,255,0.4)', color: 'rgba(255,255,255,0.6)' },
                     }}
                   >
-                    📅 {lawyer.isAvailableForConsultation ? t('lawyer.bookConsultation', 'Book Consultation') : t('lawyer.unavailable', 'Unavailable')}
+                    📅 {lawyer.isAvailableForConsultation ? t('lawyer.book_consultation', 'Book Consultation') : t('lawyer.unavailable', 'Unavailable')}
                   </Button>
                 </motion.div>
               </FeatureGate>
@@ -307,7 +307,7 @@ function LawyerProfile() {
                   { icon: '📍', label: t('lawyer.states', 'States'), value: (lawyer.practicingStates || []).join(', ') },
                   { icon: '🎓', label: t('lawyer.experience', 'Experience'), value: `${lawyer.experience || 0} years` },
                   { icon: '💰', label: t('lawyer.fee', 'Consultation Fee'), value: feeRupees > 0 ? `₹${feeRupees}` : 'Free', bold: true },
-                  { icon: '✅', label: t('lawyer.status', 'Availability'), value: lawyer.isAvailableForConsultation ? '🟢 Available' : '🔴 Unavailable' },
+                  { icon: '✅', label: t('lawyer.availability', 'Availability'), value: lawyer.isAvailableForConsultation ? '🟢 Available' : '🔴 Unavailable' },
                 ].map((row) => (
                   <Box key={row.label} sx={{ display: 'flex', gap: 1.5, mb: 1.5 }}>
                     <Typography sx={{ fontSize: 18, flexShrink: 0, mt: 0.1 }}>{row.icon}</Typography>
@@ -329,7 +329,7 @@ function LawyerProfile() {
                   </Typography>
                   <StarRating rating={lawyer.averageRating || 0} size={20} />
                   <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', display: 'block', mt: 0.5 }}>
-                    {lawyer.totalRatings || 0} {t('lawyer.totalReviews', 'reviews')}
+                    {lawyer.totalRatings || 0} {t('lawyer.total_reviews', 'reviews')}
                   </Typography>
                 </Box>
               </GlassCard>

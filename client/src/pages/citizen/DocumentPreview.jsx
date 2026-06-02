@@ -73,7 +73,7 @@ function GeneratingSkeleton() {
           style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-primary)' }}
         />
         <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
-          {t('preview.generating', 'AI is generating your document…')}
+          {t('myDocs.generating', 'AI is generating your document…')}
         </Typography>
       </Box>
     </Box>
@@ -158,7 +158,7 @@ function RightPanel({ document: doc, onDownload, onShare, onConnectLawyer, plan 
       {/* Actions */}
       <GlassCard sx={{ p: 2 }}>
         <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 1.5 }}>
-          📋 {t('preview.actions', 'Document Actions')}
+          📋 {t('myDocs.actions', 'Document Actions')}
         </Typography>
 
         {isPaid ? (
@@ -168,7 +168,7 @@ function RightPanel({ document: doc, onDownload, onShare, onConnectLawyer, plan 
               background: 'var(--color-primary)',
               '&:hover': { background: 'var(--color-primary-dark, var(--color-primary))' },
             }}>
-            📥 {t('preview.downloadPDF', 'Download PDF')}
+            📥 {t('myDocs.download_pdf', 'Download PDF')}
           </Button>
         ) : (
           <Button fullWidth variant="contained" onClick={onDownload}
@@ -177,7 +177,7 @@ function RightPanel({ document: doc, onDownload, onShare, onConnectLawyer, plan 
               background: 'var(--color-warning)',
               '&:hover': { background: 'var(--color-warning)' },
             }}>
-            🔒 {t('preview.upgradePDF', 'Upgrade to Download PDF')}
+            🔒 {t('myDocs.upgrade_to_download', 'Upgrade to Download PDF')}
           </Button>
         )}
 
@@ -187,7 +187,7 @@ function RightPanel({ document: doc, onDownload, onShare, onConnectLawyer, plan 
             borderColor: 'var(--color-border)', color: 'var(--color-text)',
             '&:hover': { borderColor: 'var(--color-primary)', background: 'var(--color-primary-alpha)' },
           }}>
-          🔗 {t('preview.share', 'Copy Share Link')}
+          🔗 {t('myDocs.share', 'Copy Share Link')}
         </Button>
       </GlassCard>
 
@@ -195,7 +195,7 @@ function RightPanel({ document: doc, onDownload, onShare, onConnectLawyer, plan 
       {doc?.legalCitations?.length > 0 && (
         <Box>
           <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 1 }}>
-            📚 {t('preview.citations', 'Legal Citations')}
+            📚 {t('myDocs.citations', 'Legal Citations')}
           </Typography>
           {doc.legalCitations.map((cite, i) => (
             <motion.div key={i}
@@ -244,7 +244,7 @@ function RightPanel({ document: doc, onDownload, onShare, onConnectLawyer, plan 
       {doc?.nextSteps?.length > 0 && (
         <Box>
           <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 1.5 }}>
-            🗺️ {t('preview.nextSteps', 'What to Do Next')}
+            🗺️ {t('myDocs.next_steps', 'What to Do Next')}
           </Typography>
           <Stepper orientation="vertical" sx={{ '& .MuiStepConnector-line': { borderColor: 'var(--color-border)' } }}>
             {doc.nextSteps.map((step, i) => (
@@ -295,10 +295,10 @@ function RightPanel({ document: doc, onDownload, onShare, onConnectLawyer, plan 
       {/* Lawyer CTA */}
       <GlassCard sx={{ p: 2, border: '1.5px solid var(--color-primary) !important' }}>
         <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 0.75 }}>
-          👨‍⚖️ {t('preview.lawyerCTA', 'Get Expert Review')}
+          👨‍⚖️ {t('myDocs.lawyer_cta', 'Get Expert Review')}
         </Typography>
         <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', display: 'block', mb: 1.5, lineHeight: 1.55 }}>
-          {t('preview.lawyerDesc', 'A verified advocate can review this document for just ₹499.')}
+          {t('myDocs.lawyer_desc', 'A verified advocate can review this document for just ₹499.')}
         </Typography>
         <Button fullWidth variant="outlined" onClick={onConnectLawyer} size="small"
           sx={{
@@ -306,7 +306,7 @@ function RightPanel({ document: doc, onDownload, onShare, onConnectLawyer, plan 
             borderColor: 'var(--color-primary)', color: 'var(--color-primary)',
             '&:hover': { background: 'var(--color-primary-alpha)' },
           }}>
-          {t('preview.findLawyer', 'Connect with a Lawyer')}
+          {t('myDocs.find_lawyer', 'Connect with a Lawyer')}
         </Button>
       </GlassCard>
     </Box>
@@ -438,7 +438,7 @@ function DocumentPreview() {
                 fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
-                {doc?.title || t('preview.loading', 'Loading document…')}
+                {doc?.title || t('myDocs.loading', 'Loading document…')}
               </Typography>
               {doc?.createdAt && (
                 <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
@@ -458,9 +458,9 @@ function DocumentPreview() {
             '& .Mui-selected': { color: 'var(--color-primary)' },
             '& .MuiTabs-indicator': { background: 'var(--color-primary)' },
           }}>
-            <Tab label={t('preview.tabDoc', '📄 Document')} />
-            <Tab label={t('preview.tabCitations', '📚 Citations')} />
-            <Tab label={t('preview.tabSteps', '🗺️ Next Steps')} />
+            <Tab label={t('myDocs.tab_document', '📄 Document')} />
+            <Tab label={t('myDocs.tab_citations', '📚 Citations')} />
+            <Tab label={t('myDocs.tab_steps', '🗺️ Next Steps')} />
           </Tabs>
         )}
 

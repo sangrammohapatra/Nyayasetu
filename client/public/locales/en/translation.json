@@ -141,7 +141,20 @@
     "recent_docs": "Recent Documents",
     "view_all": "View all →",
     "no_docs_yet": "You haven't created any documents yet.",
-    "create_first_doc": "Create a Document →"
+    "create_first_doc": "Create a Document →",
+    "tab_document": "📄 Document",
+    "tab_citations": "📚 Citations",
+    "tab_steps": "🗺️ Next Steps",
+    "resume_title_ready": "Resume Document Generation",
+    "resume_title_active": "Continue Where You Left Off",
+    "resume_desc_ready": "You've already answered all questions for {{name}}. Resume to generate your document without re-answering.",
+    "resume_desc_active": "You're {{progress}}% through collecting information for {{name}}.",
+    "resume_complete": "complete",
+    "resume_data_ready": "All information collected — ready to generate",
+    "resume_last_activity": "Last activity: {{date}}",
+    "resume_generate_btn": "Generate Document",
+    "resume_continue_btn": "Continue Session",
+    "resume_start_fresh_btn": "Start Over"
   },
   "newDoc": {
     "title": "Create a Legal Document",
@@ -160,7 +173,13 @@
     "category_civil": "Civil",
     "category_financial": "Financial",
     "category_labour": "Labour",
-    "category_startup": "Startup"
+    "category_startup": "Startup",
+    "complexity_simple": "Simple",
+    "complexity_moderate": "Moderate",
+    "complexity_complex": "Complex",
+    "plan_free": "🆓 FREE",
+    "plan_basic": "⭐ BASIC",
+    "plan_pro": "🚀 PRO"
   },
   "nyayabot": {
     "fabLabel": "Ask NyayaBot",
