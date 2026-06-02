@@ -395,7 +395,6 @@ function Navbar() {
           <Divider sx={{ borderColor: 'var(--color-border)' }} />
 
           {[
-            { icon: '👤', label: t('navbar.profile', 'Profile'), path: `/${persona}/profile` },
             { icon: '⚙️', label: t('navbar.settings', 'Settings'), path: `/${persona}/settings` },
             { icon: '⭐', label: t('navbar.upgrade', 'Upgrade Plan'), path: '/pricing', highlight: true },
           ].map((item) => (
@@ -405,6 +404,7 @@ function Navbar() {
                 gap: 1.5,
                 color: item.highlight ? 'var(--color-primary)' : 'var(--color-text)',
                 '&:hover': { background: item.highlight ? 'var(--color-primary-alpha)' : 'var(--color-overlay)' },
+                background: location.pathname === item.path || location.pathname.startsWith(item.path + '/') ? 'var(--color-primary-alpha)' : 'transparent',
               }}>
               <Typography sx={{ fontSize: 17 }}>{item.icon}</Typography>
               <Typography variant="body2" sx={{ fontWeight: item.highlight ? 600 : 400 }}>{item.label}</Typography>

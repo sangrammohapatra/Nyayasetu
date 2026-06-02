@@ -37,9 +37,8 @@ function useNavItems(persona, t) {
       { icon: '📂', label: t('sidebar.myDocs', 'My Documents'), path: '/citizen/documents' },
       { icon: '⚖️', label: t('sidebar.caseTracker', 'Case Tracker'), path: '/citizen/cases' },
       { icon: '👨‍⚖️', label: t('sidebar.findLawyer', 'Find Lawyer'), path: '/citizen/lawyers' },
-      { icon: '👤', label: t('sidebar.profile', 'My Profile'),  path: '/citizen/profile' },
+      // { icon: '⚙️', label: t('sidebar.settings', 'Settings'),  path: '/citizen/settings' },
       { icon: '💎', label: t('sidebar.pricing', 'Pricing'),     path: '/pricing' },
-      // { icon: '⚙️', label: t('sidebar.settings', 'Settings'),   path: '/settings' },
     ];
 
     const lawyer = [
@@ -48,8 +47,7 @@ function useNavItems(persona, t) {
       { icon: '📋', label: t('sidebar.cases', 'Cases'),             path: '/lawyer/cases' },
       { icon: '📅', label: t('sidebar.consultations', 'Consultations'), path: '/lawyer/consultations' },
       { icon: '💰', label: t('sidebar.earnings', 'Earnings'),      path: '/lawyer/earnings' },
-      { icon: '👤', label: t('sidebar.profile', 'My Profile'),     path: '/lawyer/profile' },
-      // { icon: '⚙️', label: t('sidebar.settings', 'Settings'),      path: '/settings' },
+      { icon: '⚙️', label: t('sidebar.settings', 'Settings'),      path: '/lawyer/settings' },
     ];
 
     const admin = [

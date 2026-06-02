@@ -307,15 +307,26 @@ userSchema.methods.incrementUsage = async function (quotaType) {
 };
 
 /**
- * addRefreshToken — adds a token, evicting the oldest if at capacity.
+ * addRefreshToken — prunes expired tokens, then adds the new token,
+ * evicting the oldest active token if still over capacity.
  * @param {string} token
  */
 userSchema.methods.addRefreshToken = async function (token) {
-  let tokens = [...this.refreshTokens, token];
-  if (tokens.length > MAX_REFRESH_TOKENS) {
-    tokens = tokens.slice(-MAX_REFRESH_TOKENS);
+  const jwt = require("jsonwebtoken");
+  const now = Math.floor(Date.now() / 1000);
+  const active = this.refreshTokens.filter((t) => {
+    try {
+      const decoded = jwt.decode(t);
+      return decoded && decoded.exp > now;
+    } catch {
+      return false;
+    }
+  });
+  active.push(token);
+  if (active.length > MAX_REFRESH_TOKENS) {
+    active.splice(0, active.length - MAX_REFRESH_TOKENS);
   }
-  this.refreshTokens = tokens;
+  this.refreshTokens = active;
   await this.save();
 };
 
