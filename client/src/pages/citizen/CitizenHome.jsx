@@ -309,10 +309,10 @@ function HearingCard({ hearingCase }) {
               }}
             >
               {isUrgent
-                ? t("home.urgentHearing", "Hearing in {{days}} day(s)!", {
+                ? t("home.urgent_hearing", "Hearing in {{days}} day(s)!", {
                     days: daysUntil,
                   })
-                : t("home.upcomingHearing", "Upcoming Hearing")}
+                : t("home.upcoming_hearing", "Upcoming Hearing")}
             </Typography>
             <Typography
               variant="caption"
@@ -344,7 +344,7 @@ function HearingCard({ hearingCase }) {
               flexShrink: 0,
             }}
           >
-            {t("home.viewCase", "View")}
+            {t("home.view_case", "View")}
           </Button>
         </Box>
       </GlassCard>
@@ -398,7 +398,7 @@ function UsageMeter({ freeUsage, plan }) {
             }}
           >
             {isFull ? "🔴 " : "📊 "}
-            {t("home.monthlyUsage", "Monthly Documents")}
+            {t("home.monthly_usage", "Monthly Documents")}
           </Typography>
           <Typography
             variant="caption"
@@ -476,9 +476,9 @@ function CitizenHome() {
   const QUICK_ACTIONS = [
     {
       icon: "📝",
-      title: t("home.createDoc", "Create Document"),
+      title: t("home.create_doc", "Create Document"),
       description: t(
-        "home.createDocDesc",
+        "home.create_doc_desc",
         "Generate a legal document with AI in minutes",
       ),
       path: "/citizen/documents/new",
@@ -487,17 +487,17 @@ function CitizenHome() {
     },
     {
       icon: "⚖️",
-      title: t("home.trackCase", "Track Case"),
-      description: t("home.trackCaseDesc", "Monitor hearings via CNR number"),
+      title: t("home.track_case", "Track Case"),
+      description: t("home.track_case_desc", "Monitor hearings via CNR number"),
       path: "/citizen/cases",
       color: "rgba(46,125,50,0.1)",
       delay: 0.22,
     },
     {
       icon: "👨‍⚖️",
-      title: t("home.findLawyer", "Find Lawyer"),
+      title: t("home.find_lawyer", "Find Lawyer"),
       description: t(
-        "home.findLawyerDesc",
+        "home.find_lawyer_desc",
         "Connect with a verified advocate near you",
       ),
       path: "/citizen/lawyers",
@@ -506,14 +506,14 @@ function CitizenHome() {
     },
     {
       icon: "📖",
-      title: t("home.legalFAQ", "Legal FAQ"),
-      description: t("home.legalFAQDesc", "Know your rights under Indian law"),
+      title: t("home.legal_faq", "Legal FAQ"),
+      description: t("home.legal_faq_desc", "Know your rights under Indian law"),
       path: "/laws/search",
       color: "rgba(1,121,111,0.1)",
       delay: 0.36,
     },
   ];
-console.log(t("home.there"))
+
   const firstName = user?.name?.split(" ")[0] || t("home.there", "there");
   const greeting =
     new Date().getHours() < 12
@@ -579,13 +579,14 @@ console.log(t("home.there"))
               variant="body2"
               sx={{ color: "rgba(255,255,255,0.78)", mb: 0.5 }}
             >
-              {greeting}, {firstName}
+              {greeting}, {firstName} &nbsp; 
               <lord-icon
                 src={"https://cdn.lordicon.com/zubhquzc.json"}
                 trigger="loop"
                 delay="500"
                 target=".ns-nav-item"
                 style={{
+                  paddingTop: 3,
                   width: 22,
                   height: 22,
                   flexShrink: 0,
@@ -612,13 +613,10 @@ console.log(t("home.there"))
                 color: "rgba(255,255,255,0.82)",
                 mb: 2.5,
                 lineHeight: 1.6,
-                maxWidth: 480,
               }}
             >
               {t(
-                "home.heroSub",
-                "Generate professional legal documents, track your court cases, and connect with verified lawyers — all in your language.",
-              )}
+                "home.hero_sub")}
             </Typography>
             <Button
               variant="contained"
@@ -634,7 +632,7 @@ console.log(t("home.there"))
                 boxShadow: SHADOWS.md,
               }}
             >
-              {t("home.createFirstDoc", "Create a Document →")}
+              {t("home.create_doc", "Create a Document →")}
             </Button>
           </Box>
         </motion.div>
@@ -660,7 +658,7 @@ console.log(t("home.there"))
               mb: 2,
             }}
           >
-            {t("home.quickActions", "Quick Actions")}
+            {t("home.quick_actions", "Quick Actions")}
           </Typography>
         </motion.div>
 
@@ -678,19 +676,19 @@ console.log(t("home.there"))
             {
               icon: "📄",
               value: 125000,
-              label: t("home.statDocs", "Documents Created"),
+              label: t("home.stat_docs", "Documents Created"),
               delay: 0.1,
             },
             {
               icon: "👥",
               value: 48000,
-              label: t("home.statUsers", "Indians Helped"),
+              label: t("home.stat_users", "Indians Helped"),
               delay: 0.2,
             },
             {
               icon: "⚖️",
               value: 15,
-              label: t("home.statTemplates", "Legal Templates"),
+              label: t("home.stat_templates", "Legal Templates"),
               delay: 0.3,
             },
           ].map((stat) => (
@@ -727,7 +725,7 @@ console.log(t("home.there"))
                 color: "var(--color-text)",
               }}
             >
-              {t("home.recentDocs", "Recent Documents")}
+              {t("home.recent_docs", "Recent Documents")}
             </Typography>
             <Typography
               variant="caption"
@@ -738,7 +736,7 @@ console.log(t("home.there"))
               }}
               onClick={() => navigate("/citizen/documents")}
             >
-              {t("home.viewAll", "View all →")}
+              {t("home.view_all", "View all →")}
             </Typography>
           </Box>
           <Divider sx={{ borderColor: "var(--color-border)" }} />
@@ -762,7 +760,7 @@ console.log(t("home.there"))
                       sx={{ color: "var(--color-text-secondary)", mb: 2 }}
                     >
                       {t(
-                        "home.noDocsYet",
+                        "home.no_docs_yet",
                         "You haven't created any documents yet.",
                       )}
                     </Typography>
@@ -777,7 +775,7 @@ console.log(t("home.there"))
                         color: "var(--color-primary)",
                       }}
                     >
-                      {t("home.createFirst", "Create your first document")}
+                      {t("home.create_first", "Create your first document")}
                     </Button>
                   </Box>
                 </motion.div>

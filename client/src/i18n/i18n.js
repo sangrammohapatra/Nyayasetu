@@ -31,7 +31,8 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import HttpBackend from 'i18next-http-backend';
 import LanguageDetector from 'i18next-browser-languagedetector';
-
+import enLang from '../../public/locales/en/translation.json';
+import hiLang from '../../public/locales/hi/translation.json';
 // ─── Supported language codes ─────────────────────────────────────────────────
 
 export const SUPPORTED_LANGUAGES = ['en', 'hi', 'bn', 'mr', 'ta', 'te', 'gu', 'kn', 'ml', 'pa', 'ur'];
@@ -79,18 +80,12 @@ i18n
     interpolation: {
       escapeValue: false,
     },
-
-    // ── HTTP Backend — loads /locales/{{lng}}/translation.json ──────────────
-    backend: {
-      loadPath: '/locales/{{lng}}/{{ns}}.json',
-      addPath: false, // we don't support saving missing keys from client
-      // Cache bust on every app deployment using the build timestamp
-      queryStringParams: import.meta.env.PROD
-        ? { v: import.meta.env.VITE_BUILD_TIME || Date.now() }
-        : undefined,
-      requestOptions: {
-        cache: 'no-cache',
-        credentials: 'same-origin',
+    resources: {
+      en: {
+        translation: enLang,
+      },
+      hi: {
+        translation: hiLang,
       },
     },
 

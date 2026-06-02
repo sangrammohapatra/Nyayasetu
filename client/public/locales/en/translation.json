@@ -73,7 +73,7 @@
     "search": "Search laws, documents…",
     "anonymous": "Anonymous"
   },
-  "document": {
+  "myDocs": {
     "create": "Create Document",
     "title": "My Documents",
     "new_title": "Create a Legal Document",
@@ -142,6 +142,25 @@
     "view_all": "View all →",
     "no_docs_yet": "You haven't created any documents yet.",
     "create_first_doc": "Create a Document →"
+  },
+  "newDoc": {
+    "title": "Create a Legal Document",
+    "subtitle": "Choose a template and our AI will guide you step by step.",
+    "search": "Search templates…",
+    "popular": "Popular this week",
+    "all_templates": "All Templates",
+    "no_results": "No templates match your search.",
+    "category_all": "All",
+    "category_consumer": "Consumer",
+    "category_property": "Property",
+    "category_employment": "Employment",
+    "category_family": "Family",
+    "category_criminal": "Criminal",
+    "category_rti": "RTI",
+    "category_civil": "Civil",
+    "category_financial": "Financial",
+    "category_labour": "Labour",
+    "category_startup": "Startup"
   },
   "nyayabot": {
     "fabLabel": "Ask NyayaBot",
@@ -490,13 +509,13 @@
     "stat_templates": "Legal Templates",
     "upcoming_hearing": "Upcoming Hearing",
     "urgent_hearing": "Hearing in {{days}} day(s)!",
-    "monthly_usage": "Monthly Documents",
+    "monthly_usage": "Monthly Documents Usage",
     "upgrade": "Upgrade for unlimited documents",
     "recent_docs": "Recent Documents",
     "view_all": "View all →",
     "no_docs_yet": "You haven't created any documents yet.",
     "create_first": "Create your first document",
-    "there": "there......",
+    "there": "there...",
     "good_morning": "Good Morning",
     "good_afternoon": "Good Afternoon",
     "good_evening": "Good Evening"

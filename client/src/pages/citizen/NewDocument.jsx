@@ -28,31 +28,31 @@ import api from '../../services/api';
 // ─── Category config ──────────────────────────────────────────────────────────
 
 const CATEGORIES = [
-  { slug: 'all',        label: 'All',        icon: '📋' },
-  { slug: 'consumer',   label: 'Consumer',   icon: '🛒' },
-  { slug: 'property',   label: 'Property',   icon: '🏠' },
-  { slug: 'employment', label: 'Employment', icon: '💼' },
-  { slug: 'family',     label: 'Family',     icon: '👨‍👩‍👧' },
-  { slug: 'criminal',   label: 'Criminal',   icon: '⚖️' },
-  { slug: 'rti',        label: 'RTI',        icon: '📑' },
-  { slug: 'civil',      label: 'Civil',      icon: '🏛️' },
-  { slug: 'financial',  label: 'Financial',  icon: '💰' },
-  { slug: 'labour',     label: 'Labour',     icon: '👷' },
-  { slug: 'startup',    label: 'Startup',    icon: '🚀' },
+  { slug: 'all',        label: t('newDoc.category_all', 'All'),        icon: '📋' },
+  { slug: 'consumer',   label: t('newDoc.category_consumer', 'Consumer'),   icon: '🛒' },
+  { slug: 'property',   label: t('newDoc.category_property', 'Property'),   icon: '🏠' },
+  { slug: 'employment', label: t('newDoc.category_employment', 'Employment'), icon: '💼' },
+  { slug: 'family',     label: t('newDoc.category_family', 'Family'),     icon: '👨‍👩‍👧' },
+  { slug: 'criminal',   label: t('newDoc.category_criminal', 'Criminal'),   icon: '⚖️' },
+  { slug: 'rti',        label: t('newDoc.category_rti', 'RTI'),        icon: '📑' },
+  { slug: 'civil',      label: t('newDoc.category_civil', 'Civil'),      icon: '🏛️' },
+  { slug: 'financial',  label: t('newDoc.category_financial', 'Financial'),  icon: '💰' },
+  { slug: 'labour',     label: t('newDoc.category_labour', 'Labour'),     icon: '👷' },
+  { slug: 'startup',    label: t('newDoc.category_startup', 'Startup'),    icon: '🚀' },
 ];
 
 const CATEGORY_ICONS = Object.fromEntries(CATEGORIES.map((c) => [c.slug, c.icon]));
 
 const COMPLEXITY_STYLES = {
-  simple:   { label: 'Simple',   color: 'var(--color-success)', bg: 'rgba(46,125,50,0.1)' },
-  moderate: { label: 'Moderate', color: 'var(--color-warning)', bg: 'rgba(230,81,0,0.1)' },
-  complex:  { label: 'Complex',  color: 'var(--color-error)',   bg: 'rgba(198,40,40,0.1)' },
+  simple:   { label: t('newDoc.complexity_simple', 'Simple'),   color: 'var(--color-success)', bg: 'rgba(46,125,50,0.1)' },
+  moderate: { label: t('newDoc.complexity_moderate', 'Moderate'), color: 'var(--color-warning)', bg: 'rgba(230,81,0,0.1)' },
+  complex:  { label: t('newDoc.complexity_complex', 'Complex'),  color: 'var(--color-error)',   bg: 'rgba(198,40,40,0.1)' },
 };
 
 const PLAN_STYLES = {
-  free:  { label: '🆓 FREE', bg: 'rgba(46,125,50,0.12)', color: 'var(--color-success)' },
-  basic: { label: '⭐ BASIC', bg: 'var(--color-primary-alpha)', color: 'var(--color-primary)' },
-  pro:   { label: '🚀 PRO',   bg: 'rgba(230,81,0,0.12)',       color: 'var(--color-warning)' },
+  free:  { label: t('newDoc.plan_free', '🆓 FREE'), bg: 'rgba(46,125,50,0.12)', color: 'var(--color-success)' },
+  basic: { label: t('newDoc.plan_basic', '⭐ BASIC'), bg: 'var(--color-primary-alpha)', color: 'var(--color-primary)' },
+  pro:   { label: t('newDoc.plan_pro', '🚀 PRO'),   bg: 'rgba(230,81,0,0.12)',       color: 'var(--color-warning)' },
 };
 
 function getPlanRequired(template) {
@@ -323,7 +323,7 @@ function NewDocument() {
           fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 2,
         }}>
           {activeCategory === 'all'
-            ? t('newDoc.allTemplates', 'All Templates')
+            ? t('newDoc.all_templates', 'All Templates')
             : `${CATEGORIES.find((c) => c.slug === activeCategory)?.icon} ${CATEGORIES.find((c) => c.slug === activeCategory)?.label}`}
           <Typography component="span" variant="caption" sx={{ ml: 1, color: 'var(--color-text-secondary)' }}>
             ({filtered.length})
@@ -343,7 +343,7 @@ function NewDocument() {
                 <Box sx={{ textAlign: 'center', py: 6 }}>
                   <Typography sx={{ fontSize: 48, mb: 1 }}>🔍</Typography>
                   <Typography variant="body1" sx={{ color: 'var(--color-text-secondary)' }}>
-                    {t('newDoc.noResults', 'No templates match your search.')}
+                    {t('newDoc.no_results', 'No templates match your search.')}
                   </Typography>
                 </Box>
               </Grid>

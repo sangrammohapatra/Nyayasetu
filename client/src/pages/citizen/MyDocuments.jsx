@@ -81,10 +81,10 @@ function EmptyState({ onCreateNew }) {
         <Typography variant="h6" sx={{
           fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 1,
         }}>
-          {t('myDocs.emptyTitle', 'No documents yet')}
+          {t('myDocs.empty_title', 'No documents yet')}
         </Typography>
         <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3, maxWidth: 300, mx: 'auto' }}>
-          {t('myDocs.emptyDesc', 'Create your first legal document. Our AI will guide you every step of the way.')}
+          {t('myDocs.empty_desc', 'Create your first legal document. Our AI will guide you every step of the way.')}
         </Typography>
         <Button variant="contained" onClick={onCreateNew}
           sx={{
@@ -92,7 +92,7 @@ function EmptyState({ onCreateNew }) {
             background: 'var(--color-primary)',
             '&:hover': { background: 'var(--color-primary-dark, var(--color-primary))' },
           }}>
-          {t('myDocs.createFirst', '+ Create Your First Document')}
+          {t('myDocs.create_first', '+ Create Your First Document')}
         </Button>
       </Box>
     </motion.div>
@@ -168,7 +168,7 @@ function DocumentCard({ doc, plan, onView, onDownload, onShare, onDelete, delay 
             </Tooltip>
 
             {doc.status === 'completed' && (
-              <Tooltip title={isPaid ? t('myDocs.download', 'Download PDF') : t('myDocs.upgradePDF', 'Upgrade to download')} arrow>
+              <Tooltip title={isPaid ? t('myDocs.download', 'Download PDF') : t('myDocs.upgrade_pdf', 'Upgrade to download')} arrow>
                 <IconButton size="small" onClick={() => onDownload(doc)}
                   sx={{ color: isPaid ? 'var(--color-success)' : 'var(--color-text-secondary)',
                     '&:hover': { background: 'var(--color-success-light, #E8F5E9)' } }}>
@@ -330,7 +330,7 @@ function MyDocuments() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
           <Box sx={{ display: 'flex', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
             <TextField
-              placeholder={t('myDocs.search', 'Search documents…')}
+              placeholder={t('myDocs.search_placeholder', 'Search documents…')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               size="small"
@@ -404,7 +404,7 @@ function MyDocuments() {
 
               {!hasMore && filtered.length > PAGE_SIZE && (
                 <Typography variant="caption" sx={{ textAlign: 'center', color: 'var(--color-text-secondary)', py: 2, display: 'block' }}>
-                  {t('myDocs.allLoaded', 'All documents loaded')}
+                  {t('myDocs.all_loaded', 'All documents loaded')}
                 </Typography>
               )}
             </Box>
@@ -415,11 +415,11 @@ function MyDocuments() {
         <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)}
           PaperProps={{ sx: { borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)' } }}>
           <DialogTitle sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
-            {t('myDocs.deleteTitle', 'Delete Document?')}
+            {t('myDocs.delete_title', 'Delete Document?')}
           </DialogTitle>
           <DialogContent>
             <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
-              {t('myDocs.deleteConfirm', 'This action cannot be undone. The document and its PDF will be permanently deleted.')}
+              {t('myDocs.delete_confirm', 'This action cannot be undone. The document and its PDF will be permanently deleted.')}
             </Typography>
             {deleteTarget && (
               <Box sx={{ mt: 1.5, p: 1.5, borderRadius: `${RADIUS.md}px`, background: 'var(--color-bg)', border: '1px solid var(--color-border)' }}>
@@ -437,7 +437,7 @@ function MyDocuments() {
             <Button onClick={handleDeleteConfirm} variant="contained"
               sx={{ borderRadius: `${RADIUS.md}px`, background: 'var(--color-error)', fontWeight: 700,
                 '&:hover': { background: 'var(--color-error)' } }}>
-              {t('myDocs.deleteBtn', 'Delete')}
+              {t('myDocs.delete', 'Delete')}
             </Button>
           </DialogActions>
         </Dialog>
