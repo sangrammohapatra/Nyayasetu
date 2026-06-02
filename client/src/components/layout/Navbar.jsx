@@ -130,7 +130,7 @@ function NotificationPopover({ anchorEl, onClose }) {
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography variant="body1" sx={{ fontWeight: 700, color: 'var(--color-text)' }}>
-              🔔 {t('notif.title', 'Notifications')}
+              🔔 {t('notifications.title', 'Notifications')}
             </Typography>
             {unread > 0 && (
               <Chip size="small" label={unread}
@@ -141,7 +141,7 @@ function NotificationPopover({ anchorEl, onClose }) {
           {unread > 0 && (
             <Button size="small" onClick={handleReadAll}
               sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-primary)', py: 0.25 }}>
-              {t('notif.markAllRead', 'Mark all read')}
+              {t('notifications.mark_all_read', 'Mark all read')}
             </Button>
           )}
         </Box>
@@ -160,10 +160,10 @@ function NotificationPopover({ anchorEl, onClose }) {
             <Box sx={{ textAlign: 'center', py: 5, px: 3 }}>
               <Typography sx={{ fontSize: 44, mb: 1.5 }}>🔔</Typography>
               <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
-                {t('notif.empty', "You're all caught up!")}
+                {t('notifications.empty', "You're all caught up!")}
               </Typography>
               <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', display: 'block', mt: 0.5 }}>
-                {t('notif.emptyDesc', 'Notifications about hearings, documents, and consultations will appear here.')}
+                {t('notifications.empty_desc', 'Notifications about hearings, documents, and consultations will appear here.')}
               </Typography>
             </Box>
           ) : (
@@ -230,7 +230,7 @@ function NotificationPopover({ anchorEl, onClose }) {
         <Box sx={{ px: 2.5, py: 1.5, borderTop: '1px solid var(--color-border)', textAlign: 'center' }}>
           <Typography variant="caption" sx={{ color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 600 }}
             onClick={onClose}>
-            {t('notif.close', 'Close')}
+            {t('notifications.close', 'Close')}
           </Typography>
         </Box>
       </motion.div>

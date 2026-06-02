@@ -263,7 +263,7 @@ function ErrorFallbackUI({ error, errorInfo, errorId, onReset }) {
                     mb: 1,
                   }}
                 >
-                  {t('error.boundary.title', 'Something went wrong')}
+                  {t('errors.boundary_title', 'Something went wrong')}
                 </Typography>
               </motion.div>
 
@@ -278,8 +278,8 @@ function ErrorFallbackUI({ error, errorInfo, errorId, onReset }) {
                   }}
                 >
                   {isNetworkError
-                    ? t('error.boundary.network_desc', 'A network error occurred. Please check your connection and try again.')
-                    : t('error.boundary.generic_desc', 'An unexpected error occurred. Our team has been notified.')}
+                    ? t('errors.boundary_network_desc', 'A network error occurred. Please check your connection and try again.')
+                    : t('errors.boundary_generic_desc', 'An unexpected error occurred. Our team has been notified.')}
                 </Typography>
               </motion.div>
 
@@ -295,7 +295,7 @@ function ErrorFallbackUI({ error, errorInfo, errorId, onReset }) {
                   icon={<BugReportIcon />}
                 >
                   <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
-                    {t('error.boundary.error_id', 'Error ID')}: <strong>{errorId}</strong>
+                    {t('errors.boundary_error_id', 'Error ID')}: <strong>{errorId}</strong>
                   </Typography>
                 </Alert>
               </motion.div>
@@ -372,7 +372,7 @@ function ErrorFallbackUI({ error, errorInfo, errorId, onReset }) {
                         fontWeight: 600,
                       }}
                     >
-                      {t('error.boundary.retry', 'Try Again')}
+                      {t('common.retry', 'Try Again')}
                     </Button>
                   </motion.div>
 
@@ -394,7 +394,7 @@ function ErrorFallbackUI({ error, errorInfo, errorId, onReset }) {
                         fontWeight: 600,
                       }}
                     >
-                      {t('error.boundary.go_home', 'Go Home')}
+                      {t('common.go_home', 'Go Home')}
                     </Button>
                   </motion.div>
                 </Stack>
@@ -411,7 +411,7 @@ function ErrorFallbackUI({ error, errorInfo, errorId, onReset }) {
                       mb: 1,
                     }}
                   >
-                    {t('error.boundary.need_help', 'Need help?')}
+                    {t('errors.boundary_need_help', 'Need help?')}
                   </Typography>
                   <Box
                     sx={{
@@ -432,7 +432,7 @@ function ErrorFallbackUI({ error, errorInfo, errorId, onReset }) {
                         },
                       }}
                     >
-                      {t('error.boundary.call_support', 'Call Support')}
+                      {t('errors.boundary_call_support', 'Call Support')}
                     </Button>
                   </Box>
                 </Box>
@@ -451,7 +451,7 @@ function ErrorFallbackUI({ error, errorInfo, errorId, onReset }) {
                 color: 'var(--color-text-secondary)',
               }}
             >
-              {t('error.boundary.error_reference', 'Error reference')}: <strong>{errorId}</strong>
+              {t('errors.boundary_error_reference', 'Error reference')}: <strong>{errorId}</strong>
               <br />
               {isDevelopment && `Console: ${error?.message}`}
             </Typography>

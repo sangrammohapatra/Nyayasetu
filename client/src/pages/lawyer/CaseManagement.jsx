@@ -171,15 +171,15 @@ function CaseManagement() {
       <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 900, mx: 'auto', pb: { xs: 10, md: 4 } }}>
         <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
           <Typography variant="h4" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.5 }}>
-            {t('casesMgmt.title', 'Case Management')}
+            {t('case.management_title', 'Case Management')}
           </Typography>
           <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3 }}>
-            {filtered.length} {t('casesMgmt.cases', 'cases shared with you')}
+            {filtered.length} {t('case.cases', 'cases shared with you')}
           </Typography>
         </motion.div>
 
         <TextField
-          fullWidth placeholder={t('casesMgmt.search', 'Search by case title, CNR or client…')}
+          fullWidth placeholder={t('case.search_placeholder', 'Search by case title, CNR or client…')}
           value={search} onChange={(e) => setSearch(e.target.value)} size="small"
           InputProps={{ startAdornment: <InputAdornment position="start">🔍</InputAdornment> }}
           sx={{
@@ -196,10 +196,10 @@ function CaseManagement() {
           <Box sx={{ textAlign: 'center', py: 8 }}>
             <Typography sx={{ fontSize: 52, mb: 2 }}>⚖️</Typography>
             <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 1 }}>
-              {search ? t('casesMgmt.noMatch', 'No cases match') : t('casesMgmt.empty', 'No cases yet')}
+              {search ? t('case.no_match', 'No cases match') : t('case.empty', 'No cases yet')}
             </Typography>
             <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
-              {t('casesMgmt.emptyDesc', 'Cases will appear here once clients share them with you.')}
+              {t('case.cases_mgmt_empty_desc', 'Cases will appear here once clients share them with you.')}
             </Typography>
           </Box>
         ) : (

@@ -11,8 +11,8 @@ import { motion } from 'framer-motion';
 import Paper from '@mui/material/Paper';
 import BottomNavigation from '@mui/material/BottomNavigation';
 import BottomNavigationAction from '@mui/material/BottomNavigationAction';
-import Typography from '@mui/material/Typography';
 import Badge from '@mui/material/Badge';
+import Box from '@mui/material/Box';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 
@@ -20,35 +20,47 @@ import { selectUserPersona } from '../../store/slices/authSlice';
 import { selectUnreadTotal } from '../../store/slices/notificationSlice';
 import { SHADOWS } from '../../theme/tokens';
 
+// ─── Lordicon CDN icon URLs ───────────────────────────────────────────────────
+
+const IC = {
+  home:          'https://cdn.lordicon.com/wmwqvixz.json',
+  newDoc:        'https://cdn.lordicon.com/mubdgyyw.json',
+  caseTracker:   'https://cdn.lordicon.com/warimioc.json',
+  findLawyer:    'https://cdn.lordicon.com/kkvxgpti.json',
+  notifications: 'https://cdn.lordicon.com/psnhyobz.json',
+  clients:       'https://cdn.lordicon.com/oqjlkyvy.json',
+  consultations: 'https://cdn.lordicon.com/slduhdil.json',
+  earnings:      'https://cdn.lordicon.com/rfbqeber.json',
+  dashboard:     'https://cdn.lordicon.com/dxoycpzg.json',
+  users:         'https://cdn.lordicon.com/oqjlkyvy.json',
+  templates:     'https://cdn.lordicon.com/wloilxuq.json',
+  lawyers:       'https://cdn.lordicon.com/mxxgldoo.json',
+};
+
 // ─── Nav items per persona ────────────────────────────────────────────────────
 
 function useBottomNavItems(persona, t, unread) {
   const citizen = [
-    { icon: '🏠', label: t('nav.home', 'Home'),          path: '/citizen/home' },
-    { icon: '📝', label: t('nav.new', 'New Doc'),         path: '/citizen/documents/new' },
-    { icon: '⚖️', label: t('nav.cases', 'Cases'),         path: '/citizen/cases' },
-    { icon: '👨‍⚖️', label: t('nav.lawyers', 'Lawyers'),   path: '/citizen/lawyers' },
-    {
-      icon: '🔔',
-      label: t('nav.alerts', 'Alerts'),
-      path: '/notifications',
-      badge: unread,
-    },
+    { icon: IC.home,          label: t('nav.home',          'Home'),     path: '/citizen/home' },
+    { icon: IC.newDoc,        label: t('nav.new_doc',        'New Doc'),  path: '/citizen/documents/new' },
+    { icon: IC.caseTracker,   label: t('nav.cases',          'Cases'),    path: '/citizen/cases' },
+    { icon: IC.findLawyer,    label: t('nav.lawyers',        'Lawyers'),  path: '/citizen/lawyers' },
+    { icon: IC.notifications, label: t('nav.alerts',         'Alerts'),   path: '/notifications', badge: unread },
   ];
 
   const lawyer = [
-    { icon: '🏠',  label: t('nav.home', 'Home'),               path: '/lawyer/home' },
-    { icon: '👥',  label: t('nav.clients', 'Clients'),          path: '/lawyer/clients' },
-    { icon: '📅',  label: t('nav.consultations', 'Sessions'),   path: '/lawyer/consultations' },
-    { icon: '💰',  label: t('nav.earnings', 'Earnings'),        path: '/lawyer/earnings' },
-    { icon: '🔔',  label: t('nav.alerts', 'Alerts'),            path: '/notifications', badge: unread },
+    { icon: IC.home,          label: t('nav.home',          'Home'),        path: '/lawyer/home' },
+    { icon: IC.clients,       label: t('nav.clients',       'Clients'),     path: '/lawyer/clients' },
+    { icon: IC.consultations, label: t('nav.consultations', 'Sessions'),    path: '/lawyer/consultations' },
+    { icon: IC.earnings,      label: t('nav.earnings',      'Earnings'),    path: '/lawyer/earnings' },
+    { icon: IC.notifications, label: t('nav.alerts',        'Alerts'),      path: '/notifications', badge: unread },
   ];
 
   const admin = [
-    { icon: '📊', label: t('nav.dashboard', 'Dashboard'), path: '/admin/dashboard' },
-    { icon: '👥', label: t('nav.users', 'Users'),          path: '/admin/users' },
-    { icon: '📄', label: t('nav.templates', 'Templates'),  path: '/admin/templates' },
-    { icon: '⚖️', label: t('nav.lawyers', 'Lawyers'),     path: '/admin/lawyers' },
+    { icon: IC.dashboard, label: t('nav.dashboard',  'Dashboard'), path: '/admin/dashboard' },
+    { icon: IC.users,     label: t('nav.users',      'Users'),      path: '/admin/users' },
+    { icon: IC.templates, label: t('nav.templates',  'Templates'),  path: '/admin/templates' },
+    { icon: IC.lawyers,   label: t('nav.lawyers',    'Lawyers'),    path: '/admin/lawyers' },
   ];
 
   return ({ citizen, lawyer, paralegal: lawyer, admin }[persona] || citizen);
@@ -56,10 +68,10 @@ function useBottomNavItems(persona, t, unread) {
 
 // ─── Animated icon ────────────────────────────────────────────────────────────
 
-function AnimatedIcon({ icon, isActive, badge }) {
+function NavIcon({ src, isActive, badge }) {
   return (
     <motion.div
-      animate={isActive ? { scale: 1.22 } : { scale: 1 }}
+      animate={isActive ? { scale: 1.18 } : { scale: 1 }}
       transition={{ type: 'spring', stiffness: 420, damping: 18 }}
       style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
     >
@@ -77,7 +89,19 @@ function AnimatedIcon({ icon, isActive, badge }) {
           },
         }}
       >
-        <Typography sx={{ fontSize: isActive ? 22 : 20, lineHeight: 1 }}>{icon}</Typography>
+        <Box className="ns-bn-item" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <lord-icon
+            src={src}
+            trigger="click"
+            target=".ns-bn-item"
+            style={{
+              width: isActive ? 26 : 24,
+              height: isActive ? 26 : 24,
+              '--lord-icon-primary': 'currentColor',
+              '--lord-icon-secondary': 'currentColor',
+            }}
+          />
+        </Box>
       </Badge>
     </motion.div>
   );
@@ -96,7 +120,6 @@ function BottomNav() {
   const unread = useSelector(selectUnreadTotal);
   const navItems = useBottomNavItems(persona || 'citizen', t, unread);
 
-  // Hidden on desktop
   if (!isMobile) return null;
 
   const activeIndex = navItems.findIndex(
@@ -115,7 +138,6 @@ function BottomNav() {
         borderTop: '1px solid var(--color-border)',
         background: 'var(--color-surface)',
         boxShadow: `0 -4px 20px var(--color-primary-alpha)`,
-        // Safe area for notched phones
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
@@ -145,8 +167,8 @@ function BottomNav() {
             key={item.path}
             label={item.label}
             icon={
-              <AnimatedIcon
-                icon={item.icon}
+              <NavIcon
+                src={item.icon}
                 isActive={i === activeIndex}
                 badge={item.badge}
               />

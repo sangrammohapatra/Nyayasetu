@@ -418,7 +418,7 @@ function Pricing() {
               {t('pricing.hero', 'Legal help that fits your pocket')}
             </Typography>
             <Typography variant="h6" sx={{ color: 'var(--color-text-secondary)', fontWeight: 400, maxWidth: 520, mx: 'auto' }}>
-              {t('pricing.heroSub', 'Professional legal documents from ₹0. Access justice without the lawyer fees.')}
+              {t('pricing.hero_sub', 'Professional legal documents from ₹0. Access justice without the lawyer fees.')}
             </Typography>
           </motion.div>
         </Box>

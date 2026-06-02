@@ -63,12 +63,12 @@ function VoiceInput({ onTranscript, disabled = false }) {
 
   const startRecognition = useCallback(() => {
     if (!isSupported()) {
-      setSnackMsg(t('voice.notSupported', 'Voice input is not supported in this browser. Try Chrome or Edge.'));
+      setSnackMsg(t('voice.not_supported', 'Voice input is not supported in this browser. Try Chrome or Edge.'));
       setSnackOpen(true);
       return;
     }
     if (denied) {
-      setSnackMsg(t('voice.permissionDenied', 'Microphone access was denied. Please allow it in browser settings.'));
+      setSnackMsg(t('voice.permission_denied', 'Microphone access was denied. Please allow it in browser settings.'));
       setSnackOpen(true);
       return;
     }
@@ -95,10 +95,10 @@ function VoiceInput({ onTranscript, disabled = false }) {
     recognition.onerror = (event) => {
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         setDenied(true);
-        setSnackMsg(t('voice.permissionDenied', 'Microphone permission denied.'));
+        setSnackMsg(t('voice.permission_denied', 'Microphone permission denied.'));
         setSnackOpen(true);
       } else if (event.error === 'no-speech') {
-        setSnackMsg(t('voice.noSpeech', 'No speech detected. Please try again.'));
+        setSnackMsg(t('voice.no_speech', 'No speech detected. Please try again.'));
         setSnackOpen(true);
       }
       stopRecognition();

@@ -258,7 +258,7 @@ function LawyerHome() {
           <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
             <Box>
               <Typography variant="h4" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
-                ⚖️ {t('lawyerHome.welcome', `Welcome, Adv. ${firstName}`)}
+                ⚖️ {t('lawyer.welcome', `Welcome, Adv. ${firstName}`, { name: firstName })}
               </Typography>
               <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mt: 0.25 }}>
                 {new Date().toLocaleDateString('en-IN', { dateStyle: 'full' })}
@@ -274,7 +274,7 @@ function LawyerHome() {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                     <Box sx={{ width: 8, height: 8, borderRadius: '50%', background: available ? 'var(--color-success)' : 'var(--color-text-secondary)' }} />
                     <Typography variant="body2" sx={{ fontWeight: 600, color: available ? 'var(--color-success)' : 'var(--color-text-secondary)' }}>
-                      {available ? t('lawyerHome.available', 'Accepting Consultations') : t('lawyerHome.unavailable', 'Unavailable')}
+                      {available ? t('lawyer.available', 'Accepting Consultations') : t('lawyer.unavailable', 'Unavailable')}
                     </Typography>
                   </Box>
                 }
@@ -292,10 +292,10 @@ function LawyerHome() {
                 </Grid>
               ))
             : [
-                { icon: '👥', label: t('lawyerHome.activeClients', 'Active Clients'), value: stats.clientsCount, color: 'var(--color-primary-alpha)', delay: 0.05 },
-                { icon: '📋', label: t('lawyerHome.casesMonth', 'Cases This Month'), value: stats.casesMonth, color: 'rgba(46,125,50,0.1)', delay: 0.12 },
-                { icon: '📅', label: t('lawyerHome.pending', 'Pending Consultations'), value: stats.pendingCount, color: 'rgba(230,81,0,0.1)', delay: 0.19 },
-                { icon: '💰', label: t('lawyerHome.earnings', 'Earnings (Month)'), value: stats.earningsMonth, prefix: '₹', color: 'rgba(2,119,189,0.1)', delay: 0.26 },
+                { icon: '👥', label: t('lawyer.active_clients', 'Active Clients'), value: stats.clientsCount, color: 'var(--color-primary-alpha)', delay: 0.05 },
+                { icon: '📋', label: t('lawyer.cases_month', 'Cases This Month'), value: stats.casesMonth, color: 'rgba(46,125,50,0.1)', delay: 0.12 },
+                { icon: '📅', label: t('lawyer.pending_consultations', 'Pending Consultations'), value: stats.pendingCount, color: 'rgba(230,81,0,0.1)', delay: 0.19 },
+                { icon: '💰', label: t('lawyer.earnings_month', 'Earnings (Month)'), value: stats.earningsMonth, prefix: '₹', color: 'rgba(2,119,189,0.1)', delay: 0.26 },
               ].map((s) => (
                 <Grid item xs={6} sm={3} key={s.label}>
                   <StatCard {...s} />
@@ -314,7 +314,7 @@ function LawyerHome() {
             >
               <Box sx={{ mb: 3 }}>
                 <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 1.5 }}>
-                  🔔 {t('lawyerHome.pendingTitle', 'Consultations Awaiting Your Response')}
+                  🔔 {t('lawyer.pending_title', 'Consultations Awaiting Your Response')}
                   <Chip label={pending.length} size="small" sx={{ ml: 1, background: 'var(--color-warning)', color: '#fff', fontWeight: 800, height: 20, fontSize: '0.7rem' }} />
                 </Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -334,13 +334,13 @@ function LawyerHome() {
             <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
               <Box sx={{ p: 2.5, borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)', boxShadow: SHADOWS.sm }}>
                 <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 2 }}>
-                  {t('lawyerHome.quickActions', 'Quick Actions')}
+                  {t('lawyer.quick_actions', 'Quick Actions')}
                 </Typography>
                 {[
-                  { icon: '👥', label: t('lawyerHome.viewClients', 'View Clients'), path: '/lawyer/clients', color: 'var(--color-primary-alpha)' },
-                  { icon: '📅', label: t('lawyerHome.consultations', 'Consultations'), path: '/lawyer/consultations', color: 'rgba(230,81,0,0.1)' },
-                  { icon: '💰', label: t('lawyerHome.earnings', 'Earnings'), path: '/lawyer/earnings', color: 'rgba(46,125,50,0.1)' },
-                  { icon: '👤', label: t('lawyerHome.profile', 'My Profile'), path: '/lawyer/profile', color: 'rgba(2,119,189,0.1)' },
+                  { icon: '👥', label: t('lawyer.view_clients', 'View Clients'), path: '/lawyer/clients', color: 'var(--color-primary-alpha)' },
+                  { icon: '📅', label: t('lawyer.consultations', 'Consultations'), path: '/lawyer/consultations', color: 'rgba(230,81,0,0.1)' },
+                  { icon: '💰', label: t('lawyer.earnings', 'Earnings'), path: '/lawyer/earnings', color: 'rgba(46,125,50,0.1)' },
+                  { icon: '👤', label: t('lawyer.profile', 'My Profile'), path: '/lawyer/profile', color: 'rgba(2,119,189,0.1)' },
                 ].map((action, i) => (
                   <motion.div key={action.path} whileHover={{ x: 4 }} transition={{ duration: 0.15 }}>
                     <Box onClick={() => navigate(action.path)} sx={{
@@ -365,13 +365,13 @@ function LawyerHome() {
             <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}>
               <Box sx={{ p: 2.5, borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)', boxShadow: SHADOWS.sm }}>
                 <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 2 }}>
-                  {t('lawyerHome.recentActivity', 'Recent Activity')}
+                  {t('lawyer.recent_activity', 'Recent Activity')}
                 </Typography>
                 {activities.length === 0 ? (
                   <Box sx={{ textAlign: 'center', py: 4 }}>
                     <Typography sx={{ fontSize: 36, mb: 1 }}>📋</Typography>
                     <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
-                      {t('lawyerHome.noActivity', 'No recent activity. Your client feed will appear here.')}
+                      {t('lawyer.no_activity', 'No recent activity. Your client feed will appear here.')}
                     </Typography>
                   </Box>
                 ) : (

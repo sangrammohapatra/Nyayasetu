@@ -98,7 +98,7 @@ function ClauseExplainer({ anchorEl, onClose, documentId, clauseIndex, clauseTex
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography sx={{ fontSize: 20 }}>💡</Typography>
             <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)' }}>
-              {t('clause.title', 'In Simple Terms')}
+              {t('myDocs.clause_explainer_title', 'In Simple Terms')}
             </Typography>
           </Box>
           <IconButton size="small" onClick={onClose}
@@ -138,7 +138,7 @@ function ClauseExplainer({ anchorEl, onClose, documentId, clauseIndex, clauseTex
               >
                 <CircularProgress size={16} sx={{ color: 'var(--color-primary)' }} />
                 <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
-                  {t('clause.explaining', 'Explaining…')}
+                  {t('myDocs.clause_explaining', 'Explaining…')}
                 </Typography>
               </motion.div>
             ) : (
@@ -175,7 +175,7 @@ function ClauseExplainer({ anchorEl, onClose, documentId, clauseIndex, clauseTex
             border: '1px solid var(--color-border)',
           }}>
             <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', fontWeight: 600, display: 'block', mb: 0.25 }}>
-              {t('clause.original', 'Original clause')}
+              {t('myDocs.clause_original', 'Original clause')}
             </Typography>
             <Typography variant="caption" sx={{
               color: 'var(--color-text)', lineHeight: 1.5,

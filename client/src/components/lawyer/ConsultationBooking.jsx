@@ -63,7 +63,7 @@ function Step1({ mode, onSelect }) {
   return (
     <Box>
       <Typography variant="body1" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 1.75 }}>
-        {t('booking.selectMode', 'How would you like to consult?')}
+        {t('lawyer.select_mode', 'How would you like to consult?')}
       </Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
         {MODES.map((m) => (
@@ -99,9 +99,9 @@ function Step2({ date, setDate, time, setTime }) {
   return (
     <Box>
       <Typography variant="body1" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 1.75 }}>
-        {t('booking.selectDateTime', 'Choose a date and time')}
+        {t('lawyer.select_date_time', 'Choose a date and time')}
       </Typography>
-      <TextField type="date" fullWidth label={t('booking.date', 'Date')} value={date}
+      <TextField type="date" fullWidth label={t('lawyer.date', 'Date')} value={date}
         onChange={(e) => { setDate(e.target.value); setTime(''); }}
         inputProps={{ min: today }}
         sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: `${RADIUS.md}px` } }}
@@ -110,7 +110,7 @@ function Step2({ date, setDate, time, setTime }) {
       {date && (
         <Box>
           <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--color-text)', mb: 1.25 }}>
-            {t('booking.availableSlots', 'Available Slots')}
+            {t('lawyer.available_slots', 'Available Slots')}
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
             {slots.map((slot) => {
@@ -140,15 +140,15 @@ function Step3({ notes, setNotes, documentId, setDocumentId, documents }) {
   return (
     <Box>
       <Typography variant="body1" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 1.75 }}>
-        {t('booking.addDetails', 'Add notes (optional)')}
+        {t('lawyer.add_details', 'Add notes (optional)')}
       </Typography>
-      <TextField fullWidth multiline rows={4} label={t('booking.notes', 'Notes for the lawyer')}
+      <TextField fullWidth multiline rows={4} label={t('lawyer.notes', 'Notes for the lawyer')}
         value={notes} onChange={(e) => setNotes(e.target.value)}
         placeholder="Briefly describe your legal issue so the lawyer can prepare…"
         sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: `${RADIUS.md}px` } }} />
 
       {documents.length > 0 && (
-        <TextField select fullWidth label={t('booking.attachDoc', 'Attach a document (optional)')}
+        <TextField select fullWidth label={t('lawyer.attach_doc', 'Attach a document (optional)')}
           value={documentId} onChange={(e) => setDocumentId(e.target.value)}
           sx={{ '& .MuiOutlinedInput-root': { borderRadius: `${RADIUS.md}px` } }}>
           <MenuItem value="">— No document —</MenuItem>
@@ -170,7 +170,7 @@ function Step4({ lawyer, mode, date, time, notes, fee }) {
   return (
     <Box>
       <Typography variant="body1" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 2 }}>
-        {t('booking.summary', 'Booking Summary')}
+        {t('lawyer.summary', 'Booking Summary')}
       </Typography>
       <Box sx={{ p: 2.5, borderRadius: `${RADIUS.xl}px`, border: '1.5px solid var(--color-primary)', background: 'var(--color-primary-alpha)', mb: 2.5 }}>
         {[
@@ -294,7 +294,7 @@ function ConsultationBooking({ open, onClose, lawyer }) {
         <Box sx={{ px: 3, py: 2.5, borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box>
             <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
-              📅 {t('booking.title', 'Book Consultation')}
+              📅 {t('lawyer.booking_title', 'Book Consultation')}
             </Typography>
             {lawyer && <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>with {lawyer.name}</Typography>}
           </Box>
@@ -355,7 +355,7 @@ function ConsultationBooking({ open, onClose, lawyer }) {
               ) : (
                 <Button variant="contained" onClick={handlePay} disabled={loading}
                   sx={{ flex: 2, borderRadius: `${RADIUS.md}px`, fontWeight: 700, background: 'var(--color-primary)', py: 1.25 }}>
-                  {loading ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : `💳 ${t('booking.pay', 'Pay')} ₹${Math.round(fee / 100)} & Confirm`}
+                  {loading ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : `💳 ${t('lawyer.pay', 'Pay')} ₹${Math.round(fee / 100)} & Confirm`}
                 </Button>
               )}
             </Box>
@@ -371,14 +371,14 @@ function ConsultationBooking({ open, onClose, lawyer }) {
               <Typography sx={{ fontSize: 72, mb: 2 }}>🎉</Typography>
             </motion.div>
             <Typography variant="h5" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 800, color: 'var(--color-text)', mb: 1 }}>
-              {t('booking.confirmed', 'Consultation Booked!')}
+              {t('lawyer.confirmed', 'Consultation Booked!')}
             </Typography>
             <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3, lineHeight: 1.65, maxWidth: 300 }}>
-              {t('booking.confirmedDesc', `Your ${mode} consultation with ${lawyer?.name} has been confirmed. You will receive a WhatsApp reminder before the session.`)}
+              {t('lawyer.confirmed_desc', `Your ${mode} consultation with ${lawyer?.name} has been confirmed. You will receive a WhatsApp reminder before the session.`, { mode, lawyerName: lawyer?.name })}
             </Typography>
             <Button variant="contained" onClick={handleClose}
               sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 700, background: 'var(--color-primary)', px: 4 }}>
-              {t('booking.done', 'Done')}
+              {t('lawyer.done', 'Done')}
             </Button>
           </Box>
         )}

@@ -67,28 +67,28 @@ function StepBarCouncil({ control, errors }) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
       <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
-        {t('lawyerSetup.s1.title', 'Bar Council Details')}
+        {t('lawyer_setup.s1_title', 'Bar Council Details')}
       </Typography>
       <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mt: -1.5 }}>
-        {t('lawyerSetup.s1.desc', 'Your enrollment details are used for verification.')}
+        {t('lawyer_setup.s1_desc', 'Your enrollment details are used for verification.')}
       </Typography>
 
       <Controller name="barCouncilNumber" control={control} render={({ field }) => (
-        <TextField {...field} fullWidth label={t('lawyerSetup.barCouncil', 'Bar Council Enrollment Number')}
+        <TextField {...field} fullWidth label={t('lawyer_setup.bar_council', 'Bar Council Enrollment Number')}
           placeholder="e.g. MH/5432/2015"
           error={!!errors.barCouncilNumber} helperText={errors.barCouncilNumber?.message}
           inputProps={{ style: { fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.06em' } }} />
       )} />
 
       <Controller name="barCouncilState" control={control} render={({ field }) => (
-        <TextField {...field} select fullWidth label={t('lawyerSetup.barCouncilState', 'State Bar Council')}
+        <TextField {...field} select fullWidth label={t('lawyer_setup.bar_council_state', 'State Bar Council')}
           error={!!errors.barCouncilState} helperText={errors.barCouncilState?.message}>
           {INDIAN_STATES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
         </TextField>
       )} />
 
       <Controller name="experience" control={control} render={({ field }) => (
-        <TextField {...field} type="number" fullWidth label={t('lawyerSetup.experience', 'Years of Experience')}
+        <TextField {...field} type="number" fullWidth label={t('lawyer_setup.experience', 'Years of Experience')}
           inputProps={{ min: 0, max: 60 }}
           error={!!errors.experience} helperText={errors.experience?.message} />
       )} />
@@ -101,10 +101,10 @@ function StepSpecialisations({ specialisations, onToggle, error }) {
   return (
     <Box>
       <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.5 }}>
-        {t('lawyerSetup.s2.title', 'Areas of Practice')}
+        {t('lawyer_setup.s2_title', 'Areas of Practice')}
       </Typography>
       <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 2.5 }}>
-        {t('lawyerSetup.s2.desc', 'Select all areas you practise in. This helps clients find you.')}
+        {t('lawyer_setup.s2_desc', 'Select all areas you practise in. This helps clients find you.')}
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' }, gap: 1.25 }}>
         {SPECIALISATIONS.map((spec) => {
@@ -143,12 +143,12 @@ function StepPracticeDetails({ control, errors, practicingStates, setPracticingS
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
       <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
-        {t('lawyerSetup.s3.title', 'Practice Details')}
+        {t('lawyer_setup.s3_title', 'Practice Details')}
       </Typography>
 
       <Box>
         <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--color-text)', mb: 1.25 }}>
-          {t('lawyerSetup.practicingStates', 'States you practise in')}
+          {t('lawyer_setup.practicing_states', 'States you practise in')}
         </Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
           {INDIAN_STATES.map((s) => (
@@ -164,12 +164,12 @@ function StepPracticeDetails({ control, errors, practicingStates, setPracticingS
       </Box>
 
       <Controller name="district" control={control} render={({ field }) => (
-        <TextField {...field} fullWidth label={t('lawyerSetup.district', 'Primary District / City')} />
+        <TextField {...field} fullWidth label={t('lawyer_setup.district', 'Primary District / City')} />
       )} />
 
       <Controller name="bio" control={control} render={({ field }) => (
         <TextField {...field} fullWidth multiline rows={4}
-          label={t('lawyerSetup.bio', 'Professional Bio')}
+          label={t('lawyer_setup.bio', 'Professional Bio')}
           placeholder="Describe your practice, notable cases, and areas of expertise…"
           error={!!errors.bio} helperText={errors.bio?.message} />
       )} />
@@ -185,13 +185,13 @@ function StepAvailability({ control, modes, setModes }) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
       <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
-        {t('lawyerSetup.s4.title', 'Availability & Fees')}
+        {t('lawyer_setup.s4_title', 'Availability & Fees')}
       </Typography>
 
       <Controller name="consultationFee" control={control} render={({ field }) => (
         <Box>
           <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--color-text)', mb: 0.5 }}>
-            {t('lawyerSetup.fee', 'Consultation Fee (₹)')}
+            {t('lawyer_setup.fee', 'Consultation Fee (₹)')}
           </Typography>
           <TextField {...field} type="number" fullWidth inputProps={{ min: 0, step: 50 }}
             InputProps={{ startAdornment: <Typography sx={{ mr: 1, color: 'var(--color-text-secondary)' }}>₹</Typography> }} />
@@ -200,7 +200,7 @@ function StepAvailability({ control, modes, setModes }) {
 
       <Box>
         <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--color-text)', mb: 1.25 }}>
-          {t('lawyerSetup.modes', 'Consultation Modes Available')}
+          {t('lawyer_setup.modes', 'Consultation Modes Available')}
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           {CONSULTATION_MODES.map((m) => (
@@ -221,7 +221,7 @@ function StepAvailability({ control, modes, setModes }) {
             sx={{ '& .MuiSwitch-thumb': { background: 'var(--color-primary)' } }} />}
           label={
             <Box>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>{t('lawyerSetup.available', 'Currently accepting consultations')}</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>{t('lawyer_setup.available', 'Currently accepting consultations')}</Typography>
               <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>You can toggle this anytime from your dashboard</Typography>
             </Box>
           }
@@ -238,10 +238,10 @@ function StepDocuments({ file, setFile, error }) {
   return (
     <Box>
       <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.5 }}>
-        {t('lawyerSetup.s5.title', 'Upload Documents')}
+        {t('lawyer_setup.s5_title', 'Upload Documents')}
       </Typography>
       <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 2.5 }}>
-        {t('lawyerSetup.s5.desc', 'Upload your Bar Council enrollment certificate for verification. PDF, JPEG or PNG, max 5MB.')}
+        {t('lawyer_setup.s5_desc', 'Upload your Bar Council enrollment certificate for verification. PDF, JPEG or PNG, max 5MB.')}
       </Typography>
 
       <input ref={inputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }}
@@ -267,7 +267,7 @@ function StepDocuments({ file, setFile, error }) {
         ) : (
           <Box>
             <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--color-text)', mb: 0.5 }}>
-              {t('lawyerSetup.uploadClick', 'Click to upload or drag and drop')}
+              {t('lawyer_setup.upload_click', 'Click to upload or drag and drop')}
             </Typography>
             <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>PDF, JPEG or PNG · Max 5MB</Typography>
           </Box>
@@ -276,7 +276,7 @@ function StepDocuments({ file, setFile, error }) {
       {error && <Typography variant="caption" sx={{ color: 'var(--color-error)', mt: 1, display: 'block' }}>{error}</Typography>}
 
       <Alert severity="info" sx={{ mt: 2, borderRadius: `${RADIUS.md}px` }}>
-        {t('lawyerSetup.reviewNote', 'Your profile will be reviewed by our team within 2–3 business days.')}
+        {t('lawyer_setup.review_note', 'Your profile will be reviewed by our team within 2–3 business days.')}
       </Alert>
     </Box>
   );
@@ -287,10 +287,10 @@ function UnderReview() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const steps = [
-    { label: t('lawyerSetup.r1', 'Application submitted'), done: true },
-    { label: t('lawyerSetup.r2', 'Document review'), done: false },
-    { label: t('lawyerSetup.r3', 'Bar Council verification'), done: false },
-    { label: t('lawyerSetup.r4', 'Profile approved & live'), done: false },
+    { label: t('lawyer_setup.r1', 'Application submitted'), done: true },
+    { label: t('lawyer_setup.r2', 'Document review'), done: false },
+    { label: t('lawyer_setup.r3', 'Bar Council verification'), done: false },
+    { label: t('lawyer_setup.r4', 'Profile approved & live'), done: false },
   ];
 
   return (
@@ -300,10 +300,10 @@ function UnderReview() {
           <Typography sx={{ fontSize: 64, mb: 2 }}>⚖️</Typography>
         </motion.div>
         <Typography variant="h5" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 1 }}>
-          {t('lawyerSetup.underReview', 'Application Under Review')}
+          {t('lawyer_setup.under_review', 'Application Under Review')}
         </Typography>
         <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 4, maxWidth: 340, mx: 'auto' }}>
-          {t('lawyerSetup.underReviewDesc', 'Our team is reviewing your application. We will notify you within 2–3 business days.')}
+          {t('lawyer_setup.under_review_desc', 'Our team is reviewing your application. We will notify you within 2–3 business days.')}
         </Typography>
 
         <Box sx={{ maxWidth: 340, mx: 'auto', textAlign: 'left', mb: 4 }}>
@@ -327,7 +327,7 @@ function UnderReview() {
 
         <Button variant="outlined" onClick={() => navigate('/lawyer/home')}
           sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 600, borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
-          {t('lawyerSetup.goHome', 'Go to Dashboard')}
+          {t('lawyer_setup.go_home', 'Go to Dashboard')}
         </Button>
       </Box>
     </motion.div>
@@ -429,10 +429,10 @@ function LawyerDashboard() {
       <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 640, mx: 'auto', pb: { xs: 10, md: 6 } }}>
         <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
           <Typography variant="h4" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.5 }}>
-            ⚖️ {t('lawyerSetup.title', 'Set Up Your Lawyer Profile')}
+            ⚖️ {t('lawyer_setup.title', 'Set Up Your Lawyer Profile')}
           </Typography>
           <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3 }}>
-            {t('lawyerSetup.subtitle', 'Complete your profile to start accepting consultations on NyayaSetu.')}
+            {t('lawyer_setup.subtitle', 'Complete your profile to start accepting consultations on NyayaSetu.')}
           </Typography>
         </motion.div>
 
@@ -487,8 +487,8 @@ function LawyerDashboard() {
             ) : (
               <Button variant="contained" onClick={handleSubmit(onFinalSubmit)} disabled={submitting}
                 sx={{ flex: 2, borderRadius: `${RADIUS.md}px`, fontWeight: 700, background: 'var(--color-primary)', py: 1.25 }}>
-                {submitting ? <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><CircularProgress size={18} sx={{ color: '#fff' }} />{t('lawyerSetup.submitting', 'Submitting…')}</Box>
-                  : t('lawyerSetup.submit', 'Submit Application')}
+                {submitting ? <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><CircularProgress size={18} sx={{ color: '#fff' }} />{t('lawyer_setup.submitting', 'Submitting…')}</Box>
+                  : t('lawyer_setup.submit', 'Submit Application')}
               </Button>
             )}
           </Box>

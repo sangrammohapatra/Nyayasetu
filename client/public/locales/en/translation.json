@@ -60,18 +60,51 @@
   "nav": {
     "home": "Home",
     "new_document": "New Document",
+    "new_doc": "New Doc",
     "my_documents": "My Documents",
     "case_tracker": "Case Tracker",
+    "cases": "Cases",
     "find_lawyer": "Find Lawyer",
+    "lawyers": "Lawyers",
     "pricing": "Pricing",
     "settings": "Settings",
     "profile": "Profile",
     "logout": "Sign Out",
     "notifications": "Notifications",
+    "alerts": "Alerts",
+    "clients": "Clients",
+    "consultations": "Sessions",
+    "earnings": "Earnings",
+    "dashboard": "Dashboard",
+    "users": "Users",
+    "templates": "Templates",
     "upgrade": "Upgrade Plan",
     "theme": "Theme",
     "search": "Search laws, documents…",
     "anonymous": "Anonymous"
+  },
+  "sidebar": {
+    "home": "Home",
+    "newDoc": "New Document",
+    "myDocs": "My Documents",
+    "caseTracker": "Case Tracker",
+    "findLawyer": "Find Lawyer",
+    "settings": "Settings",
+    "pricing": "Pricing",
+    "clients": "My Clients",
+    "cases": "Cases",
+    "consultations": "Consultations",
+    "earnings": "Earnings",
+    "dashboard": "Dashboard",
+    "users": "Users",
+    "templates": "Templates",
+    "lawyers": "Lawyers",
+    "profile": "My Profile",
+    "freePlan": "Free Plan",
+    "docs": "docs",
+    "upgrade": "Upgrade → ₹99/mo",
+    "expand": "Expand",
+    "collapse": "Collapse"
   },
   "myDocs": {
     "create": "Create Document",
@@ -272,7 +305,8 @@
     "search_placeholder": "Search by case title, CNR or client…",
     "no_match": "No cases match",
     "empty": "No cases yet",
-    "cases_mgmt_empty_desc": "Cases will appear here once clients share them with you."
+    "cases_mgmt_empty_desc": "Cases will appear here once clients share them with you.",
+    "management_title": "Case Management"
   },
   "pricing": {
     "title": "Legal help that fits your pocket",
@@ -361,7 +395,9 @@
     "pay_confirm": "Pay & Confirm",
     "pay": "Pay",
     "confirmed": "Consultation Booked!",
-    "confirmed_desc": "Your consultation has been confirmed. You will receive a WhatsApp reminder before the session.",
+    "confirmed_desc": "Your {{mode}} consultation with {{lawyerName}} has been confirmed. You will receive a WhatsApp reminder before the session.",
+    "date": "Date",
+    "notes": "Notes for the lawyer",
     "done": "Done",
     "active_clients": "Active Clients",
     "cases_month": "Cases This Month",
@@ -589,7 +625,22 @@
     "invalid_cnr": "Invalid CNR number format.",
     "payment_failed": "Payment failed. Please try again.",
     "upload_failed": "File upload failed. Please try again.",
-    "session_expired": "Your session has expired. Please sign in again."
+    "session_expired": "Your session has expired. Please sign in again.",
+    "boundary_title": "Something went wrong",
+    "boundary_network_desc": "A network error occurred. Please check your connection and try again.",
+    "boundary_generic_desc": "An unexpected error occurred. Our team has been notified.",
+    "boundary_error_id": "Error ID",
+    "boundary_need_help": "Need help?",
+    "boundary_call_support": "Call Support",
+    "boundary_error_reference": "Error reference"
+  },
+  "voice": {
+    "not_supported": "Voice input is not supported in this browser. Try Chrome or Edge.",
+    "permission_denied": "Microphone access was denied. Please allow it in browser settings.",
+    "no_speech": "No speech detected. Please try again.",
+    "release": "Release to send",
+    "hold": "Hold to speak",
+    "aria": "Voice input"
   },
   "lawyer_setup": {
     "title": "Set Up Your Lawyer Profile",
@@ -620,7 +671,8 @@
     "r2": "Document review",
     "r3": "Bar Council verification",
     "r4": "Profile approved & live",
-    "go_home": "Go to Dashboard"
+    "go_home": "Go to Dashboard",
+    "district": "Primary District / City"
   },
   "earnings": {
     "title": "Earnings",

@@ -196,7 +196,7 @@ function LawyerCard({ lawyer, onBook, delay = 0 }) {
               variant="caption"
               sx={{ color: "var(--color-text-secondary)", display: "block" }}
             >
-              {lawyer.experience} yrs experience
+              {lawyer.experience} {t("lawyer.experience", "years experience")}
             </Typography>
             <StarRating
               rating={lawyer.averageRating || 0}
@@ -280,7 +280,7 @@ function LawyerCard({ lawyer, onBook, delay = 0 }) {
               variant="caption"
               sx={{ color: "var(--color-text-secondary)" }}
             >
-              {t("lawyer.consultFee", "Consultation Fee")}
+              {t("lawyer.consult_fee", "Consultation Fee")}
             </Typography>
             <Typography
               variant="body1"
@@ -321,7 +321,7 @@ function LawyerCard({ lawyer, onBook, delay = 0 }) {
               }}
             >
               {lawyer.isAvailable
-                ? t("lawyer.bookNow", "Book Now")
+                ? t("lawyer.book_now", "Book Now")
                 : t("lawyer.unavailable", "Unavailable")}
             </Button>
           </motion.div>
@@ -414,7 +414,7 @@ function LawyerSearch() {
                 mb: 2,
               }}
             >
-              🔍 {t("lawyerSearch.title", "Find a Lawyer")}
+              🔍 {t("lawyer.search_title", "Find a Lawyer")}
             </Typography>
 
             <Grid container spacing={2} sx={{ mb: 2 }}>
@@ -423,7 +423,7 @@ function LawyerSearch() {
                   select
                   fullWidth
                   size="small"
-                  label={t("lawyerSearch.state", "State")}
+                  label={t("lawyer.states", "State")}
                   value={filters.state}
                   onChange={(e) => setFilter("state", e.target.value)}
                   sx={{
@@ -434,7 +434,7 @@ function LawyerSearch() {
                   }}
                 >
                   <MenuItem value="">
-                    {t("lawyerSearch.allStates", "All States")}
+                    {t("lawyer.all_states", "All States")}
                   </MenuItem>
                   {INDIAN_STATES.map((s) => (
                     <MenuItem key={s} value={s}>
@@ -448,7 +448,7 @@ function LawyerSearch() {
                   select
                   fullWidth
                   size="small"
-                  label={t("lawyerSearch.language", "Language")}
+                  label={t("settings.language_section.title", "Language")}
                   value={filters.language}
                   onChange={(e) => setFilter("language", e.target.value)}
                   sx={{
@@ -459,7 +459,7 @@ function LawyerSearch() {
                   }}
                 >
                   <MenuItem value="">
-                    {t("lawyerSearch.anyLanguage", "Any Language")}
+                    {t("lawyer.any_language", "Any Language")}
                   </MenuItem>
                   {LANGUAGES.map((l) => (
                     <MenuItem key={l} value={l}>
@@ -477,7 +477,7 @@ function LawyerSearch() {
                       fontWeight: 600,
                     }}
                   >
-                    {t("lawyerSearch.maxFee", "Max Fee")}: ₹
+                    {t("lawyer.max_fee", "Max Fee")}: ₹
                     {filters.maxFee === 2000 ? "Any" : filters.maxFee}
                   </Typography>
                   <Slider
@@ -533,7 +533,7 @@ function LawyerSearch() {
                 sx={{ color: "var(--color-text-secondary)" }}
               >
                 {searched &&
-                  `${results.length} ${t("lawyerSearch.found", "lawyers found")}`}
+                  `${results.length} ${t("lawyer.found", "lawyers found")}`}
               </Typography>
               <Box>
                 <Button
@@ -547,8 +547,8 @@ function LawyerSearch() {
                   }}
                 >
                   {loading
-                    ? t("lawyerSearch.searching", "Searching…")
-                    : t("lawyerSearch.search", "Search Lawyers")}
+                    ? t("lawyer.searching", "Searching…")
+                    : t("lawyer.search", "Search Lawyers")}
                 </Button>
                 {(filters.state ||
                   filters.specialisations.length > 0 ||
@@ -567,7 +567,7 @@ function LawyerSearch() {
                     }
                     sx={{ color: "var(--color-text-secondary)" }}
                   >
-                    {t("lawyerSearch.clear", "Clear filters")}
+                    {t("lawyer.clear", "Clear filters")}
                   </Button>
                 )}
               </Box>
@@ -600,14 +600,14 @@ function LawyerSearch() {
                 mb: 1,
               }}
             >
-              {t("lawyerSearch.noResults", "No lawyers found")}
+              {t("lawyer.no_results", "No lawyers found")}
             </Typography>
             <Typography
               variant="body2"
               sx={{ color: "var(--color-text-secondary)" }}
             >
               {t(
-                "lawyerSearch.tryBroader",
+                "lawyer.try_broader",
                 "Try broader filters or a different state.",
               )}
             </Typography>
