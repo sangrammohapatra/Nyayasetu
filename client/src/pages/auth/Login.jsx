@@ -627,7 +627,7 @@ function Login() {
                           {t('auth.login_title', 'Welcome back')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3 }}>
-                          {t('auth.identifier_hint', 'Enter your phone number or email to receive an OTP')}
+                          {t('auth.identifier_hint', 'Enter your phone or email to receive an OTP')}
                         </Typography>
                       </motion.div>
 
@@ -724,7 +724,7 @@ function Login() {
                           {t('auth.login_title', 'Welcome back')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3 }}>
-                          {t('auth.enter_identifier_password', 'Enter your phone number or email, and password')}
+                          {t('auth.enter_phone_password', 'Enter your phone number or email, and password')}
                         </Typography>
                       </motion.div>
 
@@ -805,10 +805,10 @@ function Login() {
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <Box>
                             <Typography variant="h5" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.5 }}>
-                              {t('register.step1.title', 'Personal Information')}
+                              {t('register.step1_title', 'Personal Information')}
                             </Typography>
                             <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
-                              {t('register.step1.subtitle', 'This helps us tailor documents to your jurisdiction.')}
+                              {t('register.step1_subtitle', 'This helps us tailor documents to your jurisdiction.')}
                             </Typography>
                           </Box>
 
@@ -853,7 +853,7 @@ function Login() {
                             onChange={(e) => updateRegData('password', e.target.value)}
                             autoComplete="new-password"
                             error={!!regErrors.password}
-                            helperText={regErrors.password || t('register.passwordHint', 'Set a password to log in without OTP (min 8 characters)')}
+                            helperText={regErrors.password || t('register.password_hint', 'Set a password to log in without OTP (min 8 characters)')}
                             InputProps={{
                               endAdornment: (
                                 <InputAdornment position="end">
@@ -867,7 +867,7 @@ function Login() {
 
                           {regData.password.length > 0 && (
                             <TextField fullWidth
-                              label={t('register.confirmPassword', 'Confirm Password')}
+                              label={t('register.confirm_password', 'Confirm Password')}
                               type={showRegConfirmPassword ? 'text' : 'password'}
                               value={regData.confirmPassword}
                               onChange={(e) => updateRegData('confirmPassword', e.target.value)}
@@ -915,10 +915,10 @@ function Login() {
                       <motion.div key="reg-2" custom={regDirection} variants={slideVariants} initial="enter" animate="center" exit="exit">
                         <Box>
                           <Typography variant="h5" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.5 }}>
-                            {t('register.step2.title', 'Choose Your Role')}
+                            {t('register.step2_title', 'Choose Your Role')}
                           </Typography>
                           <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 2.5 }}>
-                            {t('register.step2.subtitle', 'You can change this later in settings.')}
+                            {t('register.step2_subtitle', 'You can change this later in settings.')}
                           </Typography>
 
                           <RadioGroup value={regData.persona} onChange={(e) => updateRegData('persona', e.target.value)} sx={{ gap: 2 }}>
@@ -971,10 +971,10 @@ function Login() {
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
                           <Box>
                             <Typography variant="h5" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.5 }}>
-                              {t('register.step3.title', 'Your Preferences')}
+                              {t('register.step3_title', 'Your Preferences')}
                             </Typography>
                             <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
-                              {t('register.step3.subtitle', 'Customise your experience.')}
+                              {t('register.step3_subtitle', 'Customise your experience.')}
                             </Typography>
                           </Box>
 
@@ -1019,7 +1019,7 @@ function Login() {
                                   📱 {t('register.whatsapp', 'WhatsApp Notifications')}
                                 </Typography>
                                 <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
-                                  {t('register.whatsappDesc', 'Get court hearing reminders and document updates on WhatsApp.')}
+                                  {t('register.whatsapp_desc', 'Get court hearing reminders and document updates on WhatsApp.')}
                                 </Typography>
                               </Box>
                               <Switch checked={!!regData.whatsappOptIn}
@@ -1089,20 +1089,20 @@ function Login() {
           <Typography variant="body2" sx={{ textAlign: 'center', mt: 3, color: 'var(--color-text-secondary)' }}>
             {pageMode === 'login' ? (
               <>
-                {t('auth.noAccount', "Don't have an account?")}{' '}
+                {t('auth.no_account', "Don't have an account?")}{' '}
                 <Typography component="span" variant="body2"
                   onClick={() => switchPageMode('register')}
                   sx={{ color: 'var(--color-primary)', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}>
-                  {t('auth.registerLink', 'Register')}
+                  {t('auth.register_link', 'Register')}
                 </Typography>
               </>
             ) : (
               <>
-                {t('auth.haveAccount', 'Already have an account?')}{' '}
+                {t('auth.already_have_account', 'Already have an account?')}{' '}
                 <Typography component="span" variant="body2"
                   onClick={() => switchPageMode('login')}
                   sx={{ color: 'var(--color-primary)', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}>
-                  {t('auth.signInLink', 'Sign In')}
+                  {t('auth.sign_in', 'Sign In')}
                 </Typography>
               </>
             )}

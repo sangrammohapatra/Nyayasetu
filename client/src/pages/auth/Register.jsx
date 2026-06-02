@@ -153,16 +153,13 @@ function Step1({ control, errors, existingPhone }) {
           mb: 0.5,
         }}
       >
-        {t("register.step1.title", "Personal Information")}
+        {t("register.step1_title", "Personal Information")}
       </Typography>
       <Typography
         variant="body2"
         sx={{ color: "var(--color-text-secondary)", mb: 1 }}
       >
-        {t(
-          "register.step1.subtitle",
-          "This helps us tailor documents to your jurisdiction.",
-        )}
+        {t("register.step1_subtitle", "This helps us tailor documents to your jurisdiction.")}
       </Typography>
 
       <Controller
@@ -290,29 +287,23 @@ function Step2({ control, errors, watch }) {
     {
       value: "citizen",
       icon: "🏠",
-      title: t("register.persona.citizenTitle", "Citizen"),
-      desc: t(
-        "register.persona.citizenDesc",
-        "I need legal documents, case tracking, and lawyer connections for my personal legal matters.",
-      ),
+      title: t("register.citizen_title", "Citizen"),
+      desc: t("register.citizen_desc", "I need legal documents, case tracking, and lawyer connections for my personal legal matters."),
       features: [
-        t("register.f.docs", "Legal documents"),
-        t("register.f.cases", "Case tracking"),
-        t("register.f.lawyers", "Find lawyers"),
+        t("register.feature_docs", "Legal documents"),
+        t("register.feature_cases", "Case tracking"),
+        t("register.feature_lawyers", "Find lawyers"),
       ],
     },
     {
       value: "lawyer",
       icon: "⚖️",
-      title: t("register.persona.lawyerTitle", "Advocate / Lawyer"),
-      desc: t(
-        "register.persona.lawyerDesc",
-        "I am a practising advocate looking to offer consultations and grow my client base.",
-      ),
+      title: t("register.lawyer_title", "Advocate / Lawyer"),
+      desc: t("register.lawyer_desc", "I am a practising advocate looking to offer consultations and grow my client base."),
       features: [
-        t("register.f.clients", "Client portal"),
-        t("register.f.consultations", "Consultations"),
-        t("register.f.earnings", "Earnings dashboard"),
+        t("register.feature_clients", "Client portal"),
+        t("register.feature_consultations", "Consultations"),
+        t("register.feature_earnings", "Earnings dashboard"),
       ],
     },
   ];
@@ -328,13 +319,13 @@ function Step2({ control, errors, watch }) {
           mb: 0.5,
         }}
       >
-        {t("register.step2.title", "Choose Your Role")}
+        {t("register.step2_title", "Choose Your Role")}
       </Typography>
       <Typography
         variant="body2"
         sx={{ color: "var(--color-text-secondary)", mb: 3 }}
       >
-        {t("register.step2.subtitle", "You can change this later in settings.")}
+        {t("register.step2_subtitle", "You can change this later in settings.")}
       </Typography>
 
       <Controller
@@ -464,13 +455,13 @@ function Step3({ control, watch }) {
             mb: 0.5,
           }}
         >
-          {t("register.step3.title", "Your Preferences")}
+          {t("register.step3_title", "Your Preferences")}
         </Typography>
         <Typography
           variant="body2"
           sx={{ color: "var(--color-text-secondary)" }}
         >
-          {t("register.step3.subtitle", "Customise your experience.")}
+          {t("register.step3_subtitle", "Customise your experience.")}
         </Typography>
       </Box>
 
@@ -590,10 +581,7 @@ function Step3({ control, watch }) {
               variant="caption"
               sx={{ color: "var(--color-text-secondary)" }}
             >
-              {t(
-                "register.whatsappDesc",
-                "Get court hearing reminders and document updates on WhatsApp.",
-              )}
+              {t("register.whatsapp_desc", "Get court hearing reminders and document updates on WhatsApp.")}
             </Typography>
           </Box>
           <Controller
@@ -645,9 +633,9 @@ function Step3({ control, watch }) {
 function StepIndicator({ step, total }) {
   const { t } = useTranslation();
   const labels = [
-    t("register.stepLabels.0", "Personal Info"),
-    t("register.stepLabels.1", "Your Role"),
-    t("register.stepLabels.2", "Preferences"),
+    t("register.step_label_0", "Personal Info"),
+    t("register.step_label_1", "Your Role"),
+    t("register.step_label_2", "Preferences"),
   ];
   return (
     <Box sx={{ mb: 4 }}>
@@ -925,7 +913,7 @@ function Register() {
             color: "var(--color-text-secondary)",
           }}
         >
-          {t("register.alreadyHaveAccount", "Already have an account?")}{" "}
+          {t("register.already_have_account", "Already have an account?")}{" "}
           <Typography
             component="span"
             variant="caption"
@@ -936,7 +924,7 @@ function Register() {
             }}
             onClick={() => navigate("/login")}
           >
-            {t("register.signIn", "Sign In")}
+            {t("register.sign_in", "Sign In")}
           </Typography>
         </Typography>
       </Box>
