@@ -43,7 +43,7 @@ router.post(
   validate([
     body('cnrNumber')
       .notEmpty().withMessage('CNR number is required')
-      .matches(/^[A-Z]{2}[0-9]{2}[0-9]{6}[0-9]{4}$/i)
+      .matches(/^[A-Z]{4}[0-9]{2}[0-9]{6}[0-9]{4}$/i)
       .withMessage('Invalid CNR format. Example: DLHC010012342024'),
     body('alertDaysBefore')
       .optional()

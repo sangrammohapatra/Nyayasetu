@@ -83,6 +83,7 @@ const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const AdminUsers     = lazy(() => import('./pages/admin/AdminUsers'));
 const AdminLawyers   = lazy(() => import('./pages/admin/AdminLawyers'));
 const AdminTemplates = lazy(() => import('./pages/admin/AdminTemplates'));
+const LawSearch      = lazy(() => import('./pages/shared/LawSearch'));
 
 // ─── Page loading fallback ────────────────────────────────────────────────────
 
@@ -360,6 +361,26 @@ const router = createBrowserRouter([
           </Suspense>
         ),
       }
+    ],
+  },
+
+  // Law search — shared across all personas
+  {
+    path: '/laws/search',
+    element: (
+      <ProtectedRoute>
+        <AppLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        index: true,
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <LawSearch />
+          </Suspense>
+        ),
+      },
     ],
   },
 

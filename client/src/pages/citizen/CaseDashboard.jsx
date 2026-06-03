@@ -25,6 +25,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Skeleton from '@mui/material/Skeleton';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import Snackbar from '@mui/material/Snackbar';
 
 import {
   addCase, listCases, refreshCase, removeCase,
@@ -37,6 +38,7 @@ import GlassCard from '../../components/ui/GlassCard';
 import HearingTimeline from '../../components/case/HearingTimeline';
 import CNRInput, { CNR_REGEX } from '../../components/case/CNRInput';
 import { RADIUS, SHADOWS } from '../../theme/tokens';
+import api from '../../services/api';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -188,6 +190,16 @@ function CaseCard({ caseData, onRefresh, onDelete }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [remindSnack, setRemindSnack] = useState(null); // 'success' | 'error' | null
+
+  const handleRemind = useCallback(async () => {
+    try {
+      await api.patch(`/cases/${caseData._id}/alerts`, { alertsEnabled: true });
+      setRemindSnack('success');
+    } catch {
+      setRemindSnack('error');
+    }
+  }, [caseData._id]);
 
   const statusStyle = STATUS_MAP[caseData.status?.toLowerCase()] || STATUS_MAP.active;
   const nextDate = caseData.nextHearingDate;
@@ -329,10 +341,27 @@ function CaseCard({ caseData, onRefresh, onDelete }) {
             <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', mb: 1.5 }}>
               {t('case.hearing_history', 'Hearing Timeline')}
             </Typography>
-            <HearingTimeline hearings={caseData.hearings || []} />
+            <HearingTimeline hearings={caseData.hearings || []} onRemind={handleRemind} />
           </Box>
         </Collapse>
       </Box>
+
+      <Snackbar
+        open={remindSnack !== null}
+        autoHideDuration={3500}
+        onClose={() => setRemindSnack(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          severity={remindSnack === 'success' ? 'success' : 'error'}
+          onClose={() => setRemindSnack(null)}
+          sx={{ borderRadius: `${RADIUS.md}px` }}
+        >
+          {remindSnack === 'success'
+            ? t('hearing.remind_set', '🔔 Reminder enabled — you\'ll be alerted before the hearing.')
+            : t('hearing.remind_error', 'Failed to set reminder. Please try again.')}
+        </Alert>
+      </Snackbar>
     </motion.div>
   );
 }

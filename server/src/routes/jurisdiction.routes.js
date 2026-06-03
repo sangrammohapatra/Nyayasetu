@@ -34,6 +34,44 @@ router.get('/states', asyncHandler(async (req, res) => {
 }));
 
 /**
+ * GET /v1/jurisdiction/laws/search
+ * Proxy to Indian Kanoon API with Redis caching.
+ * Returns judgments and legislation matching the query.
+ *
+ * Query params:
+ *   q        — search query (required)
+ *   page     — 0-based page number
+ *   act      — act name (uses searchActSection when combined with section)
+ *   section  — section number
+ *
+ * NOTE: Must be registered before /:state/:docType to avoid the wildcard eating it.
+ */
+router.get(
+  '/laws/search',
+  validate([
+    query('q').optional().isLength({ min: 2, max: 200 }).withMessage('Query must be 2–200 characters'),
+    query('page').optional().isInt({ min: 0, max: 50 }).withMessage('Page must be 0–50'),
+  ]),
+  asyncHandler(async (req, res) => {
+    const { q, page = 0, act, section } = req.query;
+
+    if (!q && !act) {
+      throw createError(400, 'QUERY_REQUIRED', 'Provide either q (search query) or act parameter');
+    }
+
+    let results;
+
+    if (act && section) {
+      results = await searchActSection(act, section, parseInt(page));
+    } else {
+      results = await searchLaw(q || act, parseInt(page));
+    }
+
+    res.json(results);
+  })
+);
+
+/**
  * GET /v1/jurisdiction/:state/:docType
  * Get the jurisdiction rule for a state + document type combination.
  * Falls back to the 'ALL' (central) rule if no state-specific rule exists.
@@ -143,42 +181,6 @@ router.get(
       sections,
       total: sections.length,
     });
-  })
-);
-
-/**
- * GET /v1/laws/search
- * Proxy to Indian Kanoon API with Redis caching.
- * Returns judgments and legislation matching the query.
- *
- * Query params:
- *   q        — search query (required)
- *   page     — 0-based page number
- *   act      — act name (uses searchActSection when combined with section)
- *   section  — section number
- */
-router.get(
-  '/laws/search',
-  validate([
-    query('q').optional().isLength({ min: 2, max: 200 }).withMessage('Query must be 2–200 characters'),
-    query('page').optional().isInt({ min: 0, max: 50 }).withMessage('Page must be 0–50'),
-  ]),
-  asyncHandler(async (req, res) => {
-    const { q, page = 0, act, section } = req.query;
-
-    if (!q && !act) {
-      throw createError(400, 'QUERY_REQUIRED', 'Provide either q (search query) or act parameter');
-    }
-
-    let results;
-
-    if (act && section) {
-      results = await searchActSection(act, section, parseInt(page));
-    } else {
-      results = await searchLaw(q || act, parseInt(page));
-    }
-
-    res.json(results);
   })
 );
 

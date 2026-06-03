@@ -119,8 +119,13 @@ const createConsultation = asyncHandler(async (req, res) => {
   if (!lawyerProfile.isVerified) {
     return res.status(400).json({ error: 'Lawyer is not yet verified' });
   }
-  if (!lawyerProfile.isAvailableForConsultation) {
+  if (!lawyerProfile.isAcceptingClients) {
     return res.status(400).json({ error: 'Lawyer is not currently accepting consultations' });
+  }
+  if (!lawyerProfile.consultationModes.includes(mode)) {
+    return res.status(400).json({
+      error: `Lawyer does not offer ${mode} consultations. Available modes: ${lawyerProfile.consultationModes.join(', ')}`,
+    });
   }
 
   // Validate optional documentId
@@ -137,12 +142,15 @@ const createConsultation = asyncHandler(async (req, res) => {
   const feeInPaise = lawyerProfile.consultationFee; // stored in paise per Section 12 spec
 
   // Create Razorpay order first (atomic: if this fails, no consultation record is saved)
+  // Receipt max length is 40 chars; last 8 chars of userId + base-36 timestamp = 21 chars total
+  const receipt = `c_${String(citizenUserId).slice(-8)}_${Date.now().toString(36)}`;
+
   let razorpayOrder;
   try {
     razorpayOrder = await getRazorpay().orders.create({
       amount: feeInPaise,
       currency: 'INR',
-      receipt: `cons_${citizenUserId}_${Date.now()}`,
+      receipt,
       notes: {
         lawyerId: String(lawyerId),
         citizenId: String(citizenUserId),
@@ -150,7 +158,12 @@ const createConsultation = asyncHandler(async (req, res) => {
       },
     });
   } catch (err) {
-    logger.error('[consultation.controller] Razorpay order creation failed', { error: err.message });
+    const razorpayError = err?.error?.description || err?.message || JSON.stringify(err);
+    logger.error('[consultation.controller] Razorpay order creation failed', {
+      razorpayError,
+      receipt,
+      amount: feeInPaise,
+    });
     return res.status(502).json({ error: 'Payment gateway error — please try again' });
   }
 

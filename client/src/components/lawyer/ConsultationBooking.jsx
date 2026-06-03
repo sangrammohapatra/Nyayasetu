@@ -58,7 +58,7 @@ function generateSlots(dateStr) {
 
 // ─── Steps ────────────────────────────────────────────────────────────────────
 
-function Step1({ mode, onSelect }) {
+function Step1({ mode, onSelect, supportedModes }) {
   const { t } = useTranslation();
   return (
     <Box>
@@ -66,26 +66,33 @@ function Step1({ mode, onSelect }) {
         {t('lawyer.select_mode', 'How would you like to consult?')}
       </Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-        {MODES.map((m) => (
-          <motion.div key={m.id} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-            <Box onClick={() => onSelect(m.id)} sx={{
-              display: 'flex', alignItems: 'center', gap: 2, p: 1.75,
-              borderRadius: `${RADIUS.lg}px`,
-              border: mode === m.id ? '2px solid var(--color-primary)' : '1.5px solid var(--color-border)',
-              background: mode === m.id ? 'var(--color-primary-alpha)' : 'var(--color-surface)',
-              cursor: 'pointer', transition: 'all 0.18s',
-            }}>
-              <Typography sx={{ fontSize: 24, lineHeight: 1 }}>{m.icon}</Typography>
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 700, color: mode === m.id ? 'var(--color-primary)' : 'var(--color-text)' }}>
-                  {m.label}
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>{m.desc}</Typography>
+        {MODES.map((m) => {
+          const available = supportedModes.includes(m.id);
+          return (
+            <motion.div key={m.id} whileHover={available ? { scale: 1.01 } : {}} whileTap={available ? { scale: 0.99 } : {}}>
+              <Box onClick={() => available && onSelect(m.id)} sx={{
+                display: 'flex', alignItems: 'center', gap: 2, p: 1.75,
+                borderRadius: `${RADIUS.lg}px`,
+                border: mode === m.id ? '2px solid var(--color-primary)' : '1.5px solid var(--color-border)',
+                background: mode === m.id ? 'var(--color-primary-alpha)' : available ? 'var(--color-surface)' : 'var(--color-bg)',
+                cursor: available ? 'pointer' : 'not-allowed',
+                opacity: available ? 1 : 0.45,
+                transition: 'all 0.18s',
+              }}>
+                <Typography sx={{ fontSize: 24, lineHeight: 1 }}>{m.icon}</Typography>
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: mode === m.id ? 'var(--color-primary)' : 'var(--color-text)' }}>
+                    {m.label}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
+                    {available ? m.desc : t('lawyer.mode_unavailable', 'Not offered by this lawyer')}
+                  </Typography>
+                </Box>
+                {mode === m.id && <Typography sx={{ ml: 'auto', color: 'var(--color-primary)', fontSize: 18 }}>✓</Typography>}
               </Box>
-              {mode === m.id && <Typography sx={{ ml: 'auto', color: 'var(--color-primary)', fontSize: 18 }}>✓</Typography>}
-            </Box>
-          </motion.div>
-        ))}
+            </motion.div>
+          );
+        })}
       </Box>
     </Box>
   );
@@ -206,8 +213,14 @@ function ConsultationBooking({ open, onClose, lawyer }) {
   const user = useSelector(selectUser);
   const documents = useSelector(selectDocuments);
 
+  const supportedModes = lawyer?.consultationModes?.length ? lawyer.consultationModes : ['chat'];
+
   const [step, setStep] = useState(0);
-  const [mode, setMode] = useState('chat');
+  const [mode, setMode] = useState(supportedModes[0]);
+
+  useEffect(() => {
+    if (open) setMode(supportedModes[0]);
+  }, [open, lawyer?.id]);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [notes, setNotes] = useState('');
@@ -219,7 +232,7 @@ function ConsultationBooking({ open, onClose, lawyer }) {
   const STEPS = ['Mode', 'Date & Time', 'Notes', 'Payment'];
 
   const reset = () => {
-    setStep(0); setMode('chat'); setDate(''); setTime(''); setNotes('');
+    setStep(0); setMode(supportedModes[0]); setDate(''); setTime(''); setNotes('');
     setDocumentId(''); setError(''); setLoading(false); setConfirmed(false);
   };
 
@@ -330,7 +343,7 @@ function ConsultationBooking({ open, onClose, lawyer }) {
                   exit={{ opacity: 0, x: -24 }}
                   transition={{ duration: 0.28 }}
                 >
-                  {step === 0 && <Step1 mode={mode} onSelect={setMode} />}
+                  {step === 0 && <Step1 mode={mode} onSelect={setMode} supportedModes={supportedModes} />}
                   {step === 1 && <Step2 date={date} setDate={setDate} time={time} setTime={setTime} />}
                   {step === 2 && <Step3 notes={notes} setNotes={setNotes} documentId={documentId} setDocumentId={setDocumentId} documents={documents} />}
                   {step === 3 && <Step4 lawyer={lawyer} mode={mode} date={date} time={time} notes={notes} fee={fee} />}

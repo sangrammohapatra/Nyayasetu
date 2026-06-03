@@ -136,7 +136,9 @@ export const shareDocument = createAsyncThunk(
       const { data } = await api.post(`/documents/${documentId}/share`);
       return { documentId, shareToken: data.shareToken, shareUrl: data.shareUrl };
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to share document');
+      return rejectWithValue(
+        err.response?.data?.message || err.response?.data?.error || 'Failed to share document'
+      );
     }
   }
 );

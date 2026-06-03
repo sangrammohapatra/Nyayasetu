@@ -2,9 +2,10 @@
  * client/src/components/case/CNRInput.jsx
  *
  * Auto-uppercases, limits to 16 characters, shows real-time
- * format validation (AABB######YYYY) and a help tooltip.
+ * format validation and a help tooltip.
  *
- * CNR format: 2 uppercase letters + 2 digits + 6 digits + 4-digit year
+ * CNR format: 4 uppercase letters (state+court) + 2 digits (district) +
+ *             6 digits (case serial) + 4-digit year = 16 chars total
  * Example: DLHC010012342024
  */
 
@@ -17,12 +18,12 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import { RADIUS } from '../../theme/tokens';
 
-const CNR_REGEX = /^[A-Z]{2}\d{2}\d{6}\d{4}$/;
+const CNR_REGEX = /^[A-Z]{4}\d{2}\d{6}\d{4}$/;
 const PARTIAL_CHECKS = [
-  { min: 0,  max: 2,  test: /^[A-Z]{0,2}$/,          hint: 'State code (e.g. DL, MH, KA)' },
-  { min: 2,  max: 4,  test: /^[A-Z]{2}\d{0,2}$/,     hint: 'Court code (2 digits)' },
-  { min: 4,  max: 10, test: /^[A-Z]{2}\d{2}\d{0,6}$/, hint: 'Case number (6 digits)' },
-  { min: 10, max: 14, test: /^[A-Z]{2}\d{8}\d{0,4}$/, hint: 'Year (e.g. 2024)' },
+  { min: 0,  max: 4,  test: /^[A-Z]{0,4}$/,              hint: 'State + Court code (4 letters, e.g. DLHC, MHAU)' },
+  { min: 4,  max: 6,  test: /^[A-Z]{4}\d{0,2}$/,         hint: 'District code (2 digits)' },
+  { min: 6,  max: 12, test: /^[A-Z]{4}\d{2}\d{0,6}$/,    hint: 'Case serial number (6 digits)' },
+  { min: 12, max: 16, test: /^[A-Z]{4}\d{8}\d{0,4}$/,    hint: 'Year of filing (e.g. 2024)' },
 ];
 
 function formatCNR(raw) {
@@ -34,7 +35,7 @@ function getCNRValidity(value) {
   if (!value) return { valid: null, message: '' };
   if (value.length < 16) return { valid: false, message: `${16 - value.length} characters remaining` };
   if (CNR_REGEX.test(value)) return { valid: true, message: 'Valid CNR number ✓' };
-  return { valid: false, message: 'Invalid format. Expected: 2 letters + 2 digits + 6 digits + 4-digit year' };
+  return { valid: false, message: 'Invalid format. Expected: 4 letters + 2 digits + 6 digits + 4-digit year' };
 }
 
 const HelpContent = () => (
@@ -46,13 +47,14 @@ const HelpContent = () => (
       Case Number Record (CNR) is a unique 16-character identifier for every case in Indian courts.
     </Typography>
     <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
-      Format: SS CC NNNNNN YYYY
+      Format: SSCC DD NNNNNN YYYY
     </Typography>
     <Typography variant="caption" sx={{ display: 'block', lineHeight: 1.7 }}>
       SS — State code (e.g. DL, MH)<br />
-      CC — Court code (2 digits)<br />
-      NNNNNN — Case number (6 digits)<br />
-      YYYY — Filing year
+      CC — Court code (e.g. HC, DC)<br />
+      DD — District code (2 digits)<br />
+      NNNNNN — Case serial number (6 digits)<br />
+      YYYY — Year of filing
     </Typography>
     <Box sx={{
       mt: 1, p: 1, borderRadius: 1,

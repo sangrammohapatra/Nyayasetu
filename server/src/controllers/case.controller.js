@@ -26,7 +26,7 @@ const addCase = asyncHandler(async (req, res) => {
   const cnr = cnrNumber.trim().toUpperCase();
   if (!validateCNR(cnr)) {
     throw createError(400, 'INVALID_CNR',
-      'Invalid CNR format. Expected: 2 letters + 2 digits + 6 digits + 4-digit year (e.g. DLHC010012342024)');
+      'Invalid CNR format. Expected: 4 letters + 2 digits + 6 digits + 4-digit year (e.g. DLHC010012342024)');
   }
 
   // ── Load user for quota check ──────────────────────────────────────────────

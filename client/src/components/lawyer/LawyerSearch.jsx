@@ -176,7 +176,19 @@ function LawyerCard({ lawyer, onBook, delay = 0 }) {
               </Typography>
               {lawyer.isVerified && (
                 <Tooltip title="Verified Advocate" arrow>
-                  <Typography sx={{ fontSize: 16 }}>✅</Typography>
+                  <Typography sx={{ fontSize: 16, mt: 0.5 }}>
+                    <lord-icon
+                      src="https://cdn.lordicon.com/lvrxlmju.json"
+                      trigger="loop"
+                      delay="500"
+                      style={{
+                        width: 23,
+                        height: 23,
+                        marginTop: 2,
+                        color: "var(--color-primary)",
+                      }}
+                    ></lord-icon>
+                  </Typography>
                 </Tooltip>
               )}
               {lawyer.lawyerPlan === "firm" && (

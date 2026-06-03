@@ -258,7 +258,7 @@ function SearchBar() {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter' && value.trim()) { navigate(`/laws/search?q=${encodeURIComponent(value)}`); setValue(''); }}}
-        placeholder={t('navbar.search', 'Search laws, documents…')}
+        placeholder={t('nav.search', 'Search laws, documents…')}
         sx={{ flex: 1, fontSize: '0.875rem', color: 'var(--color-text)' }}
       />
     </Box>
@@ -329,7 +329,7 @@ function Navbar() {
         <Box sx={{ flex: isMobile ? 1 : 'none' }} />
 
         {/* Notification bell */}
-        <Tooltip title={t('navbar.notifications', 'Notifications')}>
+        <Tooltip title={t('nav.notifications', 'Notifications')}>
           <IconButton onClick={(e) => setBellAnchor(e.currentTarget)} sx={{ color: 'var(--color-text)' }}>
             <Badge
               badgeContent={unread > 99 ? '99+' : unread}
@@ -395,8 +395,8 @@ function Navbar() {
           <Divider sx={{ borderColor: 'var(--color-border)' }} />
 
           {[
-            { icon: '⚙️', label: t('navbar.settings', 'Settings'), path: `/${persona}/settings` },
-            { icon: '⭐', label: t('navbar.upgrade', 'Upgrade Plan'), path: '/pricing', highlight: true },
+            { icon: '⚙️', label: t('nav.settings', 'Settings'), path: `/${persona}/settings` },
+            { icon: '⭐', label: t('nav.upgrade', 'Upgrade Plan'), path: '/pricing', highlight: true },
           ].map((item) => (
             <MenuItem key={item.path}
               onClick={() => { navigate(item.path); setAvatarAnchor(null); }}
@@ -416,7 +416,7 @@ function Navbar() {
           {/* Theme row */}
           <Box sx={{ px: 2, py: 1 }}>
             <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', fontWeight: 600, display: 'block', mb: 1 }}>
-              {t('navbar.theme', 'Theme')}
+              {t('nav.theme', 'Theme')}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
               {THEME_SWATCHES.map((sw) => (
@@ -441,7 +441,7 @@ function Navbar() {
           <MenuItem onClick={handleLogout}
             sx={{ gap: 1.5, color: 'var(--color-error)', '&:hover': { background: 'var(--color-error-light, #FFEBEE)' } }}>
             <Typography sx={{ fontSize: 17 }}>🚪</Typography>
-            <Typography variant="body2">{t('navbar.logout', 'Sign Out')}</Typography>
+            <Typography variant="body2">{t('nav.logout', 'Sign Out')}</Typography>
           </MenuItem>
         </Menu>
       </Toolbar>

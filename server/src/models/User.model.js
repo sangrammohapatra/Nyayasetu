@@ -211,7 +211,7 @@ userSchema.index({ lastActive: -1 });
  */
 userSchema.virtual("isSubscribed").get(function () {
   if (this.persona === PERSONAS.ADMIN) return true;
-  if (this.subscription.plan === "free") return false;
+  if (!this.subscription || this.subscription.plan === "free") return false;
   if (!this.subscription.validUntil) return false;
   return new Date() < new Date(this.subscription.validUntil);
 });

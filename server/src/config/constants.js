@@ -190,10 +190,11 @@ const ALWAYS_FREE_TEMPLATES = FREE_TEMPLATE_SLUGS;
 const PRICES = PAY_PER_DOC;
 
 // ─── CNR number validation regex ──────────────────────────────────────────────
-// Format: 2 uppercase letters + 2 digits + 6 digits + 4-digit year = 16 chars
+// Format: 4 uppercase letters (state+court) + 2 digits (district) +
+//         6 digits (case serial) + 4-digit year = 16 chars total
 // Example: DLHC010012342024
 
-const CNR_REGEX = /^[A-Z]{2}\d{2}\d{6}\d{4}$/;
+const CNR_REGEX = /^[A-Z]{4}\d{2}\d{6}\d{4}$/;
 
 // ─── Indian phone number regex ────────────────────────────────────────────────
 // E.164 format: +91XXXXXXXXXX (10 digits after +91)

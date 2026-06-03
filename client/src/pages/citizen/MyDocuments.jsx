@@ -288,6 +288,10 @@ function MyDocuments() {
 
   const handleShare = async (id) => {
     const result = await dispatch(shareDocument(id));
+    if (result.error) {
+      setSnack({ open: true, msg: result.payload || 'Failed to share document.', severity: 'error' });
+      return;
+    }
     if (result.payload?.shareUrl) {
       navigator.clipboard.writeText(result.payload.shareUrl).catch(() => {});
       setSnack({ open: true, msg: 'Share link copied!', severity: 'success' });

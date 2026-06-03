@@ -122,7 +122,7 @@ const COPY = {
   },
 };
 
-const CNR_REGEX = /^[A-Z]{2}\d{2}\d{6}\d{4}$/;
+const CNR_REGEX = /^[A-Z]{4}\d{2}\d{6}\d{4}$/;
 
 function L(key, lang) {
   const node = COPY[key];

@@ -65,7 +65,7 @@ const caseTrackerSchema = new Schema(
       uppercase: true,
       validate: {
         validator: (v) => CNR_REGEX.test(v),
-        message: 'Invalid CNR format. Expected: 2 letters + 2 digits + 6 digits + 4-digit year (e.g. DLHC010012342024)',
+        message: 'Invalid CNR format. Expected: 4 letters + 2 digits + 6 digits + 4-digit year (e.g. DLHC010012342024)',
       },
     },
     caseTitle: {

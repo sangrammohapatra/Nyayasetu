@@ -102,7 +102,8 @@ const searchLawyers = asyncHandler(async (req, res) => {
       averageRating: p.averageRating,
       totalConsultations: p.totalConsultations,
       isVerified: p.isVerified,
-      isAvailable: p.isAvailableForConsultation,
+      isAvailable: p.isAcceptingClients,
+      consultationModes: p.consultationModes,
       lawyerPlan: p.lawyerPlan,
       bio: p.bio,
     }));

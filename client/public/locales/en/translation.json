@@ -737,5 +737,14 @@
     "empty": "No clients yet",
     "empty_desc": "Clients will appear here once they share cases or book consultations.",
     "no_match": "No clients match your search"
+  },
+  "lawSearch":{
+    "title": "Legal Search",
+    "subtitle":"Search across Indian laws, cases, and legal documents.",
+    "placeholder": "Search laws, cases, documents…",
+    "searching": "Searching…",
+    "no_results": "No results found",
+    "try_broader": "Try broader keywords or check spelling.",
+    "results_for": "Search results for \"{{query}}\""
   }
 }
