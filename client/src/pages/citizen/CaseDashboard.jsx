@@ -69,7 +69,7 @@ function AddCaseModal({ open, onClose }) {
 
   const handleSubmit = async () => {
     if (!CNR_REGEX.test(cnr)) {
-      setError(t('cases.invalidCNR', 'Please enter a valid 16-character CNR number.'));
+      setError(t('case.invalid_cnr', 'Please enter a valid 16-character CNR number.'));
       return;
     }
     setError('');
@@ -83,7 +83,7 @@ function AddCaseModal({ open, onClose }) {
         onClose(true);
         setCnr('');
       } else {
-        setError(result.payload || t('cases.fetchError', 'Could not fetch case from eCourts. Please check the CNR.'));
+        setError(result.payload || t('case.fetch_error', 'Could not fetch case from eCourts. Please check the CNR.'));
       }
     } finally {
       setLoading(false);
@@ -101,18 +101,18 @@ function AddCaseModal({ open, onClose }) {
       }}
     >
       <DialogTitle sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
-        ⚖️ {t('cases.addCase', 'Track a New Case')}
+        ⚖️ {t('case.add_case', 'Track a New Case')}
       </DialogTitle>
       <DialogContent sx={{ pt: 1 }}>
         <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 2.5 }}>
-          {t('cases.addCaseDesc', 'Enter the CNR number from your court notice to start tracking hearings.')}
+          {t('case.add_case_desc', 'Enter the CNR number from your court notice to start tracking hearings.')}
         </Typography>
 
         <CNRInput value={cnr} onChange={setCnr} disabled={loading} autoFocus />
 
         <Box sx={{ mt: 2.5 }}>
           <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--color-text)', mb: 1 }}>
-            {t('cases.alertChannels', 'Hearing Reminder Channels')}
+            {t('case.alert_channels', 'Hearing Reminder Channels')}
           </Typography>
           <Box sx={{ display: 'flex', gap: 3 }}>
             <FormControlLabel
@@ -156,9 +156,9 @@ function AddCaseModal({ open, onClose }) {
           {loading
             ? <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CircularProgress size={16} sx={{ color: '#fff' }} />
-                {t('cases.fetching', 'Fetching…')}
+                {t('case.fetching', 'Fetching…')}
               </Box>
-            : t('cases.trackCase', 'Track Case')}
+            : t('case.track_case', 'Track Case')}
         </Button>
       </DialogActions>
     </Dialog>
@@ -271,7 +271,7 @@ function CaseCard({ caseData, onRefresh, onDelete }) {
               mb: 1.5,
             }}>
               <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', display: 'block' }}>
-                {t('cases.nextHearing', 'Next Hearing')}
+                {t('case.next_hearing', 'Next Hearing')}
               </Typography>
               <Typography variant="body1" sx={{
                 fontWeight: 800,
@@ -299,7 +299,7 @@ function CaseCard({ caseData, onRefresh, onDelete }) {
               )}
             </Box>
             <Box sx={{ display: 'flex', gap: 0.5 }}>
-              <Tooltip title={t('cases.refresh', 'Sync with eCourts')}>
+              <Tooltip title={t('case.refresh', 'Sync with eCourts')}>
                 <IconButton size="small" onClick={handleRefresh} disabled={refreshing}
                   sx={{ color: 'var(--color-text-secondary)', '&:hover': { color: 'var(--color-primary)' } }}>
                   <motion.span
@@ -310,7 +310,7 @@ function CaseCard({ caseData, onRefresh, onDelete }) {
                   </motion.span>
                 </IconButton>
               </Tooltip>
-              <Tooltip title={t('cases.delete', 'Remove')}>
+              <Tooltip title={t('case.delete', 'Remove')}>
                 <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete(caseData._id); }}
                   sx={{ color: 'var(--color-error)', '&:hover': { background: 'var(--color-error-light, #FFEBEE)' } }}>
                   🗑
@@ -327,7 +327,7 @@ function CaseCard({ caseData, onRefresh, onDelete }) {
         <Collapse in={expanded} timeout={300}>
           <Box sx={{ px: 2.5, pb: 2.5, borderTop: '1px solid var(--color-border)', pt: 2 }}>
             <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', mb: 1.5 }}>
-              {t('cases.hearingHistory', 'Hearing Timeline')}
+              {t('case.hearing_history', 'Hearing Timeline')}
             </Typography>
             <HearingTimeline hearings={caseData.hearings || []} />
           </Box>
@@ -364,7 +364,7 @@ function CaseDashboard() {
 
   const handleRefresh = useCallback((id) => dispatch(refreshCase(id)), [dispatch]);
   const handleDelete = useCallback(async (id) => {
-    if (window.confirm(t('cases.confirmDelete', 'Remove this case from tracking?'))) {
+    if (window.confirm(t('case.confirm_delete', 'Remove this case from tracking?'))) {
       await dispatch(removeCase(id));
     }
   }, [dispatch, t]);
@@ -377,11 +377,11 @@ function CaseDashboard() {
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
             <Box>
               <Typography variant="h4" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
-                {t('cases.title', 'My Court Cases')}
+                {t('case.title', 'My Court Cases')}
               </Typography>
               <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mt: 0.25 }}>
-                {cases.length} {t('cases.tracked', 'cases tracked')}
-                {caseLimit !== Infinity && ` · ${caseLimit - casesTracked} ${t('cases.remaining', 'slots remaining')}`}
+                {cases.length} {t('case.tracked', 'cases tracked')}
+                {caseLimit !== Infinity && ` · ${caseLimit - casesTracked} ${t('case.remaining', 'slots remaining')}`}
               </Typography>
             </Box>
             <Button
@@ -393,7 +393,7 @@ function CaseDashboard() {
                 '&:hover': { background: atLimit ? 'var(--color-warning)' : 'var(--color-primary-dark, var(--color-primary))' },
               }}
             >
-              {atLimit ? '🔒 Upgrade' : `+ ${t('cases.addCase', 'Add Case')}`}
+              {atLimit ? '🔒 Upgrade' : `+ ${t('case.add_case', 'Add Case')}`}
             </Button>
           </Box>
         </motion.div>
@@ -412,12 +412,12 @@ function CaseDashboard() {
                 action={
                   <Button size="small" onClick={() => navigate('/pricing')}
                     sx={{ fontWeight: 700, color: 'var(--color-warning)' }}>
-                    {t('cases.upgrade', 'Upgrade')}
+                    {t('case.upgrade', 'Upgrade')}
                   </Button>
                 }
                 sx={{ mb: 2.5, borderRadius: `${RADIUS.lg}px`, border: '1px solid var(--color-warning)' }}
               >
-                {t('cases.limitReached', 'You\'ve reached your case tracking limit. Upgrade to Basic (₹99/mo) to track up to 5 cases.')}
+                {t('case.limit_reached', 'You\'ve reached your case tracking limit. Upgrade to Basic (₹99/mo) to track up to 5 cases.')}
               </Alert>
             </motion.div>
           )}
@@ -440,14 +440,14 @@ function CaseDashboard() {
             }}>
               <Typography sx={{ fontSize: 52, mb: 2 }}>⚖️</Typography>
               <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 1 }}>
-                {t('cases.empty', 'No cases tracked yet')}
+                {t('case.empty', 'No cases tracked yet')}
               </Typography>
               <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3, maxWidth: 300, mx: 'auto' }}>
-                {t('cases.emptyDesc', 'Add your CNR number to start tracking your court hearings and get timely reminders.')}
+                {t('case.empty_desc', 'Add your CNR number to start tracking your court hearings and get timely reminders.')}
               </Typography>
               <Button variant="contained" onClick={() => setModalOpen(true)}
                 sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 700, background: 'var(--color-primary)' }}>
-                {t('cases.trackFirst', '+ Track Your First Case')}
+                {t('case.track_first', '+ Track Your First Case')}
               </Button>
             </Box>
           </motion.div>
