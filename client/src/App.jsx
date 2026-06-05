@@ -78,7 +78,7 @@ const Settings = lazy(() => import("./pages/shared/Settings"));
 // Layout 
 const ThemeSwitcher = lazy(() => import("./components/layout/ThemeSwitcher"));
 const LawyerSearch = lazy(() => import("./components/lawyer/LawyerSearch"));
-const ConsultationsPage = lazy(() => import("./pages/lawyer/ClientList")); // placeholder
+const ConsultationsPage = lazy(() => import("./pages/lawyer/ConsultationsPage"));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const AdminUsers     = lazy(() => import('./pages/admin/AdminUsers'));
 const AdminLawyers   = lazy(() => import('./pages/admin/AdminLawyers'));
