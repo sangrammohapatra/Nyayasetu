@@ -91,6 +91,30 @@ export const fetchConsultations = createAsyncThunk(
   }
 );
 
+export const acceptConsultation = createAsyncThunk(
+  'lawyer/acceptConsultation',
+  async (id, { rejectWithValue }) => {
+    try {
+      const { data } = await api.patch(`/consultations/${id}/accept`);
+      return data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.error || 'Failed to accept consultation');
+    }
+  }
+);
+
+export const rejectConsultation = createAsyncThunk(
+  'lawyer/rejectConsultation',
+  async ({ id, reason }, { rejectWithValue }) => {
+    try {
+      const { data } = await api.patch(`/consultations/${id}/reject`, { reason });
+      return data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.error || 'Failed to reject consultation');
+    }
+  }
+);
+
 const lawyerSlice = createSlice({
   name: 'lawyer',
   initialState: {
@@ -156,6 +180,20 @@ const lawyerSlice = createSlice({
 
       .addCase(fetchConsultations.fulfilled, (state, action) => {
         state.consultations = action.payload.items || action.payload;
+      })
+
+      .addCase(acceptConsultation.fulfilled, (state, action) => {
+        const updated = action.payload.consultation || action.payload;
+        state.consultations = state.consultations.map((c) =>
+          c._id === updated._id ? { ...c, ...updated } : c
+        );
+      })
+
+      .addCase(rejectConsultation.fulfilled, (state, action) => {
+        const updated = action.payload.consultation || action.payload;
+        state.consultations = state.consultations.map((c) =>
+          c._id === updated._id ? { ...c, ...updated } : c
+        );
       });
   },
 });

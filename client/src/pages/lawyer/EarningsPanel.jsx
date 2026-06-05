@@ -177,7 +177,7 @@ function EarningsPanel() {
               ))
             : [
                 { icon: '💰', label: t('earnings.lifetime', 'Lifetime Earnings'), value: `₹${stats.lifetime.toLocaleString('en-IN')}`, color: 'rgba(46,125,50,0.1)', delay: 0.05 },
-                { icon: '📅', label: t('earnings.thisMonth', 'This Month'),        value: `₹${stats.thisMonth.toLocaleString('en-IN')}`, color: 'var(--color-primary-alpha)', delay: 0.12 },
+                { icon: '📅', label: t('earnings.this_month', 'This Month'),        value: `₹${stats.thisMonth.toLocaleString('en-IN')}`, color: 'var(--color-primary-alpha)', delay: 0.12 },
                 { icon: '⏳', label: t('earnings.pending', 'Pending Payout'),     value: `₹${stats.pending.toLocaleString('en-IN')}`,   color: 'rgba(230,81,0,0.1)', delay: 0.19 },
                 { icon: '✅', label: t('earnings.consults', 'Paid Consultations'), value: stats.consultationCount.toString(),              color: 'rgba(2,119,189,0.1)', delay: 0.26 },
               ].map((s) => (
@@ -196,7 +196,7 @@ function EarningsPanel() {
             {chartData.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 4 }}>
                 <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
-                  {t('earnings.noData', 'No earnings data yet.')}
+                  {t('earnings.no_data', 'No earnings data yet.')}
                 </Typography>
               </Box>
             ) : (
@@ -239,7 +239,7 @@ function EarningsPanel() {
               <Box sx={{ textAlign: 'center', py: 6 }}>
                 <Typography sx={{ fontSize: 40, mb: 1 }}>💸</Typography>
                 <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
-                  {t('earnings.noPayments', 'No payments yet.')}
+                  {t('earnings.no_payments', 'No payments yet.')}
                 </Typography>
               </Box>
             ) : (

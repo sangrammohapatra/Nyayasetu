@@ -131,7 +131,10 @@ function PendingConsultationCard({ consultation, onAccept, onReject }) {
   };
 
   const scheduled = consultation.scheduledAt
-    ? new Date(consultation.scheduledAt).toLocaleDateString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+    ? new Date(consultation.scheduledAt).toLocaleString('en-IN', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      })
     : '—';
 
   return (

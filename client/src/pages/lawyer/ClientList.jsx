@@ -172,10 +172,10 @@ function ClientList() {
             <Box sx={{ textAlign: 'center', py: 7 }}>
               <Typography sx={{ fontSize: 48, mb: 1.5 }}>👥</Typography>
               <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 1 }}>
-                {search ? t('clients.noMatch', 'No clients match your search') : t('clients.empty', 'No clients yet')}
+                {search ? t('clients.no_match', 'No clients match your search') : t('clients.empty', 'No clients yet')}
               </Typography>
               <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
-                {t('clients.emptyDesc', 'Clients will appear here once they share cases or book consultations.')}
+                {t('clients.empty_desc', 'Clients will appear here once they share cases or book consultations.')}
               </Typography>
             </Box>
           ) : (

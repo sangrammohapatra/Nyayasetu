@@ -95,7 +95,7 @@ function CaseCard({ caseData, clientName, delay }) {
           <Box sx={{ display: 'flex', gap: 1, mt: 1.5 }}>
             <Button size="small" variant="text" onClick={(e) => { e.stopPropagation(); setNotesOpen((v) => !v); }}
               sx={{ fontSize: '0.72rem', color: 'var(--color-primary)', fontWeight: 600, py: 0.25 }}>
-              📝 {t('cases.addNote', 'Add Note')}
+              📝 {t('case.add_note', 'Add Note')}
             </Button>
             <Typography sx={{ fontSize: 14, color: 'var(--color-text-secondary)', ml: 'auto', mt: 0.25, transition: 'transform 0.25s', transform: expanded ? 'rotate(180deg)' : 'none' }}>▾</Typography>
           </Box>
@@ -109,7 +109,7 @@ function CaseCard({ caseData, clientName, delay }) {
               multiline
               rows={2}
               size="small"
-              placeholder={t('cases.notePlaceholder', 'Add a note about this case…')}
+              placeholder={t('case.note_placeholder', 'Add a note about this case…')}
               value={note}
               onChange={(e) => setNote(e.target.value)}
               sx={{ mb: 1, '& .MuiOutlinedInput-root': { borderRadius: `${RADIUS.md}px`, background: 'var(--color-bg)' } }}
@@ -117,7 +117,7 @@ function CaseCard({ caseData, clientName, delay }) {
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Button size="small" variant="contained" onClick={handleSaveNote} disabled={saving || !note.trim()}
                 sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 700, background: 'var(--color-primary)', fontSize: '0.75rem' }}>
-                {saving ? '…' : t('cases.saveNote', 'Save')}
+                {saving ? '…' : t('case.save_note', 'Save')}
               </Button>
               <Button size="small" onClick={() => { setNotesOpen(false); setNote(''); }}
                 sx={{ borderRadius: `${RADIUS.md}px`, color: 'var(--color-text-secondary)', fontSize: '0.75rem' }}>
@@ -131,7 +131,7 @@ function CaseCard({ caseData, clientName, delay }) {
         <Collapse in={expanded}>
           <Box sx={{ px: 2.5, pb: 2.5, pt: 1.5, borderTop: '1px solid var(--color-border)' }}>
             <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', mb: 1.5 }}>
-              {t('cases.timeline', 'Hearing Timeline')}
+              {t('case.timeline', 'Hearing Timeline')}
             </Typography>
             <HearingTimeline hearings={caseData.hearings || []} />
           </Box>

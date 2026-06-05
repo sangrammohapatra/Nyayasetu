@@ -738,6 +738,28 @@
     "empty_desc": "Clients will appear here once they share cases or book consultations.",
     "no_match": "No clients match your search"
   },
+  "consultations": {
+    "title": "Consultations",
+    "total": "consultations",
+    "pendingAction": "awaiting action",
+    "unknownClient": "Client",
+    "accept": "Accept",
+    "reject": "Decline",
+    "empty": "No consultations yet",
+    "emptyStatus": "No {{status}} consultations",
+    "emptyDesc": "Consultations booked by clients will appear here.",
+    "rejectTitle": "Decline Consultation",
+    "rejectDesc": "Optionally let the client know why you're declining.",
+    "rejectPlaceholder": "Reason (optional)…",
+    "confirmDecline": "Decline",
+    "tab": {
+      "all": "All",
+      "requested": "Requested",
+      "accepted": "Accepted",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    }
+  },
   "lawSearch":{
     "title": "Legal Search",
     "subtitle":"Search across Indian laws, cases, and legal documents.",
