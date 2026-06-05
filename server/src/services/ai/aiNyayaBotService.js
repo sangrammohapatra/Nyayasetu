@@ -116,28 +116,45 @@ function buildConversationHistory(messages) {
 // ─── Response schema enforcer ─────────────────────────────────────────────────
 
 function parseNyayaBotResponse(rawText) {
-  // Attempt JSON parse; fall back to plain text wrapped in schema
-  try {
-    let json = rawText.trim();
-    const fence = json.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (fence) json = fence[1].trim();
+  const attempt = (json) => {
     const parsed = JSON.parse(json);
+    const content = parsed.content;
     return {
-      content: parsed.content || rawText,
+      content: (typeof content === 'string' && content.trim()) ? content : rawText,
       citations: Array.isArray(parsed.citations) ? parsed.citations : [],
       suggestedTemplates: Array.isArray(parsed.suggestedTemplates) ? parsed.suggestedTemplates : [],
       followUpQuestions: Array.isArray(parsed.followUpQuestions) ? parsed.followUpQuestions : [],
       disclaimer: parsed.disclaimer || defaultDisclaimer('en'),
     };
-  } catch (_) {
-    return {
-      content: rawText,
-      citations: [],
-      suggestedTemplates: [],
-      followUpQuestions: [],
-      disclaimer: defaultDisclaimer('en'),
-    };
+  };
+
+  const text = rawText.trim();
+
+  // 1. Pure JSON (ideal path)
+  try { return attempt(text); } catch (_) {}
+
+  // 2. Code-fenced JSON (```json ... ```)
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fence) {
+    try { return attempt(fence[1].trim()); } catch (_) {}
   }
+
+  // 3. JSON embedded in preamble/postamble text — Gemini thinking models
+  //    sometimes add a sentence before or after the JSON block.
+  const start = text.indexOf('{');
+  const end   = text.lastIndexOf('}');
+  if (start !== -1 && end > start) {
+    try { return attempt(text.slice(start, end + 1)); } catch (_) {}
+  }
+
+  // 4. Fallback: display raw text (no structure extracted)
+  return {
+    content: rawText,
+    citations: [],
+    suggestedTemplates: [],
+    followUpQuestions: [],
+    disclaimer: defaultDisclaimer('en'),
+  };
 }
 
 function defaultDisclaimer(language) {
@@ -219,7 +236,9 @@ RULES:
         ...conversationHistory,
         { role: 'user', content: userQuery },
       ],
-      systemPrompt
+      systemPrompt,
+      false,
+      true  // jsonMode: force Gemini to return raw JSON without preamble
     );
 
     const parsed = parseNyayaBotResponse(rawResponse);

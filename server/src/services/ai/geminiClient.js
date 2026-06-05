@@ -145,7 +145,7 @@ function toGeminiHistory(messages) {
  * @param {boolean}                stream       — if true, returns async generator of text deltas
  * @returns {Promise<string | AsyncGenerator<string>>}
  */
-async function chat(messages, systemPrompt, stream = false) {
+async function chat(messages, systemPrompt, stream = false, jsonMode = false) {
   return withRetry(async () => {
     const genAI = getGenAI();
     const model = genAI.getGenerativeModel({
@@ -159,6 +159,7 @@ async function chat(messages, systemPrompt, stream = false) {
         topK: 40,
         topP: 0.95,
         maxOutputTokens: 2048,
+        ...(jsonMode && { responseMimeType: 'application/json' }),
       },
     });
 

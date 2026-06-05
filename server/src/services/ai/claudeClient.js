@@ -110,7 +110,7 @@ function toAnthropicMessages(messages) {
  * @param {boolean}                stream       — if true, returns async generator of text deltas
  * @returns {Promise<string | AsyncGenerator<string>>}
  */
-async function chat(messages, systemPrompt, stream = false) {
+async function chat(messages, systemPrompt, stream = false, jsonMode = false) {
   return withRetry(async () => {
     const client   = getClient();
     const msgArray = toAnthropicMessages(messages);

@@ -52,9 +52,9 @@ function getProvider() {
  * @param {boolean} stream       — if true, returns async generator of text deltas
  * @returns {Promise<string | AsyncGenerator<string>>}
  */
-async function chat(messages, systemPrompt, stream = false) {
+async function chat(messages, systemPrompt, stream = false, jsonMode = false) {
   try {
-    return await getProvider().chat(messages, systemPrompt, stream);
+    return await getProvider().chat(messages, systemPrompt, stream, jsonMode);
   } catch (err) {
     logger.error(`[aiProvider] chat() failed (provider=${_providerName}): ${err.message}`);
     throw err;
