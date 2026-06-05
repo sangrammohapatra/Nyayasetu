@@ -68,6 +68,7 @@ const LawyerProfile = lazy(() => import("./pages/citizen/LawyerProfile"));
 const LawyerHome = lazy(() => import("./pages/lawyer/LawyerHome"));
 const LawyerDashboard = lazy(() => import("./pages/lawyer/LawyerDashboard"));
 const ClientList = lazy(() => import("./pages/lawyer/ClientList"));
+const ClientDetail = lazy(() => import("./pages/lawyer/ClientDetail"));
 const CaseManagement = lazy(() => import("./pages/lawyer/CaseManagement"));
 const EarningsPanel = lazy(() => import("./pages/lawyer/EarningsPanel"));
 
@@ -305,6 +306,7 @@ const router = createBrowserRouter([
       { path: "home", element: <LawyerHome /> },
       { path: "profile", element: <LawyerDashboard /> },
       { path: "clients", element: <ClientList /> },
+      { path: "clients/:userId", element: <ClientDetail /> },
       { path: "cases", element: <CaseManagement /> },
       {
         path: "consultations",

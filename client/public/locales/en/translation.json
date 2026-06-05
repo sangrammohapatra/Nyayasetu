@@ -736,7 +736,11 @@
     "view": "View",
     "empty": "No clients yet",
     "empty_desc": "Clients will appear here once they share cases or book consultations.",
-    "no_match": "No clients match your search"
+    "no_match": "No clients match your search",
+    "notFound": "Client not found",
+    "backToList": "Back to Clients",
+    "noConsultations": "No consultations with this client yet.",
+    "noCases": "No cases shared by this client yet."
   },
   "consultations": {
     "title": "Consultations",
