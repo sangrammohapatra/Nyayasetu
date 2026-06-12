@@ -1,11 +1,18 @@
 /**
  * client/src/components/layout/Sidebar.jsx
+ *
+ * Desktop-only collapsible sidebar (xs: none, md: flex).
+ * Mobile: Drawer controlled by Redux sidebarOpen.
+ *
+ * Collapsed state is self-managed and persisted to localStorage.
+ * Role-conditional nav rendering is unchanged.
  */
 
-import React, { useMemo } from 'react';
-import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
+import React, { useState, useMemo, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from '@mui/material/styles';
 import { motion } from 'framer-motion';
 
 import Drawer from '@mui/material/Drawer';
@@ -16,16 +23,15 @@ import IconButton from '@mui/material/IconButton';
 import LinearProgress from '@mui/material/LinearProgress';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
-import useMediaQuery from '@mui/material/useMediaQuery';
-import { useTheme } from '@mui/material/styles';
 
 import { selectUser, selectUserPlan, selectUserPersona } from '../../store/slices/authSlice';
 import { selectFreeUsage } from '../../store/slices/subscriptionSlice';
 import { selectSidebarOpen, setSidebarOpen } from '../../store/slices/uiSlice';
 import { RADIUS, SHADOWS } from '../../theme/tokens';
 
-const SIDEBAR_FULL = 240;
-const SIDEBAR_COLLAPSED = 64;
+const SIDEBAR_FULL = 248;
+const SIDEBAR_COLLAPSED = 72;
+const LS_KEY = 'ns-sidebar-collapsed';
 
 // ─── Lordicon CDN icon URLs ───────────────────────────────────────────────────
 
@@ -46,28 +52,34 @@ const IC = {
   lawyers:       'https://cdn.lordicon.com/mxxgldoo.json',
 };
 
-// ─── Nav definitions per persona ─────────────────────────────────────────────
+// ─── Nav definitions per persona — grouped by section ────────────────────────
 
 function useNavItems(persona, t) {
   return useMemo(() => {
     const citizen = [
+      { section: t('sidebar.section_main', 'Main') },
       { icon: IC.home,        label: t('sidebar.home',        'Home'),          path: '/citizen/home' },
       { icon: IC.newDoc,      label: t('sidebar.newDoc',      'New Document'),  path: '/citizen/documents/new' },
       { icon: IC.myDocs,      label: t('sidebar.myDocs',      'My Documents'),  path: '/citizen/documents' },
+      { section: t('sidebar.section_legal', 'Legal') },
       { icon: IC.caseTracker, label: t('sidebar.caseTracker', 'Case Tracker'),  path: '/citizen/cases' },
       { icon: IC.findLawyer,  label: t('sidebar.findLawyer',  'Find Lawyer'),   path: '/citizen/lawyers' },
+      { section: t('sidebar.section_account', 'Account') },
       { icon: IC.pricing,     label: t('sidebar.pricing',     'Pricing'),       path: '/pricing' },
     ];
 
     const lawyer = [
+      { section: t('sidebar.section_main', 'Main') },
       { icon: IC.home,          label: t('sidebar.home',          'Home'),          path: '/lawyer/home' },
       { icon: IC.clients,       label: t('sidebar.clients',       'My Clients'),    path: '/lawyer/clients' },
       { icon: IC.cases,         label: t('sidebar.cases',         'Cases'),         path: '/lawyer/cases' },
+      { section: t('sidebar.section_business', 'Business') },
       { icon: IC.consultations, label: t('sidebar.consultations', 'Consultations'), path: '/lawyer/consultations' },
       { icon: IC.earnings,      label: t('sidebar.earnings',      'Earnings'),      path: '/lawyer/earnings' },
     ];
 
     const admin = [
+      { section: t('sidebar.section_admin', 'Administration') },
       { icon: IC.dashboard, label: t('sidebar.dashboard', 'Dashboard'),  path: '/admin/dashboard' },
       { icon: IC.users,     label: t('sidebar.users',     'Users'),      path: '/admin/users' },
       { icon: IC.templates, label: t('sidebar.templates', 'Templates'),  path: '/admin/templates' },
@@ -78,13 +90,14 @@ function useNavItems(persona, t) {
   }, [persona, t]);
 }
 
-// ─── Single nav item ─────────────────────────────────────────────────────────
+// ─── Single nav item ──────────────────────────────────────────────────────────
 
 function NavItem({ icon, label, path, collapsed, isActive }) {
   const navigate = useNavigate();
+  const theme = useTheme();
 
   const item = (
-    <motion.div whileHover={{ x: 3 }} transition={{ duration: 0.15 }}>
+    <motion.div whileHover={{ x: collapsed ? 0 : 3 }} transition={{ duration: 0.15 }}>
       <Box
         className="ns-nav-item"
         onClick={() => navigate(path)}
@@ -108,16 +121,16 @@ function NavItem({ icon, label, path, collapsed, isActive }) {
             background: isActive ? 'var(--color-primary-alpha)' : 'var(--color-overlay)',
             color: 'var(--color-primary)',
           },
-          '&::before': isActive ? {
+          // Gradient left border for active state (desktop expanded only)
+          '&::before': isActive && !collapsed ? {
             content: '""',
             position: 'absolute',
-            left: collapsed ? '50%' : 0,
-            transform: collapsed ? 'translateX(-50%)' : 'none',
-            bottom: collapsed ? 0 : '20%',
-            width: collapsed ? '60%' : 3,
-            height: collapsed ? 3 : '60%',
-            borderRadius: 4,
-            background: 'var(--color-primary)',
+            left: -8, // sit flush with the mx:1 margin
+            top: '10%',
+            width: 3,
+            height: '80%',
+            borderRadius: '0 2px 2px 0',
+            background: theme.custom?.gradientBrand || 'var(--color-primary)',
           } : {},
         }}
       >
@@ -143,7 +156,11 @@ function NavItem({ icon, label, path, collapsed, isActive }) {
     </motion.div>
   );
 
-  return collapsed ? <Tooltip title={label} placement="right" arrow>{item}</Tooltip> : item;
+  return collapsed ? (
+    <Tooltip title={label} placement="right" arrow>
+      {item}
+    </Tooltip>
+  ) : item;
 }
 
 // ─── Subscription status card ─────────────────────────────────────────────────
@@ -159,11 +176,7 @@ function SubscriptionCard({ collapsed, plan, freeUsage }) {
   const pct = Math.min(100, (docsUsed / docsLimit) * 100);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.3 }}
-    >
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
       <Box sx={{
         mx: 1.5, mb: 2, p: 1.75,
         borderRadius: `${RADIUS.lg}px`,
@@ -191,14 +204,11 @@ function SubscriptionCard({ collapsed, plan, freeUsage }) {
           }}
         />
         <Button
-          fullWidth
-          size="small"
-          variant="contained"
+          fullWidth size="small" variant="contained"
           onClick={() => navigate('/pricing')}
           sx={{
             py: 0.6, fontWeight: 700, fontSize: '0.72rem',
-            background: 'var(--color-primary)',
-            borderRadius: `${RADIUS.md}px`,
+            background: 'var(--color-primary)', borderRadius: `${RADIUS.md}px`,
             '&:hover': { background: 'var(--color-primary-dark, var(--color-primary))' },
           }}
         >
@@ -209,7 +219,7 @@ function SubscriptionCard({ collapsed, plan, freeUsage }) {
   );
 }
 
-// ─── Sidebar content ─────────────────────────────────────────────────────────
+// ─── Sidebar content ──────────────────────────────────────────────────────────
 
 function SidebarContent({ collapsed, onToggle }) {
   const { t } = useTranslation();
@@ -246,8 +256,8 @@ function SidebarContent({ collapsed, onToggle }) {
               display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
             }}>⚖️</Box>
             <Typography sx={{
-              fontFamily: "'Playfair Display',serif", fontWeight: 700,
-              fontSize: '1rem', color: 'var(--color-primary)',
+              fontFamily: "'Playfair Display', 'Tiro Devanagari Hindi', serif",
+              fontWeight: 700, fontSize: '1rem', color: 'var(--color-primary)',
             }}>
               NyayaSetu
             </Typography>
@@ -255,7 +265,10 @@ function SidebarContent({ collapsed, onToggle }) {
         )}
         <Tooltip title={collapsed ? t('sidebar.expand', 'Expand') : t('sidebar.collapse', 'Collapse')} placement="right">
           <IconButton onClick={onToggle} size="small" sx={{ color: 'var(--color-text-secondary)' }}>
-            <Typography sx={{ fontSize: 16, transition: 'transform 0.25s', transform: collapsed ? 'rotate(180deg)' : 'none' }}>
+            <Typography sx={{
+              fontSize: 16, transition: 'transform 0.25s',
+              transform: collapsed ? 'rotate(180deg)' : 'none',
+            }}>
               ‹
             </Typography>
           </IconButton>
@@ -263,18 +276,44 @@ function SidebarContent({ collapsed, onToggle }) {
       </Box>
 
       {/* Nav items */}
-      <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', py: 1.5,
+      <Box sx={{
+        flex: 1, overflowY: 'auto', overflowX: 'hidden', py: 1,
         '&::-webkit-scrollbar': { width: 4 },
         '&::-webkit-scrollbar-thumb': { background: 'var(--color-border)', borderRadius: 2 },
       }}>
-        {navItems.map((item) => (
-          <NavItem
-            key={item.path}
-            {...item}
-            collapsed={collapsed}
-            isActive={location.pathname === item.path || location.pathname.startsWith(item.path + '/')}
-          />
-        ))}
+        {navItems.map((item, idx) => {
+          // Section header
+          if (item.section) {
+            if (collapsed) return <Divider key={`div-${idx}`} sx={{ my: 1, borderColor: 'var(--color-border)' }} />;
+            return (
+              <Typography
+                key={`section-${idx}`}
+                variant="overline"
+                sx={{
+                  display: 'block',
+                  px: 2.5,
+                  pt: idx === 0 ? 0.5 : 2,
+                  pb: 0.25,
+                  fontSize: '0.6rem',
+                  letterSpacing: '0.1em',
+                  color: 'var(--color-text-secondary)',
+                  fontWeight: 600,
+                }}
+              >
+                {item.section}
+              </Typography>
+            );
+          }
+
+          return (
+            <NavItem
+              key={item.path}
+              {...item}
+              collapsed={collapsed}
+              isActive={location.pathname === item.path || location.pathname.startsWith(item.path + '/')}
+            />
+          );
+        })}
       </Box>
 
       {/* Subscription card */}
@@ -285,17 +324,31 @@ function SidebarContent({ collapsed, onToggle }) {
 
 // ─── Main exported component ──────────────────────────────────────────────────
 
-function Sidebar({ collapsed, onToggle }) {
-  const muiTheme = useTheme();
-  const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'));
+function Sidebar() {
   const dispatch = useDispatch();
   const sidebarOpen = useSelector(selectSidebarOpen);
 
-  if (isMobile) {
-    return (
+  // Collapsed state: self-managed with localStorage persistence
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem(LS_KEY) === 'true'; }
+    catch { return false; }
+  });
+
+  const handleToggle = useCallback(() => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem(LS_KEY, String(next)); } catch {}
+      return next;
+    });
+  }, []);
+
+  return (
+    <>
+      {/* Mobile Drawer — controlled by Redux sidebarOpen */}
       <Drawer
         open={sidebarOpen}
         onClose={() => dispatch(setSidebarOpen(false))}
+        sx={{ display: { xs: 'block', md: 'none' } }}
         PaperProps={{
           sx: {
             width: SIDEBAR_FULL,
@@ -307,25 +360,25 @@ function Sidebar({ collapsed, onToggle }) {
       >
         <SidebarContent collapsed={false} onToggle={() => dispatch(setSidebarOpen(false))} />
       </Drawer>
-    );
-  }
 
-  return (
-    <Box
-      component="nav"
-      sx={{
-        flexShrink: 0,
-        width: collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_FULL,
-        transition: 'width 0.25s ease',
-        position: 'sticky',
-        top: 64,
-        height: 'calc(100vh - 64px)',
-        overflowY: 'auto',
-        overflowX: 'hidden',
-      }}
-    >
-      <SidebarContent collapsed={collapsed} onToggle={onToggle} />
-    </Box>
+      {/* Desktop Sidebar */}
+      <Box
+        component="nav"
+        sx={{
+          display: { xs: 'none', md: 'flex' },
+          flexShrink: 0,
+          width: collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_FULL,
+          transition: 'width 0.25s ease',
+          position: 'sticky',
+          top: 64,
+          height: 'calc(100vh - 64px)',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+        }}
+      >
+        <SidebarContent collapsed={collapsed} onToggle={handleToggle} />
+      </Box>
+    </>
   );
 }
 

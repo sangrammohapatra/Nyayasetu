@@ -1,15 +1,23 @@
 /**
  * client/src/components/layout/Navbar.jsx
  *
- * Full Navbar with notification bell popover, avatar dropdown,
- * theme switcher and search — all accessible from one component.
+ * Sticky translucent top bar with:
+ * - Brand mark (GradientHeading)
+ * - Desktop nav links with animated active underline (layoutId)
+ * - Right cluster: LanguageSelector + ThemeSwitcher + Notifications + Avatar
+ * - Mobile: hamburger → opens Sidebar Drawer (via toggleSidebar)
+ * - Scroll elevation: useScroll bumps opacity/shadow past 8px (enableScrollReveal)
+ * - Blur: backdropFilter only when enableBlur flag is on
+ *
+ * All logic (notifications, auth, routing, Redux) is unchanged.
  */
 
-import React, { useState, useCallback } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useReducedMotion } from 'framer-motion';
+import { alpha, useTheme } from '@mui/material/styles';
 
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
@@ -27,26 +35,22 @@ import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import CircularProgress from '@mui/material/CircularProgress';
+import MenuIcon from '@mui/icons-material/Menu';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { useTheme } from '@mui/material/styles';
 
 import { selectUser, selectUserPlan, selectUserPersona, logout } from '../../store/slices/authSlice';
 import {
   selectNotifications, selectUnreadTotal,
   fetchNotifications, markNotificationRead, markAllNotificationsRead,
 } from '../../store/slices/notificationSlice';
-import { setTheme, selectTheme, toggleSidebar } from '../../store/slices/uiSlice';
+import { toggleSidebar } from '../../store/slices/uiSlice';
 import { RADIUS, SHADOWS } from '../../theme/tokens';
+import { useFeatureFlag } from '../../utils/featureFlags';
+import GradientHeading from '../ui/GradientHeading';
+import LanguageSelector from '../ui/LanguageSelector';
+import ThemeSwitcher from './ThemeSwitcher';
 
 // ─── Statics ─────────────────────────────────────────────────────────────────
-
-const THEME_SWATCHES = [
-  { id: 'default', color: '#1565C0', label: 'Blue' },
-  { id: 'saffron', color: '#FF6F00', label: 'Saffron' },
-  { id: 'dark',    color: '#161B22', label: 'Dark' },
-  { id: 'emerald', color: '#00695C', label: 'Emerald' },
-  { id: 'highContrast', color: '#000000', label: 'A11y' },
-];
 
 const PLAN_STYLES = {
   free:         { label: 'FREE',  bg: 'var(--color-border)',         color: 'var(--color-text-secondary)' },
@@ -57,25 +61,48 @@ const PLAN_STYLES = {
 };
 
 const NOTIF_ICONS = {
-  hearing_reminder:        '📅',
-  document_ready:          '📄',
-  consultation_accepted:   '✅',
-  consultation_rejected:   '❌',
-  consultation_completed:  '🎉',
-  consultation_completed_: '🎉',
-  lawyer_verified:         '⚖️',
-  lawyer_application:      '📋',
-  new_consultation_request:'🔔',
-  default:                 '🔔',
+  hearing_reminder:         '📅',
+  document_ready:           '📄',
+  consultation_accepted:    '✅',
+  consultation_rejected:    '❌',
+  consultation_completed:   '🎉',
+  consultation_completed_:  '🎉',
+  lawyer_verified:          '⚖️',
+  lawyer_application:       '📋',
+  new_consultation_request: '🔔',
+  default:                  '🔔',
 };
 
 function timeAgo(date) {
   if (!date) return '';
   const diff = (Date.now() - new Date(date)) / 1000;
-  if (diff < 60)  return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 60)    return 'just now';
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
+}
+
+// ─── Desktop nav links per persona ───────────────────────────────────────────
+
+function useNavLinks(persona, t) {
+  return useMemo(() => {
+    const citizen = [
+      { label: t('nav.documents', 'Documents'), path: '/citizen/documents' },
+      { label: t('nav.cases',     'Cases'),     path: '/citizen/cases' },
+      { label: t('nav.lawyers',   'Lawyers'),   path: '/citizen/lawyers' },
+    ];
+    const lawyer = [
+      { label: t('nav.clients',       'Clients'),   path: '/lawyer/clients' },
+      { label: t('nav.cases',         'Cases'),     path: '/lawyer/cases' },
+      { label: t('nav.consultations', 'Sessions'),  path: '/lawyer/consultations' },
+    ];
+    const admin = [
+      { label: t('nav.users',     'Users'),     path: '/admin/users' },
+      { label: t('nav.templates', 'Templates'), path: '/admin/templates' },
+      { label: t('nav.lawyers',   'Lawyers'),   path: '/admin/lawyers' },
+    ];
+    return ({ citizen, lawyer, paralegal: lawyer, admin }[persona] || citizen);
+  }, [persona, t]);
 }
 
 // ─── Notification Popover ─────────────────────────────────────────────────────
@@ -122,7 +149,6 @@ function NotificationPopover({ anchorEl, onClose }) {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.22, ease: 'easeOut' }}
       >
-        {/* Header */}
         <Box sx={{
           px: 2.5, py: 1.75,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -146,7 +172,6 @@ function NotificationPopover({ anchorEl, onClose }) {
           )}
         </Box>
 
-        {/* List */}
         <Box sx={{
           maxHeight: 420, overflowY: 'auto',
           '&::-webkit-scrollbar': { width: 4 },
@@ -188,7 +213,6 @@ function NotificationPopover({ anchorEl, onClose }) {
                       '&:last-child': { borderBottom: 'none' },
                     }}
                   >
-                    {/* Icon dot */}
                     <Box sx={{ position: 'relative', flexShrink: 0, mt: 0.25 }}>
                       <Typography sx={{ fontSize: 20, lineHeight: 1 }}>
                         {NOTIF_ICONS[n.type] || NOTIF_ICONS.default}
@@ -201,7 +225,6 @@ function NotificationPopover({ anchorEl, onClose }) {
                         }} />
                       )}
                     </Box>
-
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography variant="body2" sx={{
                         fontWeight: !n.isRead ? 700 : 500,
@@ -211,7 +234,8 @@ function NotificationPopover({ anchorEl, onClose }) {
                       </Typography>
                       <Typography variant="caption" sx={{
                         color: 'var(--color-text-secondary)', lineHeight: 1.45,
-                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                        display: '-webkit-box', WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical', overflow: 'hidden',
                       }}>
                         {n.body}
                       </Typography>
@@ -226,7 +250,6 @@ function NotificationPopover({ anchorEl, onClose }) {
           )}
         </Box>
 
-        {/* Footer */}
         <Box sx={{ px: 2.5, py: 1.5, borderTop: '1px solid var(--color-border)', textAlign: 'center' }}>
           <Typography variant="caption" sx={{ color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 600 }}
             onClick={onClose}>
@@ -249,18 +272,80 @@ function SearchBar() {
       display: 'flex', alignItems: 'center',
       background: 'var(--color-surface)', border: '1.5px solid var(--color-border)',
       borderRadius: `${RADIUS.full}px`, px: 2, py: 0.5,
-      width: { md: 280, lg: 360 },
+      width: { md: 220, lg: 300 },
       transition: 'border-color 0.2s, box-shadow 0.2s',
       '&:focus-within': { borderColor: 'var(--color-primary)', boxShadow: '0 0 0 3px var(--color-primary-alpha)' },
     }}>
-      <Typography sx={{ fontSize: 15, mr: 1, opacity: 0.5 }}>🔍</Typography>
+      <Typography sx={{ fontSize: 14, mr: 1, opacity: 0.5 }}>🔍</Typography>
       <InputBase
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter' && value.trim()) { navigate(`/laws/search?q=${encodeURIComponent(value)}`); setValue(''); }}}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && value.trim()) {
+            navigate(`/laws/search?q=${encodeURIComponent(value)}`);
+            setValue('');
+          }
+        }}
         placeholder={t('nav.search', 'Search laws, documents…')}
-        sx={{ flex: 1, fontSize: '0.875rem', color: 'var(--color-text)' }}
+        sx={{ flex: 1, fontSize: '0.8125rem', color: 'var(--color-text)' }}
       />
+    </Box>
+  );
+}
+
+// ─── Desktop Nav Links ────────────────────────────────────────────────────────
+
+function DesktopNavLinks({ links, theme }) {
+  const location = useLocation();
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      {links.map((link) => {
+        const isActive =
+          location.pathname === link.path ||
+          location.pathname.startsWith(link.path + '/');
+        return (
+          <Box
+            key={link.path}
+            component={RouterLink}
+            to={link.path}
+            sx={{
+              position: 'relative',
+              px: 1.25,
+              py: 0.75,
+              borderRadius: `${RADIUS.sm}px`,
+              textDecoration: 'none',
+              color: isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+              transition: 'color 0.15s',
+              '&:hover': { color: 'var(--color-primary)' },
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{ fontWeight: isActive ? 600 : 400, fontSize: '0.8125rem', whiteSpace: 'nowrap' }}
+            >
+              {link.label}
+            </Typography>
+            {/* Animated gradient underline — animates between active links via layoutId */}
+            {isActive && (
+              <motion.span
+                layoutId="nav-active-underline"
+                style={{
+                  position: 'absolute',
+                  bottom: 2,
+                  left: 10,
+                  right: 10,
+                  height: 2,
+                  background: theme.custom?.gradientBrand || 'var(--color-primary)',
+                  borderRadius: 1,
+                  display: 'block',
+                }}
+                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              />
+            )}
+          </Box>
+        );
+      })}
     </Box>
   );
 }
@@ -273,15 +358,29 @@ function Navbar() {
   const navigate = useNavigate();
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'));
+  const prefersReducedMotion = useReducedMotion();
+
+  const blurEnabled = useFeatureFlag('enableBlur');
+  const scrollRevealEnabled = useFeatureFlag('enableScrollReveal');
 
   const user = useSelector(selectUser);
   const plan = useSelector(selectUserPlan);
   const persona = useSelector(selectUserPersona);
   const unread = useSelector(selectUnreadTotal);
-  const currentTheme = useSelector(selectTheme);
 
   const [avatarAnchor, setAvatarAnchor] = useState(null);
   const [bellAnchor, setBellAnchor] = useState(null);
+  const [elevated, setElevated] = useState(false);
+
+  const navLinks = useNavLinks(persona || 'citizen', t);
+
+  // Scroll elevation — gated by flag + reduced motion
+  const { scrollY } = useScroll();
+  useEffect(() => {
+    if (!scrollRevealEnabled || prefersReducedMotion) return;
+    const unsub = scrollY.on('change', (y) => setElevated(y > 8));
+    return unsub;
+  }, [scrollY, scrollRevealEnabled, prefersReducedMotion]);
 
   const handleLogout = useCallback(async () => {
     setAvatarAnchor(null);
@@ -292,163 +391,207 @@ function Navbar() {
   const planStyle = PLAN_STYLES[plan] || PLAN_STYLES.free;
   const initials = user?.name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || '?';
 
+  // Translucent background — bumps opacity on scroll
+  const bgOpacity = elevated ? 0.92 : 0.80;
+  const navBg = alpha(muiTheme.palette.background.paper, bgOpacity);
+
   return (
-    <AppBar position="sticky" elevation={0} sx={{
-      background: 'var(--color-surface)',
-      borderBottom: '1px solid var(--color-border)',
-      color: 'var(--color-text)',
-      zIndex: 1100,
-    }}>
-      <Toolbar sx={{ gap: 1.5, minHeight: { xs: 56, sm: 64 } }}>
+    <AppBar
+      position="sticky"
+      elevation={0}
+      sx={{
+        background: navBg,
+        borderBottom: elevated ? 'none' : '1px solid var(--color-border)',
+        boxShadow: elevated ? muiTheme.shadows[2] : 'none',
+        color: 'var(--color-text)',
+        zIndex: 1100,
+        transition: 'background 0.2s ease, box-shadow 0.2s ease',
+        ...(blurEnabled && {
+          backdropFilter: 'blur(18px)',
+          WebkitBackdropFilter: 'blur(18px)',
+        }),
+      }}
+    >
+      <Toolbar sx={{ gap: 1, minHeight: { xs: 56, sm: 64 }, px: { xs: 1.5, md: 2.5 } }}>
+
+        {/* ── Mobile hamburger ── */}
         {isMobile && (
-          <IconButton onClick={() => dispatch(toggleSidebar())} sx={{ color: 'var(--color-text)', mr: 0.5 }}>
-            ☰
+          <IconButton
+            onClick={() => dispatch(toggleSidebar())}
+            sx={{ color: 'var(--color-text)', mr: 0.25 }}
+            aria-label="Open navigation"
+          >
+            <MenuIcon />
           </IconButton>
         )}
 
-        {/* Logo */}
-        <Box component={RouterLink} to={`/${persona}/home`}
-          sx={{ display: 'flex', alignItems: 'center', gap: 1, textDecoration: 'none', flexShrink: 0 }}>
+        {/* ── Brand mark ── */}
+        <Box
+          component={RouterLink}
+          to={`/${persona || 'citizen'}/home`}
+          sx={{ display: 'flex', alignItems: 'center', gap: 1, textDecoration: 'none', flexShrink: 0 }}
+        >
           <Box sx={{
-            width: 34, height: 34, borderRadius: `${RADIUS.md}px`,
+            width: 32, height: 32, borderRadius: `${RADIUS.md}px`,
             background: 'var(--color-primary)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
-          }}>⚖️</Box>
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17,
+          }}>
+            ⚖️
+          </Box>
           {!isMobile && (
-            <Typography sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: '1.15rem', color: 'var(--color-primary)' }}>
+            <GradientHeading
+              variant="h6"
+              component="span"
+              sx={{ fontWeight: 700, fontSize: '1.1rem', lineHeight: 1 }}
+            >
               NyayaSetu
-            </Typography>
+            </GradientHeading>
           )}
         </Box>
 
+        {/* ── Desktop: nav links center ── */}
         {!isMobile && (
-          <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-            <SearchBar />
+          <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 3 }}>
+            <DesktopNavLinks links={navLinks} theme={muiTheme} />
           </Box>
         )}
-        <Box sx={{ flex: isMobile ? 1 : 'none' }} />
 
-        {/* Notification bell */}
-        <Tooltip title={t('nav.notifications', 'Notifications')}>
-          <IconButton onClick={(e) => setBellAnchor(e.currentTarget)} sx={{ color: 'var(--color-text)' }}>
-            <Badge
-              badgeContent={unread > 99 ? '99+' : unread}
-              sx={{ '& .MuiBadge-badge': { background: 'var(--color-error)', color: '#fff', fontSize: '0.62rem', minWidth: 16, height: 16 } }}
-            >
-              <motion.span
-                animate={unread > 0 ? { rotate: [0, -15, 15, -10, 10, 0] } : {}}
-                transition={{ duration: 0.6, delay: 1, repeat: unread > 0 ? Infinity : 0, repeatDelay: 8 }}
-                style={{ display: 'inline-block', fontSize: 22 }}
+        {/* Spacer on mobile */}
+        {isMobile && <Box sx={{ flex: 1 }} />}
+
+        {/* ── Right cluster ── */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: isMobile ? 0 : 'auto' }}>
+
+          {/* SearchBar — desktop only, before language selector */}
+          {!isMobile && <SearchBar />}
+
+          {/* Language selector */}
+          {!isMobile && <LanguageSelector size="small" />}
+
+          {/* Theme switcher */}
+          <ThemeSwitcher />
+
+          {/* Notification bell */}
+          <Tooltip title={t('nav.notifications', 'Notifications')}>
+            <IconButton onClick={(e) => setBellAnchor(e.currentTarget)} sx={{ color: 'var(--color-text)' }} size="small">
+              <Badge
+                badgeContent={unread > 99 ? '99+' : unread}
+                sx={{
+                  '& .MuiBadge-badge': {
+                    background: 'var(--color-error)', color: '#fff',
+                    fontSize: '0.62rem', minWidth: 16, height: 16,
+                  },
+                }}
               >
-                🔔
-              </motion.span>
-            </Badge>
-          </IconButton>
-        </Tooltip>
+                <motion.span
+                  animate={unread > 0 && !prefersReducedMotion
+                    ? { rotate: [0, -15, 15, -10, 10, 0] }
+                    : {}}
+                  transition={{ duration: 0.6, delay: 1, repeat: unread > 0 ? Infinity : 0, repeatDelay: 8 }}
+                  style={{ display: 'inline-block', fontSize: 20 }}
+                >
+                  🔔
+                </motion.span>
+              </Badge>
+            </IconButton>
+          </Tooltip>
 
-        {/* Avatar */}
-        <Tooltip title={user?.name || 'Account'}>
-          <Box onClick={(e) => setAvatarAnchor(e.currentTarget)}
-            sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', ml: 0.5 }}>
-            <Avatar sx={{
-              width: 36, height: 36,
-              background: 'var(--color-primary)', fontSize: '0.85rem', fontWeight: 700,
-              border: '2px solid var(--color-border)',
-            }}>
-              {initials}
-            </Avatar>
-            {!isMobile && (
-              <Chip label={planStyle.label} size="small" sx={{
-                height: 20, fontSize: '0.65rem', fontWeight: 700, cursor: 'pointer',
-                background: planStyle.bg, color: planStyle.color, borderRadius: `${RADIUS.sm}px`,
-              }} />
-            )}
-          </Box>
-        </Tooltip>
-
-        {/* Notification popover */}
-        <NotificationPopover anchorEl={bellAnchor} onClose={() => setBellAnchor(null)} />
-
-        {/* Avatar menu */}
-        <Menu
-          anchorEl={avatarAnchor}
-          open={Boolean(avatarAnchor)}
-          onClose={() => setAvatarAnchor(null)}
-          transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-          anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-          PaperProps={{
-            sx: {
-              mt: 1, minWidth: 220,
-              borderRadius: `${RADIUS.lg}px`,
-              border: '1px solid var(--color-border)',
-              boxShadow: SHADOWS.lg,
-              background: 'var(--color-surface)',
-            },
-          }}
-        >
-          <Box sx={{ px: 2.5, py: 1.5 }}>
-            <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)' }}>{user?.name || 'User'}</Typography>
-            <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>{user?.phone || user?.email}</Typography>
-            <Chip label={planStyle.label} size="small" sx={{ mt: 0.5, display: 'block', width: 'fit-content', background: planStyle.bg, color: planStyle.color, fontSize: '0.65rem', fontWeight: 700, height: 18 }} />
-          </Box>
-
-          <Divider sx={{ borderColor: 'var(--color-border)' }} />
-
-          {[
-            { icon: '⚙️', label: t('nav.settings', 'Settings'), path: `/${persona}/settings` },
-            { icon: '⭐', label: t('nav.upgrade', 'Upgrade Plan'), path: '/pricing', highlight: true },
-          ].map((item) => (
-            <MenuItem key={item.path}
-              onClick={() => { navigate(item.path); setAvatarAnchor(null); }}
-              sx={{
-                gap: 1.5,
-                color: item.highlight ? 'var(--color-primary)' : 'var(--color-text)',
-                '&:hover': { background: item.highlight ? 'var(--color-primary-alpha)' : 'var(--color-overlay)' },
-                background: location.pathname === item.path || location.pathname.startsWith(item.path + '/') ? 'var(--color-primary-alpha)' : 'transparent',
+          {/* Avatar */}
+          <Tooltip title={user?.name || 'Account'}>
+            <Box
+              onClick={(e) => setAvatarAnchor(e.currentTarget)}
+              sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', ml: 0.25 }}
+            >
+              <Avatar sx={{
+                width: 34, height: 34,
+                background: 'var(--color-primary)', fontSize: '0.8rem', fontWeight: 700,
+                border: '2px solid var(--color-border)',
               }}>
-              <Typography sx={{ fontSize: 17 }}>{item.icon}</Typography>
-              <Typography variant="body2" sx={{ fontWeight: item.highlight ? 600 : 400 }}>{item.label}</Typography>
-            </MenuItem>
-          ))}
-
-          <Divider sx={{ borderColor: 'var(--color-border)' }} />
-
-          {/* Theme row */}
-          <Box sx={{ px: 2, py: 1 }}>
-            <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', fontWeight: 600, display: 'block', mb: 1 }}>
-              {t('nav.theme', 'Theme')}
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              {THEME_SWATCHES.map((sw) => (
-                <Tooltip key={sw.id} title={sw.label} arrow>
-                  <Box
-                    onClick={() => dispatch(setTheme(sw.id))}
-                    sx={{
-                      width: 22, height: 22, borderRadius: '50%',
-                      background: sw.color, cursor: 'pointer',
-                      border: currentTheme === sw.id ? '2.5px solid var(--color-text)' : '1.5px solid var(--color-border)',
-                      transition: 'transform 0.15s',
-                      '&:hover': { transform: 'scale(1.2)' },
-                    }}
-                  />
-                </Tooltip>
-              ))}
+                {initials}
+              </Avatar>
+              {!isMobile && (
+                <Chip label={planStyle.label} size="small" sx={{
+                  height: 20, fontSize: '0.65rem', fontWeight: 700, cursor: 'pointer',
+                  background: planStyle.bg, color: planStyle.color, borderRadius: `${RADIUS.sm}px`,
+                }} />
+              )}
             </Box>
-          </Box>
-
-          <Divider sx={{ borderColor: 'var(--color-border)' }} />
-
-          <MenuItem onClick={handleLogout}
-            sx={{ gap: 1.5, color: 'var(--color-error)', '&:hover': { background: 'var(--color-error-light, #FFEBEE)' } }}>
-            <Typography sx={{ fontSize: 17 }}>🚪</Typography>
-            <Typography variant="body2">{t('nav.logout', 'Sign Out')}</Typography>
-          </MenuItem>
-        </Menu>
+          </Tooltip>
+        </Box>
       </Toolbar>
 
+      {/* Mobile search row */}
       {isMobile && (
         <Box sx={{ px: 2, pb: 1.5 }}><SearchBar /></Box>
       )}
+
+      {/* Notification popover */}
+      <NotificationPopover anchorEl={bellAnchor} onClose={() => setBellAnchor(null)} />
+
+      {/* Avatar menu */}
+      <Menu
+        anchorEl={avatarAnchor}
+        open={Boolean(avatarAnchor)}
+        onClose={() => setAvatarAnchor(null)}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+        PaperProps={{
+          sx: {
+            mt: 1, minWidth: 220,
+            borderRadius: `${RADIUS.lg}px`,
+            border: '1px solid var(--color-border)',
+            boxShadow: SHADOWS.lg,
+            background: 'var(--color-surface)',
+          },
+        }}
+      >
+        <Box sx={{ px: 2.5, py: 1.5 }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)' }}>
+            {user?.name || 'User'}
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
+            {user?.phone || user?.email}
+          </Typography>
+          <Chip
+            label={planStyle.label}
+            size="small"
+            sx={{ mt: 0.5, display: 'block', width: 'fit-content', background: planStyle.bg, color: planStyle.color, fontSize: '0.65rem', fontWeight: 700, height: 18 }}
+          />
+        </Box>
+
+        <Divider sx={{ borderColor: 'var(--color-border)' }} />
+
+        {[
+          { icon: '⚙️', label: t('nav.settings', 'Settings'), path: `/${persona}/settings` },
+          { icon: '⭐', label: t('nav.upgrade', 'Upgrade Plan'), path: '/pricing', highlight: true },
+        ].map((item) => (
+          <MenuItem
+            key={item.path}
+            onClick={() => { navigate(item.path); setAvatarAnchor(null); }}
+            sx={{
+              gap: 1.5,
+              color: item.highlight ? 'var(--color-primary)' : 'var(--color-text)',
+              '&:hover': { background: item.highlight ? 'var(--color-primary-alpha)' : 'var(--color-overlay)' },
+            }}
+          >
+            <Typography sx={{ fontSize: 17 }}>{item.icon}</Typography>
+            <Typography variant="body2" sx={{ fontWeight: item.highlight ? 600 : 400 }}>
+              {item.label}
+            </Typography>
+          </MenuItem>
+        ))}
+
+        <Divider sx={{ borderColor: 'var(--color-border)' }} />
+
+        <MenuItem
+          onClick={handleLogout}
+          sx={{ gap: 1.5, color: 'var(--color-error)', '&:hover': { background: 'var(--color-error-light, #FFEBEE)' } }}
+        >
+          <Typography sx={{ fontSize: 17 }}>🚪</Typography>
+          <Typography variant="body2">{t('nav.logout', 'Sign Out')}</Typography>
+        </MenuItem>
+      </Menu>
+
     </AppBar>
   );
 }

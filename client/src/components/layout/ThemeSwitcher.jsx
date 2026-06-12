@@ -1,244 +1,210 @@
 /**
  * client/src/components/layout/ThemeSwitcher.jsx
  *
- * Floating theme-switcher button in the bottom-right corner.
- * Opens into a fan of 5 colour swatches via Framer Motion spring animation.
- * No hardcoded hex colours — all colours are derived from CSS custom properties
- * or from the theme definition's primary colour token for the swatch.
+ * Inline icon-button trigger + Popover that lists all 5 themes.
+ * Use inside the Navbar right cluster: <ThemeSwitcher />
+ *
+ * Persistence: same Redux setTheme dispatch as before — no logic change.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useTheme } from '@mui/material/styles';
+import IconButton from '@mui/material/IconButton';
+import Popover from '@mui/material/Popover';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
+import CheckIcon from '@mui/icons-material/Check';
+import PaletteOutlinedIcon from '@mui/icons-material/PaletteOutlined';
+import { motion, AnimatePresence } from 'framer-motion';
 import { selectTheme, setTheme } from '../../store/slices/uiSlice';
-import { Z_INDEX, RADIUS, SHADOWS } from '../../theme/tokens';
+import { RADIUS, SHADOWS } from '../../theme/tokens';
 
 // ─── Theme catalogue ──────────────────────────────────────────────────────────
-// Primary swatch colour comes directly from the theme's CSS_VARS, keeping
-// zero hardcoded hex in this component file.
+
 const THEMES = [
-  {
-    id: 'default',
-    label: 'Blue Justice',
-    swatchVar: '#1565C0',  // referenced only for the swatch dot, matches CSS_VARS
-  },
-  {
-    id: 'saffron',
-    label: 'Saffron India',
-    swatchVar: '#FF6F00',
-  },
-  {
-    id: 'dark',
-    label: 'Dark Mode',
-    swatchVar: '#0D1117',
-  },
-  {
-    id: 'highContrast',
-    label: 'High Contrast',
-    swatchVar: '#000000',
-  },
-  {
-    id: 'emerald',
-    label: 'Emerald Calm',
-    swatchVar: '#00695C',
-  },
+  { id: 'default',      label: 'Blue Justice',   swatch: '#1565C0' },
+  { id: 'dark',         label: 'Dark Mode',       swatch: '#5C9BF5' },
+  { id: 'emerald',      label: 'Emerald Calm',    swatch: '#00695C' },
+  { id: 'saffron',      label: 'Saffron India',   swatch: '#FF6F00' },
+  { id: 'highContrast', label: 'High Contrast',   swatch: '#0000CC', aaa: true },
 ];
 
-// ─── Animation variants ───────────────────────────────────────────────────────
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.06, delayChildren: 0.02 },
-  },
-  exit: {
-    opacity: 0,
-    transition: { staggerChildren: 0.04, staggerDirection: -1 },
-  },
-};
-
-const swatchVariants = {
-  hidden: { scale: 0, opacity: 0, y: 8 },
-  visible: {
-    scale: 1,
-    opacity: 1,
-    y: 0,
-    transition: { type: 'spring', stiffness: 400, damping: 20 },
-  },
-  exit: {
-    scale: 0,
-    opacity: 0,
-    y: 8,
-    transition: { duration: 0.15, ease: 'easeIn' },
-  },
-};
-
-const fabVariants = {
-  idle: { scale: 1, rotate: 0 },
-  open: { scale: 1.1, rotate: 45, transition: { type: 'spring', stiffness: 300, damping: 18 } },
-};
-
-// ─── Component ───────────────────────────────────────────────────────────────
+// ─── Component ────────────────────────────────────────────────────────────────
 
 function ThemeSwitcher() {
   const dispatch = useDispatch();
+  const muiTheme = useTheme();
   const currentTheme = useSelector(selectTheme);
-  const [open, setOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const open = Boolean(anchorEl);
 
-  const handleToggle = useCallback(() => setOpen((v) => !v), []);
+  const handleOpen = useCallback((e) => setAnchorEl(e.currentTarget), []);
+  const handleClose = useCallback(() => setAnchorEl(null), []);
 
   const handleSelect = useCallback(
     (themeId) => {
       dispatch(setTheme(themeId));
-      setOpen(false);
+      handleClose();
     },
-    [dispatch]
+    [dispatch, handleClose]
   );
 
-  const handleBackdropClick = useCallback(() => setOpen(false), []);
-
-  const activeSwatch = THEMES.find((t) => t.id === currentTheme) || THEMES[0];
+  const activeTheme = THEMES.find((t) => t.id === currentTheme) || THEMES[0];
 
   return (
     <>
-      {/* Invisible backdrop to close on outside click */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            key="backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={handleBackdropClick}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              zIndex: Z_INDEX.fab - 1,
-              background: 'transparent',
-            }}
-            aria-hidden="true"
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Switcher container */}
-      <div
-        style={{
-          position: 'fixed',
-          bottom: 24,
-          right: 24,
-          zIndex: Z_INDEX.fab,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 10,
-        }}
-      >
-        {/* Swatch fan */}
-        <AnimatePresence>
-          {open && (
-            <motion.div
-              key="swatches"
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 10,
-              }}
-            >
-              {THEMES.map((theme) => {
-                const isActive = theme.id === currentTheme;
-                return (
-                  <motion.div key={theme.id} variants={swatchVariants}>
-                    <Tooltip title={theme.label} placement="left" arrow>
-                      <button
-                        onClick={() => handleSelect(theme.id)}
-                        aria-label={`Switch to ${theme.label} theme`}
-                        style={{
-                          width: isActive ? 44 : 36,
-                          height: isActive ? 44 : 36,
-                          borderRadius: '50%',
-                          background: theme.swatchVar,
-                          border: isActive
-                            ? '3px solid var(--color-text)'
-                            : '2px solid var(--color-border)',
-                          cursor: 'pointer',
-                          boxShadow: isActive ? SHADOWS.md : SHADOWS.sm,
-                          transition: 'width 200ms ease, height 200ms ease, border 200ms ease',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          outline: 'none',
-                          padding: 0,
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            handleSelect(theme.id);
-                          }
-                        }}
-                      >
-                        {isActive && (
-                          <motion.span
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            style={{
-                              width: 10,
-                              height: 10,
-                              borderRadius: '50%',
-                              background: theme.id === 'dark' || theme.id === 'highContrast'
-                                ? '#FFFFFF'
-                                : '#FFFFFF',
-                              opacity: 0.9,
-                              display: 'block',
-                            }}
-                          />
-                        )}
-                      </button>
-                    </Tooltip>
-                  </motion.div>
-                );
-              })}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Main FAB */}
-        <Tooltip title={open ? 'Close' : `Theme: ${activeSwatch.label}`} placement="left" arrow>
-          <motion.button
-            variants={fabVariants}
-            animate={open ? 'open' : 'idle'}
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleToggle}
-            aria-label="Toggle theme switcher"
-            aria-expanded={open}
-            style={{
-              width: 52,
-              height: 52,
+      <Tooltip title={`Theme: ${activeTheme.label}`} arrow>
+        <IconButton
+          onClick={handleOpen}
+          aria-label="Change theme"
+          aria-expanded={open}
+          size="small"
+          sx={{
+            p: 0.75,
+            '&:hover': { background: 'var(--color-overlay)' },
+          }}
+        >
+          {/* Swatch circle showing current theme primary */}
+          <Box
+            sx={{
+              width: 22,
+              height: 22,
               borderRadius: '50%',
-              background: 'var(--color-primary)',
-              border: 'none',
-              cursor: 'pointer',
-              boxShadow: SHADOWS.lg,
+              background: activeTheme.swatch,
+              border: '2px solid var(--color-border)',
+              flexShrink: 0,
+              transition: 'background 0.25s ease',
+            }}
+          />
+        </IconButton>
+      </Tooltip>
+
+      <Popover
+        open={open}
+        anchorEl={anchorEl}
+        onClose={handleClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        PaperProps={{
+          sx: {
+            mt: 1,
+            width: 220,
+            borderRadius: `${RADIUS.lg}px`,
+            border: muiTheme.custom?.cardBorder || '1px solid var(--color-border)',
+            background: muiTheme.palette.background.paper,
+            boxShadow: SHADOWS.lg,
+            overflow: 'hidden',
+          },
+        }}
+        slotProps={{ backdrop: { invisible: true } }}
+      >
+        <motion.div
+          initial={{ opacity: 0, y: -8, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+        >
+          {/* Header */}
+          <Box
+            sx={{
+              px: 2,
+              py: 1.25,
+              borderBottom: '1px solid var(--color-border)',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              outline: 'none',
-              color: 'white',
-              fontSize: 22,
+              gap: 1,
             }}
           >
-            🎨
-          </motion.button>
-        </Tooltip>
-      </div>
+            <PaletteOutlinedIcon sx={{ fontSize: 16, color: 'var(--color-primary)' }} />
+            <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--color-text)', letterSpacing: '0.04em' }}>
+              THEME
+            </Typography>
+          </Box>
+
+          {/* Theme list */}
+          <Box sx={{ py: 0.5 }}>
+            {THEMES.map((theme) => {
+              const isActive = theme.id === currentTheme;
+              return (
+                <Box
+                  key={theme.id}
+                  onClick={() => handleSelect(theme.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleSelect(theme.id)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5,
+                    px: 1.75,
+                    py: 1,
+                    cursor: 'pointer',
+                    borderRadius: `${RADIUS.sm}px`,
+                    mx: 0.5,
+                    border: isActive
+                      ? `1.5px solid var(--color-primary)`
+                      : '1.5px solid transparent',
+                    background: isActive ? 'var(--color-primary-alpha)' : 'transparent',
+                    transition: 'all 0.15s ease',
+                    '&:hover': {
+                      background: isActive ? 'var(--color-primary-alpha)' : 'var(--color-overlay)',
+                    },
+                  }}
+                >
+                  {/* Swatch dot */}
+                  <Box
+                    sx={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: '50%',
+                      background: theme.swatch,
+                      border: '1.5px solid var(--color-border)',
+                      flexShrink: 0,
+                    }}
+                  />
+
+                  {/* Label */}
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      flex: 1,
+                      fontWeight: isActive ? 700 : 400,
+                      color: isActive ? 'var(--color-primary)' : 'var(--color-text)',
+                      fontSize: '0.8125rem',
+                    }}
+                  >
+                    {theme.label}
+                  </Typography>
+
+                  {/* AAA badge for high contrast */}
+                  {theme.aaa && (
+                    <Chip
+                      label="AAA"
+                      size="small"
+                      sx={{
+                        height: 16,
+                        fontSize: '0.6rem',
+                        fontWeight: 800,
+                        background: 'var(--color-text)',
+                        color: 'var(--color-bg)',
+                        borderRadius: '3px',
+                        '& .MuiChip-label': { px: 0.5 },
+                      }}
+                    />
+                  )}
+
+                  {/* Active checkmark */}
+                  {isActive && (
+                    <CheckIcon sx={{ fontSize: 16, color: 'var(--color-primary)', flexShrink: 0 }} />
+                  )}
+                </Box>
+              );
+            })}
+          </Box>
+        </motion.div>
+      </Popover>
     </>
   );
 }
