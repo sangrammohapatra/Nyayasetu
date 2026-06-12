@@ -20,6 +20,7 @@ import { motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { rateNyayaBotMessage } from '../../store/slices/nyayabotSlice';
 import { useNavigate } from 'react-router-dom';
+import { TYPOGRAPHY } from '../../theme/tokens';
 
 // ─── NyayaBot avatar SVG ──────────────────────────────────────────────────────
 function BotAvatarSmall() {
@@ -212,18 +213,19 @@ export default function NyayaBotMessage({ message, onFollowUp, compact = false }
   if (!isBot) {
     return (
       <motion.div
-        initial={{ opacity: 0, x: 30 }}
-        animate={{ opacity: isOptimistic ? 0.6 : 1, x: 0 }}
-        transition={{ duration: 0.2 }}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: isOptimistic ? 0.6 : 1, y: 0 }}
+        transition={{ duration: 0.22, ease: 'easeOut' }}
         style={{ display: 'flex', justifyContent: 'flex-end' }}
       >
         <Box
           sx={{
             maxWidth: compact ? '90%' : '75%',
             px: 1.75, py: 1.25,
-            borderRadius: '18px 18px 4px 18px',
-            bgcolor: 'var(--color-primary)',
+            borderRadius: '14px 14px 4px 14px',
+            bgcolor: 'primary.main',
             color: '#fff',
+            fontFamily: TYPOGRAPHY.fontFamily.body,
             fontSize: '0.9rem',
             lineHeight: 1.55,
             wordBreak: 'break-word',
@@ -248,28 +250,27 @@ export default function NyayaBotMessage({ message, onFollowUp, compact = false }
   // ── NYAYABOT MESSAGE ──────────────────────────────────────────────────────
   return (
     <motion.div
-      initial={{ opacity: 0, x: -20, y: 6 }}
-      animate={{ opacity: 1, x: 0, y: 0 }}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
       style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}
     >
-      {!compact && <BotAvatarSmall />}
+      <BotAvatarSmall />
 
-      <Box sx={{ maxWidth: compact ? '98%' : '82%', flex: 1, minWidth: 0 }}>
+      <Box sx={{ maxWidth: '82%', flex: 1, minWidth: 0 }}>
         {/* Bot name label */}
-        {!compact && (
-          <Box sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-primary)', mb: 0.4, letterSpacing: '0.04em' }}>
-            NyayaBot
-          </Box>
-        )}
+        <Box sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-primary)', mb: 0.4, letterSpacing: '0.04em' }}>
+          NyayaBot
+        </Box>
 
         {/* Main bubble */}
         <Box
           sx={{
             px: 1.75, py: 1.5,
-            borderRadius: '4px 18px 18px 18px',
+            borderRadius: '14px 14px 14px 4px',
             bgcolor: 'var(--color-surface)',
             border: '1px solid var(--color-border)',
+            fontFamily: TYPOGRAPHY.fontFamily.body,
             fontSize: '0.88rem',
             lineHeight: 1.65,
             color: 'var(--color-text)',
@@ -286,7 +287,7 @@ export default function NyayaBotMessage({ message, onFollowUp, compact = false }
               '& li': { mb: 0.25 },
               '& a': { color: 'var(--color-primary)', textDecorationColor: 'var(--color-primary-alpha)' },
               '& code': {
-                fontFamily: 'JetBrains Mono, monospace',
+                fontFamily: TYPOGRAPHY.fontFamily.mono,
                 fontSize: '0.82em',
                 bgcolor: 'var(--color-border)',
                 px: '4px', py: '1px', borderRadius: '3px',

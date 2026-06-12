@@ -13,6 +13,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from '@mui/material/styles';
 import {
   Box, IconButton, TextField, LinearProgress,
   Chip, Tooltip, Menu, MenuItem, Divider,
@@ -141,6 +142,7 @@ function QuotaBar({ quota, plan, compact }) {
 export default function NyayaBotWindow({ sessionId, compact = false, onClose, onNewSession }) {
   const dispatch = useDispatch();
   const { t } = useTranslation();
+  const muiTheme = useTheme();
 
   const {
     messages,
@@ -234,7 +236,7 @@ export default function NyayaBotWindow({ sessionId, compact = false, onClose, on
     <Box
       sx={{
         display: 'flex', flexDirection: 'column',
-        height: '100%', bgcolor: 'var(--color-bg)',
+        height: '100%', background: 'var(--color-bg)',
         overflow: 'hidden',
       }}
     >
@@ -243,7 +245,7 @@ export default function NyayaBotWindow({ sessionId, compact = false, onClose, on
         sx={{
           display: 'flex', alignItems: 'center', gap: 1.5,
           px: compact ? 1.5 : 2, py: compact ? 1.25 : 1.5,
-          bgcolor: 'var(--color-primary)',
+          background: muiTheme.custom?.gradientBrand || 'var(--color-primary)',
           color: '#fff', flexShrink: 0,
         }}
       >
@@ -483,13 +485,17 @@ export default function NyayaBotWindow({ sessionId, compact = false, onClose, on
               size="small"
               disabled={!inputValue.trim() || !canSend || isStreaming}
               sx={{
-                bgcolor: 'var(--color-primary)',
+                background: muiTheme.custom?.gradientBrand || 'var(--color-primary)',
                 color: '#fff',
-                borderRadius: 1.5,
-                p: 0.9,
+                borderRadius: '50%',
+                p: 1,
                 mb: '2px',
-                '&:hover': { bgcolor: 'var(--color-primary-light)' },
-                '&:disabled': { bgcolor: 'var(--color-border)', color: 'var(--color-text-secondary)' },
+                boxShadow: muiTheme.custom?.glowPrimary || 'none',
+                '&:hover': {
+                  background: muiTheme.custom?.gradientBrand || 'var(--color-primary)',
+                  transform: 'scale(1.08)',
+                },
+                '&:disabled': { background: 'var(--color-border)', color: 'var(--color-text-secondary)', boxShadow: 'none' },
                 transition: 'all 0.15s',
               }}
             >

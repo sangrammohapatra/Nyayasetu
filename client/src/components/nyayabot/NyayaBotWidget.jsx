@@ -1,31 +1,39 @@
 /**
  * NyayaBotWidget.jsx
- * The floating NyayaBot button and expandable chat window.
- * Renders globally via MainLayout — persists across page navigation.
+ * The floating NyayaBot FAB + animated chat panel.
+ * Renders globally via AppLayout — persists across page navigation.
  *
- * Widget is a scales-of-justice FAB (bottom-right).
- * Clicking opens an animated panel (360×520px) above the button.
- * Collapses back to FAB on close.
+ * Changes from restyle (Chunk 4):
+ * - FAB: 56×56, gradientBrand bg, glowPrimary shadow, responsive bottom position
+ * - Mount animation: spring scale pop (gated by useReducedMotion)
+ * - Pulse animation: gated by enableScrollReveal flag, disabled after first interaction
+ * - Panel: 380×560 desktop, full-viewport mobile (<sm)
+ * - Panel shell: GlassCard styling
  *
- * Usage:
- *   Place once in MainLayout.jsx (or equivalent global layout):
- *   <NyayaBotWidget />
+ * All existing logic preserved: FabLabel, session creation, toggleWidget, auth guard.
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { Box, Badge, Tooltip, Fab, Paper } from '@mui/material';
-import { Balance, Close } from '@mui/icons-material';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import Box from '@mui/material/Box';
+import Badge from '@mui/material/Badge';
+import Tooltip from '@mui/material/Tooltip';
+import Fab from '@mui/material/Fab';
+import { Balance, Close, AutoAwesome } from '@mui/icons-material';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   toggleWidget,
   createNyayaBotSession,
-  openWidget,
 } from '../../store/slices/nyayabotSlice';
+import { useFeatureFlag } from '../../utils/featureFlags';
 import NyayaBotWindow from './NyayaBotWindow';
+import { RADIUS, SHADOWS } from '../../theme/tokens';
 
 // ─── Animated FAB label ───────────────────────────────────────────────────────
+
 function FabLabel({ show }) {
   const { t } = useTranslation();
   return (
@@ -64,12 +72,18 @@ function FabLabel({ show }) {
 export default function NyayaBotWidget() {
   const dispatch = useDispatch();
   const { t } = useTranslation();
+  const muiTheme = useTheme();
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
+  const prefersReducedMotion = useReducedMotion();
+  const pulseEnabled = useFeatureFlag('enableScrollReveal');
 
   const isOpen = useSelector((s) => s.nyayabot.isWidgetOpen);
   const widgetSessionId = useSelector((s) => s.nyayabot.widgetSessionId);
   const creating = useSelector((s) => s.nyayabot.creating);
   const isAuthenticated = useSelector((s) => !!s.auth.token);
-  const [showLabel, setShowLabel] = React.useState(false);
+
+  const [showLabel, setShowLabel] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
 
   // Show the FAB label after 3 seconds on first visit
   useEffect(() => {
@@ -95,12 +109,40 @@ export default function NyayaBotWidget() {
 
   const handleFabClick = () => {
     setShowLabel(false);
+    setHasInteracted(true);
     dispatch(toggleWidget());
   };
 
   const handleNewSession = () => {
     dispatch(createNyayaBotSession({ source: 'widget' }));
   };
+
+  // Pulse: only when flag on + not interacted + widget closed
+  const shouldPulse = pulseEnabled && !hasInteracted && !isOpen && !prefersReducedMotion;
+
+  // Panel position + size — full-viewport on mobile, fixed popover on desktop
+  const panelStyle = isMobile
+    ? {
+        position: 'fixed',
+        top: 0, left: 0, right: 0, bottom: 0,
+        zIndex: 1400,
+        borderRadius: 0,
+        overflow: 'hidden',
+      }
+    : {
+        position: 'fixed',
+        bottom: 96,
+        right: 24,
+        width: 380,
+        height: 560,
+        zIndex: 1400,
+        borderRadius: `${RADIUS.xl}px`,
+        overflow: 'hidden',
+        boxShadow: SHADOWS.xl,
+      };
+
+  const glowColor = muiTheme.custom?.glowPrimary || '0 0 28px rgba(21, 101, 192, 0.50)';
+  const gradientBrand = muiTheme.custom?.gradientBrand || 'var(--color-primary)';
 
   return (
     <>
@@ -109,57 +151,44 @@ export default function NyayaBotWidget() {
         {isOpen && (
           <motion.div
             key="nyayabot-panel"
-            initial={{ opacity: 0, scale: 0.88, y: 24, transformOrigin: 'bottom right' }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.88, y: 24 }}
+            initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.96 }}
             transition={{ type: 'spring', stiffness: 340, damping: 28 }}
             style={{
-              position: 'fixed',
-              bottom: 88,
-              right: 20,
-              width: 360,
-              height: 530,
-              zIndex: 1400,
-              borderRadius: 16,
-              overflow: 'hidden',
-              boxShadow: '0 12px 48px rgba(0,0,0,0.22), 0 4px 16px rgba(0,0,0,0.12)',
+              ...panelStyle,
+              background: muiTheme.custom?.cardBg || muiTheme.palette.background.paper,
+              border: muiTheme.custom?.cardBorder || '1px solid var(--color-border)',
+              display: 'flex',
+              flexDirection: 'column',
             }}
           >
-            <Paper
-              elevation={0}
-              sx={{
-                height: '100%', borderRadius: '16px', overflow: 'hidden',
-                bgcolor: 'var(--color-bg)',
-                border: '1px solid var(--color-border)',
-                display: 'flex', flexDirection: 'column',
-              }}
-            >
-              {widgetSessionId ? (
-                <NyayaBotWindow
-                  sessionId={widgetSessionId}
-                  compact
-                  onClose={() => dispatch(toggleWidget())}
-                  onNewSession={handleNewSession}
-                />
-              ) : (
-                // Loading skeleton while session creates
-                <Box
-                  sx={{
-                    flex: 1, display: 'flex', flexDirection: 'column',
-                    alignItems: 'center', justifyContent: 'center',
-                    gap: 2, color: 'var(--color-text-secondary)',
-                  }}
+            {widgetSessionId ? (
+              <NyayaBotWindow
+                sessionId={widgetSessionId}
+                compact
+                onClose={() => dispatch(toggleWidget())}
+                onNewSession={handleNewSession}
+              />
+            ) : (
+              // Loading skeleton while session creates
+              <Box
+                sx={{
+                  flex: 1, display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center',
+                  gap: 2, color: 'var(--color-text-secondary)',
+                  background: 'var(--color-bg)',
+                }}
+              >
+                <motion.div
+                  animate={{ rotate: [0, 8, -8, 0] }}
+                  transition={{ duration: 2, repeat: Infinity }}
                 >
-                  <motion.div
-                    animate={{ rotate: [0, 8, -8, 0] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  >
-                    <Balance sx={{ fontSize: 40, color: 'var(--color-primary)' }} />
-                  </motion.div>
-                  <Box sx={{ fontSize: '0.85rem' }}>{t('nyayabot.loading')}</Box>
-                </Box>
-              )}
-            </Paper>
+                  <Balance sx={{ fontSize: 40, color: 'var(--color-primary)' }} />
+                </motion.div>
+                <Box sx={{ fontSize: '0.85rem' }}>{t('nyayabot.loading')}</Box>
+              </Box>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -168,8 +197,8 @@ export default function NyayaBotWidget() {
       <Box
         sx={{
           position: 'fixed',
-          bottom: 20,
-          right: 20,
+          bottom: { xs: 80, md: 24 },
+          right: 24,
           zIndex: 1400,
           display: 'flex',
           alignItems: 'center',
@@ -177,50 +206,67 @@ export default function NyayaBotWidget() {
       >
         <FabLabel show={showLabel && !isOpen} />
 
-        <Tooltip
-          title={isOpen ? t('nyayabot.close') : t('nyayabot.openBot')}
-          placement="left"
+        {/* Mount spring pop */}
+        <motion.div
+          initial={prefersReducedMotion ? {} : { scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 280, damping: 22, delay: 0.3 }}
         >
-          <Fab
-            onClick={handleFabClick}
-            aria-label="NyayaBot"
-            sx={{
-              bgcolor: isOpen ? 'var(--color-text-secondary)' : 'var(--color-primary)',
-              color: '#fff',
-              width: 52, height: 52,
-              boxShadow: '0 4px 20px var(--color-primary-alpha)',
-              '&:hover': {
-                bgcolor: isOpen ? 'var(--color-text)' : 'var(--color-primary-light)',
-                transform: 'scale(1.06)',
-              },
-              transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
-            }}
+          {/* Pulse ring — only when shouldPulse */}
+          <motion.div
+            animate={shouldPulse ? { scale: [1, 1.05, 1] } : { scale: 1 }}
+            transition={shouldPulse
+              ? { duration: 3, repeat: Infinity, ease: 'easeInOut' }
+              : { duration: 0 }}
           >
-            <AnimatePresence mode="wait">
-              {isOpen ? (
-                <motion.div
-                  key="close"
-                  initial={{ rotate: -90, opacity: 0 }}
-                  animate={{ rotate: 0, opacity: 1 }}
-                  exit={{ rotate: 90, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <Close />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="balance"
-                  initial={{ rotate: 90, opacity: 0 }}
-                  animate={{ rotate: 0, opacity: 1 }}
-                  exit={{ rotate: -90, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <Balance />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </Fab>
-        </Tooltip>
+            <Tooltip
+              title={isOpen ? t('nyayabot.close') : t('nyayabot.openBot')}
+              placement="left"
+            >
+              <Fab
+                onClick={handleFabClick}
+                aria-label="NyayaBot"
+                sx={{
+                  width: 56, height: 56,
+                  background: isOpen ? 'var(--color-text-secondary)' : gradientBrand,
+                  color: '#fff',
+                  boxShadow: isOpen ? SHADOWS.md : glowColor,
+                  '&:hover': {
+                    background: isOpen ? 'var(--color-text)' : gradientBrand,
+                    boxShadow: isOpen ? SHADOWS.md : `${glowColor}, 0 6px 24px rgba(0,0,0,0.18)`,
+                    transform: 'scale(1.06)',
+                  },
+                  '&:active': { transform: 'scale(0.97)' },
+                  transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                }}
+              >
+                <AnimatePresence mode="wait">
+                  {isOpen ? (
+                    <motion.div
+                      key="close"
+                      initial={{ rotate: -90, opacity: 0 }}
+                      animate={{ rotate: 0, opacity: 1 }}
+                      exit={{ rotate: 90, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Close />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="open"
+                      initial={{ rotate: 90, opacity: 0 }}
+                      animate={{ rotate: 0, opacity: 1 }}
+                      exit={{ rotate: -90, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <AutoAwesome sx={{ fontSize: 24 }} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Fab>
+            </Tooltip>
+          </motion.div>
+        </motion.div>
       </Box>
     </>
   );
