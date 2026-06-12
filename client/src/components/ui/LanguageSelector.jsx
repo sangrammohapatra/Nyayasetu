@@ -1,7 +1,7 @@
 /**
  * client/src/components/ui/LanguageSelector.jsx
  *
- * MUI Select with flag emojis and native-script language labels.
+ * MUI Select (dropdown) or pill ToggleButtonGroup of language chips.
  * On change:
  *   1. Call i18n.changeLanguage()
  *   2. dispatch setLanguage() to Redux (persisted to localStorage + CSS dir)
@@ -11,12 +11,15 @@
 import React, { useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from '@mui/material/styles';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import FormControl from '@mui/material/FormControl';
 import Tooltip from '@mui/material/Tooltip';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import ToggleButton from '@mui/material/ToggleButton';
 
 import { setLanguage, selectLanguage } from '../../store/slices/uiSlice';
 import { changeLanguage, LANGUAGE_META, SUPPORTED_LANGUAGES } from '../../i18n/i18n';
@@ -34,9 +37,9 @@ const LANGUAGE_OPTIONS = SUPPORTED_LANGUAGES.map((code) => ({
 
 /**
  * @param {object}  props
- * @param {'select'|'chips'} [props.variant]  Render style. Default: 'select'.
- * @param {string}  [props.size]   'small' | 'medium'. Default: 'small'.
- * @param {boolean} [props.showFlag]  Show flag emoji. Default: true.
+ * @param {'select'|'chips'} [props.variant]     Render style. Default: 'select'.
+ * @param {string}  [props.size]    'small' | 'medium'. Default: 'small'.
+ * @param {boolean} [props.showFlag]   Show flag emoji. Default: true.
  * @param {boolean} [props.showNative] Show native script. Default: true.
  * @param {boolean} [props.showEnglish] Show English label below native. Default: false.
  * @param {string}  [props.className]
@@ -51,6 +54,7 @@ function LanguageSelector({
 }) {
   const dispatch = useDispatch();
   const { t } = useTranslation();
+  const theme = useTheme();
   const currentLang = useSelector(selectLanguage) || 'en';
 
   const handleChange = useCallback(
@@ -71,43 +75,60 @@ function LanguageSelector({
 
   if (variant === 'chips') {
     return (
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }} className={className}>
-        {LANGUAGE_OPTIONS.map((lang) => {
-          const isActive = currentLang === lang.code;
-          return (
-            <Tooltip key={lang.code} title={lang.label} arrow>
-              <Box
-                onClick={() => handleChange(lang.code)}
-                sx={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 0.5,
-                  px: 1.5,
-                  py: 0.75,
-                  borderRadius: `${RADIUS.full}px`,
-                  cursor: 'pointer',
-                  border: isActive
-                    ? '2px solid var(--color-primary)'
-                    : '1.5px solid var(--color-border)',
-                  background: isActive
-                    ? 'var(--color-primary-alpha)'
-                    : 'var(--color-surface)',
-                  transition: 'all 0.18s',
-                  '&:hover': {
-                    borderColor: 'var(--color-primary)',
-                    background: 'var(--color-primary-alpha)',
-                  },
-                }}
-              >
+      <ToggleButtonGroup
+        value={currentLang}
+        exclusive
+        onChange={(_, newLang) => newLang && handleChange(newLang)}
+        className={className}
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 0.75,
+          border: 'none',
+          // Override MUI ToggleButtonGroup grouped styles for pill shape
+          '& .MuiToggleButtonGroup-grouped': {
+            border: `1.5px solid var(--color-border) !important`,
+            borderRadius: `${RADIUS.full}px !important`,
+            px: 1.5,
+            py: 0.625,
+            textTransform: 'none',
+            fontSize: size === 'small' ? '0.75rem' : '0.875rem',
+            fontWeight: 500,
+            color: 'var(--color-text)',
+            background: 'var(--color-surface)',
+            transition: 'all 0.18s ease',
+            '&:hover': {
+              borderColor: 'var(--color-primary) !important',
+              background: 'var(--color-primary-alpha)',
+            },
+            '&.Mui-selected': {
+              background: theme.custom.gradientBrand,
+              color: '#FFFFFF',
+              borderColor: 'transparent !important',
+              fontWeight: 700,
+              '&:hover': {
+                background: theme.custom.gradientBrand,
+                opacity: 0.92,
+              },
+            },
+          },
+        }}
+      >
+        {LANGUAGE_OPTIONS.map((lang) => (
+          <Tooltip key={lang.code} title={lang.label} arrow>
+            <ToggleButton value={lang.code} disableRipple={false}>
+              <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
                 {showFlag && (
-                  <Typography sx={{ fontSize: 16, lineHeight: 1 }}>{lang.flag}</Typography>
+                  <Typography component="span" sx={{ fontSize: 15, lineHeight: 1 }}>
+                    {lang.flag}
+                  </Typography>
                 )}
                 {showNative && (
                   <Typography
-                    variant="caption"
+                    component="span"
                     sx={{
-                      fontWeight: isActive ? 700 : 500,
-                      color: isActive ? 'var(--color-primary)' : 'var(--color-text)',
+                      fontSize: 'inherit',
+                      fontWeight: 'inherit',
                       lineHeight: 1.2,
                     }}
                   >
@@ -115,10 +136,10 @@ function LanguageSelector({
                   </Typography>
                 )}
               </Box>
-            </Tooltip>
-          );
-        })}
-      </Box>
+            </ToggleButton>
+          </Tooltip>
+        ))}
+      </ToggleButtonGroup>
     );
   }
 

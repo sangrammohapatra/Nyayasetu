@@ -5,6 +5,10 @@
  * Wrap every page component with this to get consistent
  * opacity + vertical-slide transitions.
  *
+ * Animation is skipped entirely when:
+ *   - useReducedMotion() is true (OS-level preference), OR
+ *   - featureFlags.enablePageTransitions is false
+ *
  * Usage:
  *   <AnimatedPage>
  *     <DashboardContent />
@@ -15,26 +19,18 @@
  */
 
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
+import { useFeatureFlag } from '../../utils/featureFlags';
 
-const pageVariants = {
-  initial: {
-    opacity: 0,
-    y: 20,
-  },
-  animate: {
-    opacity: 1,
-    y: 0,
-  },
-  exit: {
-    opacity: 0,
-    y: -20,
-  },
+const PAGE_VARIANTS = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  exit:    { opacity: 0, y: -8 },
 };
 
-const pageTransition = {
+const PAGE_TRANSITION = {
   duration: 0.3,
-  ease: 'easeOut',
+  ease: 'easeInOut',
 };
 
 /**
@@ -42,24 +38,29 @@ const pageTransition = {
  * @param {React.ReactNode} props.children
  * @param {string}  [props.className]
  * @param {object}  [props.style]
- * @param {object}  [props.variants]      Override animation variants
- * @param {object}  [props.transition]    Override transition config
+ * @param {object}  [props.variants]    Override animation variants
+ * @param {object}  [props.transition]  Override transition config
  */
 function AnimatedPage({
   children,
   className,
   style,
-  variants = pageVariants,
-  transition = pageTransition,
+  variants = PAGE_VARIANTS,
+  transition = PAGE_TRANSITION,
   ...rest
 }) {
+  const prefersReducedMotion = useReducedMotion();
+  const pageTransitionsEnabled = useFeatureFlag('enablePageTransitions');
+
+  const skip = prefersReducedMotion || !pageTransitionsEnabled;
+
   return (
     <motion.div
-      variants={variants}
-      initial="initial"
-      animate="animate"
-      exit="exit"
-      transition={transition}
+      variants={skip ? undefined : variants}
+      initial={skip ? false : 'initial'}
+      animate={skip ? undefined : 'animate'}
+      exit={skip ? undefined : 'exit'}
+      transition={skip ? undefined : transition}
       className={className}
       style={{ width: '100%', ...style }}
       {...rest}
@@ -71,7 +72,7 @@ function AnimatedPage({
 
 export default AnimatedPage;
 
-// ─── Convenience variants for different animation styles ─────────────────────
+// ─── Convenience variants — reused across the app ────────────────────────────
 
 /** Fade-only (no vertical movement). Use for modal-like pages. */
 export const fadeVariants = {
@@ -99,4 +100,24 @@ export const scaleVariants = {
   initial: { opacity: 0, scale: 0.96 },
   animate: { opacity: 1, scale: 1 },
   exit:    { opacity: 0, scale: 0.96 },
+};
+
+/**
+ * Scroll-reveal transition — use with whileInView for entrance animations.
+ * Gate with useFeatureFlag('enableScrollReveal') before applying.
+ *
+ * Usage:
+ *   const shouldReveal = useFeatureFlag('enableScrollReveal') && !prefersReducedMotion;
+ *   <motion.div
+ *     initial={shouldReveal ? SCROLL_REVEAL.initial : false}
+ *     whileInView={SCROLL_REVEAL.whileInView}
+ *     viewport={SCROLL_REVEAL.viewport}
+ *     transition={SCROLL_REVEAL.transition}
+ *   >
+ */
+export const SCROLL_REVEAL = {
+  initial:    { opacity: 0, y: 36 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport:   { once: true, margin: '-60px' },
+  transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
 };

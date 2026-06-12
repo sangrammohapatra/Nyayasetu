@@ -1,11 +1,9 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDispatch } from 'react-redux';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   Box,
-  Card,
-  CardContent,
   Typography,
   Button,
   Container,
@@ -16,33 +14,21 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import {
-  ErrorOutline as ErrorIcon,
-  Home as HomeIcon,
   Refresh as RefreshIcon,
+  Home as HomeIcon,
   BugReport as BugReportIcon,
   Phone as PhoneIcon,
 } from '@mui/icons-material';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { logError } from '../../store/slices/errorSlice';
+import GlassCard from './GlassCard';
+import GradientHeading from './GradientHeading';
+import { TYPOGRAPHY } from '../../theme/tokens';
 
 /**
- * ErrorBoundary Component
- *
- * Class component that catches JavaScript errors in the entire child component tree.
- * Displays user-friendly error UI with recovery options and sends error telemetry to Redux.
- *
- * Features:
- * - Multilingual error messages (i18n)
- * - Theme-aware styling (light/dark/high-contrast)
- * - Framer Motion animations
- * - Error recovery actions (reload, home)
- * - Development vs production error display modes
- * - Error logging to Redux for analytics
- * - Responsive design (mobile-first)
- *
- * Usage:
- *   <ErrorBoundary>
- *     <YourApp />
- *   </ErrorBoundary>
+ * ErrorBoundary — class component that catches JS errors in the entire child tree.
+ * Displays a GlassCard fallback UI with recovery options.
+ * All error-catching logic is preserved exactly; only the visual layer is restyled.
  */
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -56,21 +42,14 @@ class ErrorBoundary extends React.Component {
   }
 
   static getDerivedStateFromError(error) {
-    // Update state so the next render will show the fallback UI
     return { hasError: true };
   }
 
   componentDidCatch(error, errorInfo) {
-    // Generate unique error ID for tracking
     const errorId = `err_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    this.setState({
-      error,
-      errorInfo,
-      errorId,
-    });
+    this.setState({ error, errorInfo, errorId });
 
-    // Log error to Redux store (for error analytics and debugging)
     if (this.props.dispatch) {
       this.props.dispatch(
         logError({
@@ -83,199 +62,118 @@ class ErrorBoundary extends React.Component {
       );
     }
 
-    // In production, also send to external error tracking service
     if (process.env.NODE_ENV === 'production' && window.errorTracker) {
       window.errorTracker.captureException(error, {
-        contexts: {
-          react: {
-            componentStack: errorInfo.componentStack,
-          },
-        },
-        tags: {
-          errorId,
-        },
+        contexts: { react: { componentStack: errorInfo.componentStack } },
+        tags: { errorId },
       });
     }
 
-    // Console log in development
     if (process.env.NODE_ENV === 'development') {
       console.error('ErrorBoundary caught an error:', error, errorInfo);
     }
   }
 
   handleReset = () => {
-    this.setState({
-      hasError: false,
-      error: null,
-      errorInfo: null,
-      errorId: null,
-    });
+    this.setState({ hasError: false, error: null, errorInfo: null, errorId: null });
   };
 
-  handleReload = () => {
-    window.location.reload();
-  };
-
-  handleGoHome = () => {
-    window.location.href = '/';
-  };
+  handleReload = () => { window.location.reload(); };
+  handleGoHome = () => { window.location.href = '/'; };
 
   render() {
     const { hasError, error, errorInfo, errorId } = this.state;
     const { children } = this.props;
 
-    if (!hasError) {
-      return children;
-    }
+    if (!hasError) return children;
 
-    return <ErrorFallbackUI error={error} errorInfo={errorInfo} errorId={errorId} onReset={this.handleReset} />;
+    return (
+      <ErrorFallbackUI
+        error={error}
+        errorInfo={errorInfo}
+        errorId={errorId}
+        onReset={this.handleReset}
+      />
+    );
   }
 }
 
-/**
- * ErrorFallbackUI Component
- *
- * Functional component that renders the error UI.
- * Separated from ErrorBoundary class for cleaner hooks usage.
- */
+// ─── ErrorFallbackUI ─────────────────────────────────────────────────────────
+
 function ErrorFallbackUI({ error, errorInfo, errorId, onReset }) {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const prefersReducedMotion = useReducedMotion();
 
   const isDevelopment = process.env.NODE_ENV === 'development';
+  const isNetworkError =
+    error?.message?.toLowerCase().includes('fetch') ||
+    error?.message?.toLowerCase().includes('network');
 
-  // Determine error severity based on error message
-  const isNetworkError = error?.message?.toLowerCase().includes('fetch') || error?.message?.toLowerCase().includes('network');
-  const isCriticalError = !isNetworkError;
+  const fadeIn = prefersReducedMotion
+    ? {}
+    : { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.45, ease: 'easeOut' } };
 
-  const containerVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.5,
-        ease: 'easeOut',
-      },
-    },
-  };
+  const iconAnim = prefersReducedMotion
+    ? {}
+    : { initial: { scale: 0, rotate: -180 }, animate: { scale: 1, rotate: 0 }, transition: { duration: 0.55, ease: 'easeOut', delay: 0.05 } };
 
-  const iconVariants = {
-    hidden: { scale: 0, rotate: -180 },
-    visible: {
-      scale: 1,
-      rotate: 0,
-      transition: {
-        duration: 0.6,
-        ease: 'easeOut',
-        delay: 0.1,
-      },
-    },
-  };
-
-  const contentVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        duration: 0.5,
-        ease: 'easeOut',
-        delay: 0.2,
-      },
-    },
-  };
-
-  const buttonContainerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        duration: 0.5,
-        ease: 'easeOut',
-        delay: 0.4,
-        staggerChildren: 0.1,
-        delayChildren: 0.4,
-      },
-    },
-  };
-
-  const buttonVariants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.3, ease: 'easeOut' },
-    },
-  };
+  const stagger = (delay) =>
+    prefersReducedMotion
+      ? {}
+      : { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { duration: 0.4, ease: 'easeOut', delay } };
 
   return (
-    <motion.div initial="hidden" animate="visible" variants={containerVariants}>
-      <Box
-        sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          bgcolor: 'var(--color-bg)',
-          padding: isMobile ? 2 : 4,
-        }}
-      >
-        <Container maxWidth="sm">
-          <Card
-            elevation={4}
-            sx={{
-              bgcolor: 'var(--color-surface)',
-              border: `2px solid var(--color-error)`,
-            }}
-          >
-            <CardContent sx={{ p: isMobile ? 3 : 4 }}>
-              {/* Error Icon */}
-              <motion.div variants={iconVariants} style={{ textAlign: 'center', marginBottom: '24px' }}>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: 'var(--color-bg)',
+        p: isMobile ? 2 : 4,
+      }}
+    >
+      <Container maxWidth="sm">
+        <motion.div {...fadeIn}>
+          <GlassCard>
+            <Box sx={{ p: isMobile ? 3 : 4 }}>
+
+              {/* Error icon — secondary-tinted circle */}
+              <motion.div {...iconAnim} style={{ textAlign: 'center', marginBottom: 24 }}>
                 <Box
                   sx={{
                     display: 'inline-flex',
                     p: 2,
                     borderRadius: '50%',
-                    bgcolor: 'rgba(211, 47, 47, 0.1)',
+                    bgcolor: 'secondary.light',
+                    opacity: 0.9,
                   }}
                 >
-                  <ErrorIcon
-                    sx={{
-                      fontSize: 48,
-                      color: 'var(--color-error)',
-                    }}
+                  <ErrorOutlineIcon
+                    sx={{ fontSize: 48, color: 'secondary.main' }}
                   />
                 </Box>
               </motion.div>
 
-              {/* Error Heading */}
-              <motion.div variants={contentVariants}>
-                <Typography
+              {/* Heading via GradientHeading */}
+              <motion.div {...stagger(0.1)}>
+                <GradientHeading
                   variant="h4"
                   component="h1"
-                  sx={{
-                    textAlign: 'center',
-                    color: 'var(--color-text)',
-                    fontFamily: 'Playfair Display, serif',
-                    fontWeight: 700,
-                    mb: 1,
-                  }}
+                  sx={{ textAlign: 'center', mb: 1.5 }}
                 >
                   {t('errors.boundary_title', 'Something went wrong')}
-                </Typography>
+                </GradientHeading>
               </motion.div>
 
-              {/* Error Description */}
-              <motion.div variants={contentVariants}>
+              {/* Description */}
+              <motion.div {...stagger(0.18)}>
                 <Typography
                   variant="body1"
-                  sx={{
-                    textAlign: 'center',
-                    color: 'var(--color-text-secondary)',
-                    mb: 2,
-                  }}
+                  sx={{ textAlign: 'center', color: 'var(--color-text-secondary)', mb: 2, lineHeight: 1.65 }}
                 >
                   {isNetworkError
                     ? t('errors.boundary_network_desc', 'A network error occurred. Please check your connection and try again.')
@@ -283,16 +181,12 @@ function ErrorFallbackUI({ error, errorInfo, errorId, onReset }) {
                 </Typography>
               </motion.div>
 
-              {/* Error ID for support */}
-              <motion.div variants={contentVariants}>
+              {/* Error ID */}
+              <motion.div {...stagger(0.24)}>
                 <Alert
                   severity="info"
-                  sx={{
-                    mb: 2,
-                    bgcolor: 'rgba(25, 118, 210, 0.1)',
-                    border: '1px solid var(--color-primary)',
-                  }}
                   icon={<BugReportIcon />}
+                  sx={{ mb: 2, bgcolor: 'var(--color-info-light)', border: '1px solid var(--color-info)' }}
                 >
                   <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
                     {t('errors.boundary_error_id', 'Error ID')}: <strong>{errorId}</strong>
@@ -300,17 +194,17 @@ function ErrorFallbackUI({ error, errorInfo, errorId, onReset }) {
                 </Alert>
               </motion.div>
 
-              {/* Development Error Details */}
+              {/* Dev-mode stack trace */}
               {isDevelopment && error && (
-                <motion.div variants={contentVariants}>
+                <motion.div {...stagger(0.28)}>
                   <Box
                     sx={{
                       mb: 2,
                       p: 2,
-                      bgcolor: 'rgba(0, 0, 0, 0.05)',
+                      bgcolor: 'rgba(0,0,0,0.04)',
                       borderRadius: 1,
                       border: '1px solid var(--color-border)',
-                      fontFamily: 'JetBrains Mono, monospace',
+                      fontFamily: TYPOGRAPHY.fontFamily.mono,
                       fontSize: '0.75rem',
                       overflow: 'auto',
                       maxHeight: 200,
@@ -319,11 +213,7 @@ function ErrorFallbackUI({ error, errorInfo, errorId, onReset }) {
                     <Typography
                       variant="caption"
                       component="div"
-                      sx={{
-                        color: 'var(--color-error)',
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                      }}
+                      sx={{ color: 'var(--color-error)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
                     >
                       {error.toString()}
                     </Typography>
@@ -331,12 +221,7 @@ function ErrorFallbackUI({ error, errorInfo, errorId, onReset }) {
                       <Typography
                         variant="caption"
                         component="div"
-                        sx={{
-                          color: 'var(--color-text-secondary)',
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word',
-                          mt: 1,
-                        }}
+                        sx={{ color: 'var(--color-text-secondary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', mt: 1 }}
                       >
                         {errorInfo.componentStack}
                       </Typography>
@@ -345,120 +230,89 @@ function ErrorFallbackUI({ error, errorInfo, errorId, onReset }) {
                 </motion.div>
               )}
 
-              <Divider sx={{ my: 2, borderColor: 'var(--color-border)' }} />
+              <Divider sx={{ my: 2.5, borderColor: 'var(--color-border)' }} />
 
-              {/* Action Buttons */}
-              <motion.div variants={buttonContainerVariants}>
+              {/* Action buttons */}
+              <motion.div {...stagger(0.32)}>
                 <Stack
                   direction={isMobile ? 'column' : 'row'}
                   spacing={1.5}
                   justifyContent="center"
-                  sx={{ mt: 3 }}
                 >
-                  {/* Retry Button */}
-                  <motion.div variants={buttonVariants} style={{ flex: isMobile ? 1 : 'auto' }}>
-                    <Button
-                      variant="contained"
-                      startIcon={<RefreshIcon />}
-                      onClick={() => window.location.reload()}
-                      fullWidth={isMobile}
-                      sx={{
-                        bgcolor: 'var(--color-primary)',
-                        color: 'white',
-                        '&:hover': {
-                          bgcolor: 'var(--color-primary-light)',
-                        },
-                        textTransform: 'none',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {t('common.retry', 'Try Again')}
-                    </Button>
-                  </motion.div>
+                  <Button
+                    variant="contained"
+                    startIcon={<RefreshIcon />}
+                    onClick={() => window.location.reload()}
+                    fullWidth={isMobile}
+                    sx={{
+                      bgcolor: 'var(--color-primary)',
+                      color: 'white',
+                      borderRadius: '999px',
+                      boxShadow: theme.custom?.glowPrimary,
+                      '&:hover': { bgcolor: 'var(--color-primary-dark, var(--color-primary))' },
+                      fontWeight: 700,
+                    }}
+                  >
+                    {t('common.retry', 'Reload')}
+                  </Button>
 
-                  {/* Go Home Button */}
-                  <motion.div variants={buttonVariants} style={{ flex: isMobile ? 1 : 'auto' }}>
-                    <Button
-                      variant="outlined"
-                      startIcon={<HomeIcon />}
-                      onClick={() => (window.location.href = '/')}
-                      fullWidth={isMobile}
-                      sx={{
+                  <Button
+                    variant="outlined"
+                    startIcon={<HomeIcon />}
+                    onClick={() => (window.location.href = '/')}
+                    fullWidth={isMobile}
+                    sx={{
+                      borderColor: 'var(--color-primary)',
+                      color: 'var(--color-primary)',
+                      borderRadius: '999px',
+                      '&:hover': {
                         borderColor: 'var(--color-primary)',
-                        color: 'var(--color-primary)',
-                        '&:hover': {
-                          borderColor: 'var(--color-primary-light)',
-                          bgcolor: 'rgba(21, 101, 192, 0.05)',
-                        },
-                        textTransform: 'none',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {t('common.go_home', 'Go Home')}
-                    </Button>
-                  </motion.div>
+                        bgcolor: 'var(--color-primary-alpha)',
+                      },
+                      fontWeight: 600,
+                    }}
+                  >
+                    {t('common.go_home', 'Go Home')}
+                  </Button>
                 </Stack>
               </motion.div>
 
-              {/* Support Contact */}
-              <motion.div variants={contentVariants}>
-                <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid var(--color-border)' }}>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      textAlign: 'center',
-                      color: 'var(--color-text-secondary)',
-                      mb: 1,
-                    }}
-                  >
+              {/* Support contact */}
+              <motion.div {...stagger(0.38)}>
+                <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid var(--color-border)', textAlign: 'center' }}>
+                  <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 1 }}>
                     {t('errors.boundary_need_help', 'Need help?')}
                   </Typography>
-                  <Box
+                  <Button
+                    size="small"
+                    startIcon={<PhoneIcon sx={{ fontSize: 16 }} />}
+                    href="tel:+919999999999"
                     sx={{
-                      display: 'flex',
-                      justifyContent: 'center',
-                      gap: 1,
+                      color: 'var(--color-primary)',
+                      '&:hover': { bgcolor: 'var(--color-primary-alpha)' },
                     }}
                   >
-                    <Button
-                      size="small"
-                      startIcon={<PhoneIcon sx={{ fontSize: 16 }} />}
-                      href="tel:+919999999999"
-                      sx={{
-                        color: 'var(--color-primary)',
-                        textTransform: 'none',
-                        '&:hover': {
-                          bgcolor: 'rgba(21, 101, 192, 0.08)',
-                        },
-                      }}
-                    >
-                      {t('errors.boundary_call_support', 'Call Support')}
-                    </Button>
-                  </Box>
+                    {t('errors.boundary_call_support', 'Call Support')}
+                  </Button>
                 </Box>
               </motion.div>
-            </CardContent>
-          </Card>
 
-          {/* Footer Note */}
-          <motion.div variants={contentVariants}>
-            <Typography
-              variant="caption"
-              sx={{
-                textAlign: 'center',
-                display: 'block',
-                mt: 3,
-                color: 'var(--color-text-secondary)',
-              }}
-            >
-              {t('errors.boundary_error_reference', 'Error reference')}: <strong>{errorId}</strong>
-              <br />
-              {isDevelopment && `Console: ${error?.message}`}
-            </Typography>
-          </motion.div>
-        </Container>
-      </Box>
-    </motion.div>
+            </Box>
+          </GlassCard>
+        </motion.div>
+
+        {/* Footer note */}
+        <motion.div {...stagger(0.44)}>
+          <Typography
+            variant="caption"
+            sx={{ textAlign: 'center', display: 'block', mt: 3, color: 'var(--color-text-secondary)' }}
+          >
+            {t('errors.boundary_error_reference', 'Error reference')}: <strong>{errorId}</strong>
+            {isDevelopment && <><br />{error?.message}</>}
+          </Typography>
+        </motion.div>
+      </Container>
+    </Box>
   );
 }
 

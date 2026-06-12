@@ -1,13 +1,22 @@
 /**
  * client/src/components/ui/UpgradeCTA.jsx
  *
- * Shown by FeatureGate when a user tries to access a gated feature.
- * Uses only CSS custom properties and MUI theme tokens — zero hardcoded hex.
+ * Upgrade call-to-action. Two modes:
+ *   compact=false — full GlassCard-style layout with plan info (standalone use)
+ *   compact=true  — pill button only (used inside FeatureGate's locked card)
+ *
+ * Props:
+ *   featureName    — internal feature key (e.g. 'pdf_download')
+ *   featureLabel   — human-readable name shown in the card
+ *   description    — override description text
+ *   compact        — compact pill-button variant (default false)
+ *   onClick        — override click handler (default: navigate to /pricing)
+ *   href           — render button as <a> with this href instead of navigate
  */
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -16,7 +25,7 @@ import { useTheme } from '@mui/material/styles';
 import { useSelector } from 'react-redux';
 import { selectUserPlan, selectUserPersona } from '../../store/slices/authSlice';
 import { minimumPlanFor } from '../../utils/featureFlags';
-import { RADIUS, SHADOWS, SPACING } from '../../theme/tokens';
+import { RADIUS, SPACING } from '../../theme/tokens';
 
 const PLAN_LABELS = {
   basic:        'Basic ₹99/mo',
@@ -32,35 +41,10 @@ const PLAN_ICONS = {
   firm: '🏛️',
 };
 
-// Subtle pulse animation for the CTA button
-const pulseVariants = {
-  idle: { scale: 1, boxShadow: '0 0 0 0 var(--color-primary-alpha)' },
-  pulse: {
-    scale: [1, 1.03, 1],
-    boxShadow: [
-      '0 0 0 0 var(--color-primary-alpha)',
-      '0 0 0 10px rgba(0,0,0,0)',
-      '0 0 0 0 rgba(0,0,0,0)',
-    ],
-    transition: {
-      duration: 2.2,
-      repeat: Infinity,
-      repeatDelay: 1,
-      ease: 'easeInOut',
-    },
-  },
-};
-
-/**
- * @param {object}  props
- * @param {string}  props.featureName    Internal feature key (e.g. 'pdf_download')
- * @param {string}  [props.featureLabel] Human-readable feature name shown in the card
- * @param {string}  [props.description]  Optional description text
- * @param {boolean} [props.compact]      Compact inline variant (no card wrapper)
- */
-function UpgradeCTA({ featureName, featureLabel, description, compact = false }) {
+function UpgradeCTA({ featureName, featureLabel, description, compact = false, onClick, href }) {
   const navigate = useNavigate();
   const theme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
   const currentPlan = useSelector(selectUserPlan);
   const persona = useSelector(selectUserPersona);
 
@@ -70,51 +54,70 @@ function UpgradeCTA({ featureName, featureLabel, description, compact = false })
 
   const displayName = featureLabel || featureName?.replace(/_/g, ' ') || 'this feature';
 
-  const handleUpgrade = () => navigate('/pricing');
+  const handleUpgrade = onClick
+    ? onClick
+    : href
+    ? () => { window.location.href = href; }
+    : () => navigate('/pricing');
 
-  if (compact) {
-    return (
-      <Box
-        sx={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 1,
-          px: 1.5,
-          py: 0.75,
-          borderRadius: `${RADIUS.md}px`,
-          background: 'var(--color-primary-alpha)',
-          border: '1px solid var(--color-primary)',
-          cursor: 'pointer',
-        }}
-        onClick={handleUpgrade}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => e.key === 'Enter' && handleUpgrade()}
+  // ── Pill CTA button (shared by both modes) ──────────────────────────────────
+  const ctaButton = (
+    <Button
+      variant="contained"
+      fullWidth={!compact}
+      size={compact ? 'medium' : 'large'}
+      onClick={handleUpgrade}
+      {...(href && !onClick ? { component: 'a', href } : {})}
+      sx={{
+        background: 'var(--color-primary)',
+        color: '#FFFFFF',
+        fontWeight: 700,
+        borderRadius: `${RADIUS.full}px`,
+        px: compact ? 3 : 4,
+        py: compact ? 0.875 : 1.375,
+        fontSize: compact ? '0.875rem' : '1rem',
+        boxShadow: theme.custom.glowPrimary,
+        '&:hover': {
+          background: 'var(--color-primary-dark, var(--color-primary))',
+          boxShadow: theme.custom.glowPrimary,
+        },
+        transition: 'background 0.2s ease, box-shadow 0.2s ease',
+      }}
+    >
+      {compact ? '🔒 Upgrade to unlock' : 'View Upgrade Plans'}
+    </Button>
+  );
+
+  const motionWrapper = (node) =>
+    prefersReducedMotion ? node : (
+      <motion.div
+        whileHover={{ scale: 1.04 }}
+        whileTap={{ scale: 0.96 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+        style={{ display: compact ? 'inline-block' : 'block' }}
       >
-        <Typography variant="caption" sx={{ color: 'var(--color-primary)', fontWeight: 600 }}>
-          🔒 Upgrade to unlock
-        </Typography>
-      </Box>
+        {node}
+      </motion.div>
     );
+
+  // ── Compact: just the motion-wrapped pill button ────────────────────────────
+  if (compact) {
+    return motionWrapper(ctaButton);
   }
 
+  // ── Full card mode ──────────────────────────────────────────────────────────
   return (
     <Box
       sx={{
         borderRadius: `${RADIUS.xl}px`,
-        border: '1px solid var(--color-border)',
-        background: 'var(--color-surface)',
+        border: theme.custom.cardBorder,
+        background: theme.custom.cardBg,
         overflow: 'hidden',
-        boxShadow: SHADOWS.md,
+        boxShadow: theme.custom.cardShadow,
       }}
     >
-      {/* Gradient header bar using theme primary */}
-      <Box
-        sx={{
-          height: 4,
-          background: `linear-gradient(90deg, var(--color-primary), var(--color-primary-light))`,
-        }}
-      />
+      {/* Gradient header bar */}
+      <Box sx={{ height: 4, background: theme.custom.gradientBrand }} />
 
       <Box sx={{ p: { xs: SPACING.md / 8, sm: SPACING.xl / 8 } }}>
         {/* Lock icon + badge */}
@@ -135,14 +138,7 @@ function UpgradeCTA({ featureName, featureLabel, description, compact = false })
             🔒
           </Box>
           <Box>
-            <Typography
-              variant="h6"
-              sx={{
-                fontWeight: 700,
-                color: 'var(--color-text)',
-                lineHeight: 1.3,
-              }}
-            >
+            <Typography variant="h6" sx={{ fontWeight: 700, color: 'var(--color-text)', lineHeight: 1.3 }}>
               Unlock {displayName}
             </Typography>
             <Chip
@@ -161,10 +157,7 @@ function UpgradeCTA({ featureName, featureLabel, description, compact = false })
         </Box>
 
         {/* Description */}
-        <Typography
-          variant="body2"
-          sx={{ color: 'var(--color-text-secondary)', mb: 2.5, lineHeight: 1.6 }}
-        >
+        <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 2.5, lineHeight: 1.6 }}>
           {description ||
             `${displayName.charAt(0).toUpperCase() + displayName.slice(1)} is available on the ${planLabel || 'paid'} plan. Upgrade to get access to this and many more features.`}
         </Typography>
@@ -196,42 +189,10 @@ function UpgradeCTA({ featureName, featureLabel, description, compact = false })
           </Box>
         )}
 
-        {/* CTA button with pulse animation */}
-        <motion.div variants={pulseVariants} initial="idle" animate="pulse">
-          <Button
-            variant="contained"
-            fullWidth
-            size="large"
-            onClick={handleUpgrade}
-            sx={{
-              background: 'var(--color-primary)',
-              color: '#FFFFFF',
-              fontWeight: 700,
-              borderRadius: `${RADIUS.md}px`,
-              py: 1.25,
-              fontSize: '1rem',
-              '&:hover': {
-                background: 'var(--color-primary-dark, var(--color-primary))',
-                transform: 'translateY(-1px)',
-                boxShadow: SHADOWS.md,
-              },
-              transition: 'all 200ms ease',
-            }}
-          >
-            View Upgrade Plans
-          </Button>
-        </motion.div>
+        {/* CTA */}
+        {motionWrapper(ctaButton)}
 
-        {/* Secondary no-thanks link */}
-        <Typography
-          variant="caption"
-          sx={{
-            display: 'block',
-            textAlign: 'center',
-            mt: 1.5,
-            color: 'var(--color-text-secondary)',
-          }}
-        >
+        <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', mt: 1.5, color: 'var(--color-text-secondary)' }}>
           No credit card required to browse plans
         </Typography>
       </Box>

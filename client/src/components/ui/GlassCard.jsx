@@ -1,78 +1,84 @@
 /**
  * client/src/components/ui/GlassCard.jsx
  *
- * MUI Paper variant with glassmorphism styling.
- * All colours come from CSS custom properties — zero hardcoded hex.
+ * Theme-aware card primitive. Styling comes from theme.custom tokens.
+ * Blur is gated behind featureFlags.enableBlur (OFF by default).
  *
- * Props:
- *   elevation (0-3) — controls blur intensity (4 / 8 / 12 / 20 px)
- *   blur            — override blur in px
- *   alpha           — override surface alpha (0-1)
- *   borderAlpha     — override border alpha (0-1)
- *   sx              — MUI sx passthrough
+ * Props (new):
+ *   as         — override the rendered HTML element (e.g. 'article', 'section')
+ *   hoverable  — enable -6px lift on hover (requires enableHoverLift flag + no reduced motion)
+ *
+ * Props (preserved from v1):
+ *   elevation  — kept for API compat (no longer drives blur intensity)
+ *   blur       — kept for API compat
+ *   alpha      — kept for API compat
+ *   borderAlpha — kept for API compat
+ *   sx         — MUI sx passthrough
  *   children
- *
- * Usage:
- *   <GlassCard elevation={2} sx={{ p: 3 }}>
- *     <Typography>...</Typography>
- *   </GlassCard>
  */
 
 import React from 'react';
 import Paper from '@mui/material/Paper';
-import { styled } from '@mui/material/styles';
-import { RADIUS } from '../../theme/tokens';
+import { useTheme } from '@mui/material/styles';
+import { motion, useReducedMotion } from 'framer-motion';
+import { useFeatureFlag } from '../../utils/featureFlags';
 
-// Map MUI elevation levels to blur intensity
-const BLUR_MAP = { 0: 4, 1: 8, 2: 12, 3: 20 };
-
-// Styled base component — uses CSS custom properties only
-const StyledGlass = styled(Paper, {
-  shouldForwardProp: (prop) =>
-    !['blurPx', 'surfaceAlpha', 'borderAlpha'].includes(prop),
-})(({ blurPx, surfaceAlpha, borderAlpha }) => ({
-  // Semi-transparent surface using the CSS custom property with alpha override
-  backgroundColor: `color-mix(in srgb, var(--color-surface) ${Math.round(surfaceAlpha * 100)}%, transparent)`,
-  // Fallback for browsers without color-mix support
-  '@supports not (background-color: color-mix(in srgb, white 85%, transparent))': {
-    backgroundColor: 'var(--color-surface)',
-    opacity: surfaceAlpha,
-  },
-  backdropFilter: `blur(${blurPx}px)`,
-  WebkitBackdropFilter: `blur(${blurPx}px)`,
-  border: `1px solid color-mix(in srgb, var(--color-border) ${Math.round(borderAlpha * 100)}%, transparent)`,
-  '@supports not (border-color: color-mix(in srgb, white 50%, transparent))': {
-    border: '1px solid var(--color-border)',
-  },
-  borderRadius: RADIUS.lg,
-  boxShadow: 'none',
-  backgroundImage: 'none',
-  // Smooth transitions when theme changes
-  transition: 'background-color 0.3s ease, backdrop-filter 0.3s ease, border-color 0.3s ease',
-}));
+// motion.create() wraps MUI Paper so we can use whileHover / whileTap without
+// an extra wrapper DOM node.
+const MotionPaper = motion.create(Paper);
 
 function GlassCard({
   children,
-  elevation = 1,
-  blur,
-  alpha = 0.85,
-  borderAlpha = 0.5,
+  // backward-compat props (no longer control styling, retained for API stability)
+  elevation,    // eslint-disable-line no-unused-vars
+  blur,         // eslint-disable-line no-unused-vars
+  alpha,        // eslint-disable-line no-unused-vars
+  borderAlpha,  // eslint-disable-line no-unused-vars
+  // new props
+  as,
+  hoverable = false,
   sx,
   ...props
 }) {
-  const blurPx = blur !== undefined ? blur : (BLUR_MAP[elevation] ?? BLUR_MAP[1]);
+  const theme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
+  const blurEnabled = useFeatureFlag('enableBlur');
+  const hoverLiftEnabled = useFeatureFlag('enableHoverLift');
 
+  const shouldLift = hoverable && hoverLiftEnabled && !prefersReducedMotion;
+
+  const cardSx = {
+    background: theme.custom.cardBg,
+    border: theme.custom.cardBorder,
+    boxShadow: theme.custom.cardShadow,
+    borderRadius: theme.shape.borderRadius * 1.15,
+    backgroundImage: 'none',
+    transition: 'box-shadow 0.25s ease, border-color 0.25s ease',
+    ...(blurEnabled && {
+      backdropFilter: theme.custom.cardBlur,
+      WebkitBackdropFilter: theme.custom.cardBlur,
+    }),
+    ...sx,
+  };
+
+  const motionProps = shouldLift
+    ? {
+        whileHover: { y: -6 },
+        transition: { type: 'spring', stiffness: 300, damping: 20 },
+      }
+    : {};
+
+  // Use MotionPaper always so the component type stays stable across renders.
   return (
-    <StyledGlass
-      blurPx={blurPx}
-      surfaceAlpha={alpha}
-      borderAlpha={borderAlpha}
-      elevation={0} // Disable MUI box-shadow — we handle it via glassmorphism
-      sx={sx}
+    <MotionPaper
+      component={as}
+      elevation={0}
+      sx={cardSx}
+      {...motionProps}
       {...props}
     >
       {children}
-    </StyledGlass>
+    </MotionPaper>
   );
 }
 

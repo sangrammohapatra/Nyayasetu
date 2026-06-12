@@ -8,6 +8,7 @@ import { useSelector } from 'react-redux';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
+import { useTheme } from '@mui/material/styles';
 import { selectIsAuthenticated, selectUserPersona, selectAuthLoading } from '../../store/slices/authSlice';
 
 /**
@@ -17,6 +18,7 @@ import { selectIsAuthenticated, selectUserPersona, selectAuthLoading } from '../
  */
 function ProtectedRoute({ children, allowedPersonas }) {
   const location = useLocation();
+  const theme = useTheme();
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const persona = useSelector(selectUserPersona);
   const loading = useSelector(selectAuthLoading);
@@ -39,9 +41,44 @@ function ProtectedRoute({ children, allowedPersonas }) {
           background: 'var(--color-bg)',
         }}
       >
-        <CircularProgress sx={{ color: 'var(--color-primary)' }} size={48} />
-        <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
-          Loading…
+        <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+          {/* Track ring */}
+          <CircularProgress
+            variant="determinate"
+            value={100}
+            size={52}
+            thickness={3}
+            sx={{ color: 'var(--color-border)', position: 'absolute' }}
+          />
+          {/* Animated ring with brand gradient via SVG linearGradient */}
+          <CircularProgress
+            size={52}
+            thickness={3}
+            sx={{
+              '& .MuiCircularProgress-circle': {
+                stroke: `url(#brand-gradient-spinner)`,
+              },
+            }}
+          />
+          {/* Inline SVG gradient definition */}
+          <svg width="0" height="0" style={{ position: 'absolute' }}>
+            <defs>
+              <linearGradient id="brand-gradient-spinner" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor={theme.palette.primary.main} />
+                <stop offset="100%" stopColor={theme.palette.info?.main || theme.palette.primary.light} />
+              </linearGradient>
+            </defs>
+          </svg>
+        </Box>
+        <Typography
+          variant="overline"
+          sx={{
+            color: 'var(--color-text-secondary)',
+            letterSpacing: '0.1em',
+            fontSize: '0.7rem',
+          }}
+        >
+          Verifying…
         </Typography>
       </Box>
     );
