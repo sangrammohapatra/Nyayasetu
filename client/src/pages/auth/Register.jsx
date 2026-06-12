@@ -25,6 +25,8 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Chip from "@mui/material/Chip";
 import Radio from "@mui/material/Radio";
 import RadioGroup from "@mui/material/RadioGroup";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 
 import {
   register as registerUser,
@@ -33,7 +35,10 @@ import {
   clearError,
 } from "../../store/slices/authSlice";
 import { setTheme, setLanguage } from "../../store/slices/uiSlice";
-import { RADIUS, SHADOWS } from "../../theme/tokens";
+import { RADIUS, SHADOWS, TYPOGRAPHY } from "../../theme/tokens";
+import GlassCard from "../../components/ui/GlassCard";
+import GradientHeading from "../../components/ui/GradientHeading";
+import { AuthVisualPanel } from "./AuthShared";
 
 // ─── Indian states ────────────────────────────────────────────────────────────
 
@@ -210,7 +215,7 @@ function Step1({ control, errors, existingPhone }) {
             ),
           }}
           helperText={t("register.phone_verified", "Verified via OTP")}
-          sx={{ "& input": { fontFamily: "'JetBrains Mono', monospace", letterSpacing: 2 } }}
+          sx={{ "& input": { fontFamily: TYPOGRAPHY.fontFamily.mono, letterSpacing: 2 } }}
         />
       ) : (
         <Controller
@@ -235,7 +240,7 @@ function Step1({ control, errors, existingPhone }) {
                   </InputAdornment>
                 ),
               }}
-              sx={{ "& input": { fontFamily: "'JetBrains Mono', monospace", letterSpacing: 2 } }}
+              sx={{ "& input": { fontFamily: TYPOGRAPHY.fontFamily.mono, letterSpacing: 2 } }}
             />
           )}
         />
@@ -281,6 +286,7 @@ function Step1({ control, errors, existingPhone }) {
 
 function Step2({ control, errors, watch }) {
   const { t } = useTranslation();
+  const muiTheme = useTheme();
   const selected = watch("persona");
 
   const PERSONAS = [
@@ -347,14 +353,16 @@ function Step2({ control, errors, watch }) {
                       p: 2.5,
                       borderRadius: `${RADIUS.lg}px`,
                       border: isSelected
-                        ? "2px solid var(--color-primary)"
+                        ? "3px solid var(--color-primary)"
                         : "1.5px solid var(--color-border)",
                       background: isSelected
                         ? "var(--color-primary-alpha)"
-                        : "var(--color-surface)",
+                        : (muiTheme.custom?.cardBg || "var(--color-surface)"),
                       cursor: "pointer",
                       transition: "all 0.2s ease",
-                      boxShadow: isSelected ? SHADOWS.md : "none",
+                      boxShadow: isSelected
+                        ? (muiTheme.custom?.glowPrimary || SHADOWS.md)
+                        : (muiTheme.custom?.cardShadow || "none"),
                     }}
                   >
                     <Box
@@ -632,46 +640,57 @@ function Step3({ control, watch }) {
 
 function StepIndicator({ step, total }) {
   const { t } = useTranslation();
+  const muiTheme = useTheme();
   const labels = [
     t("register.step_label_0", "Personal Info"),
     t("register.step_label_1", "Your Role"),
     t("register.step_label_2", "Preferences"),
   ];
   return (
-    <Box sx={{ mb: 4 }}>
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+    <Box sx={{ mb: 3.5 }}>
+      {/* Dot-row */}
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.75, mb: 2 }}>
+        {Array.from({ length: total }).map((_, i) => (
+          <React.Fragment key={i}>
+            <motion.div
+              animate={{ scale: i === step ? 1.2 : 1 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+            >
+              <Box sx={{
+                width: i === step ? 28 : 8,
+                height: 8,
+                borderRadius: 4,
+                background: i < step
+                  ? "var(--color-primary)"
+                  : i === step
+                    ? (muiTheme.custom?.gradientBrand || "var(--color-primary)")
+                    : "var(--color-border)",
+                transition: "width 0.3s ease, background 0.3s ease",
+              }} />
+            </motion.div>
+            {i < total - 1 && (
+              <Box sx={{ width: 20, height: 1.5, background: i < step ? "var(--color-primary)" : "var(--color-border)", borderRadius: 1, transition: "background 0.3s ease" }} />
+            )}
+          </React.Fragment>
+        ))}
+      </Box>
+      {/* Labels */}
+      <Box sx={{ display: "flex", justifyContent: "space-between" }}>
         {labels.map((label, i) => (
           <Typography
             key={i}
             variant="caption"
             sx={{
               fontWeight: i === step ? 700 : 400,
-              color:
-                i <= step
-                  ? "var(--color-primary)"
-                  : "var(--color-text-secondary)",
+              fontSize: "0.68rem",
+              color: i <= step ? "var(--color-primary)" : "var(--color-text-secondary)",
               display: { xs: i === step ? "block" : "none", sm: "block" },
             }}
           >
-            {i < step ? "✓ " : `${i + 1}. `}
-            {label}
+            {i < step ? "✓ " : `${i + 1}. `}{label}
           </Typography>
         ))}
       </Box>
-      <LinearProgress
-        variant="determinate"
-        value={((step + 1) / total) * 100}
-        sx={{
-          height: 5,
-          borderRadius: 3,
-          background: "var(--color-border)",
-          "& .MuiLinearProgress-bar": {
-            background:
-              "linear-gradient(90deg, var(--color-primary), var(--color-primary-light))",
-            borderRadius: 3,
-          },
-        }}
-      />
     </Box>
   );
 }
@@ -685,6 +704,7 @@ function Register() {
   const location = useLocation();
   const loading = useSelector(selectAuthLoading);
   const error = useSelector(selectAuthError);
+  const muiTheme = useTheme();
 
   const phone = location.state?.phone || "";
   const email = location.state?.email || "";
@@ -749,184 +769,132 @@ function Register() {
     <Step3 key={2} control={control} watch={watch} />,
   ];
 
+  const primaryBtnSx = {
+    flex: 2,
+    py: 1.5,
+    fontWeight: 700,
+    fontSize: '1rem',
+    borderRadius: `${RADIUS.full}px`,
+    background: "var(--color-primary)",
+    boxShadow: muiTheme.custom?.glowPrimary || SHADOWS.md,
+    "&:hover": { background: "var(--color-primary-dark, var(--color-primary))", transform: 'scale(1.01)' },
+    transition: 'all 0.18s ease',
+  };
+
+  const outlinedBtnSx = {
+    flex: 1,
+    py: 1.4,
+    borderRadius: `${RADIUS.full}px`,
+    fontWeight: 600,
+    borderColor: "var(--color-border)",
+    color: "var(--color-text)",
+    "&:hover": { borderColor: "var(--color-primary)", background: "var(--color-primary-alpha)" },
+  };
+
   return (
-    <Box
-      sx={{
-        minHeight: "100vh",
+    <Box sx={{ minHeight: "100vh", display: "flex", background: "var(--color-bg)" }}>
+
+      {/* Left visual panel — 55%, desktop only */}
+      <AuthVisualPanel step={step} />
+
+      {/* Right form panel */}
+      <Box sx={{
+        flex: 1,
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        background: "var(--color-bg)",
         p: { xs: 2, sm: 4 },
-      }}
-    >
-      <Box sx={{ width: "100%", maxWidth: 520 }}>
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 4 }}>
-            <Box
-              sx={{
-                width: 40,
-                height: 40,
+        overflowY: "auto",
+        minHeight: "100vh",
+      }}>
+        <Box sx={{ width: "100%", maxWidth: 520 }}>
+
+          {/* Brand mark */}
+          <motion.div
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 3 }}>
+              <Box sx={{
+                width: 40, height: 40,
                 borderRadius: `${RADIUS.md}px`,
                 background: "var(--color-primary)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+                display: "flex", alignItems: "center", justifyContent: "center",
                 fontSize: 20,
-              }}
-            >
-              ⚖️
+                boxShadow: muiTheme.custom?.glowPrimary || SHADOWS.md,
+              }}>
+                ⚖️
+              </Box>
+              <GradientHeading variant="h5" component="div">NyayaSetu</GradientHeading>
             </Box>
-            <Typography
-              variant="h5"
-              sx={{
-                fontFamily: "'Playfair Display',serif",
-                fontWeight: 700,
-                color: "var(--color-primary)",
-              }}
+          </motion.div>
+
+          <GlassCard sx={{ p: { xs: 3, sm: 4 }, overflow: "hidden" }}>
+            <StepIndicator step={step} total={TOTAL_STEPS} />
+
+            {/* Sliding step content */}
+            <Box sx={{ position: "relative", overflow: "hidden", minHeight: 340 }}>
+              <AnimatePresence mode="wait" custom={direction}>
+                <motion.div
+                  key={step}
+                  custom={direction}
+                  variants={slideVariants(direction)}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  style={{ width: "100%" }}
+                >
+                  {stepComponents[step]}
+                </motion.div>
+              </AnimatePresence>
+            </Box>
+
+            {error && (
+              <Alert
+                severity="error"
+                sx={{ mt: 2, borderRadius: `${RADIUS.md}px` }}
+                onClose={() => dispatch(clearError())}
+              >
+                {error}
+              </Alert>
+            )}
+
+            {/* Navigation buttons */}
+            <Box sx={{ display: "flex", gap: 2, mt: 3 }}>
+              {step > 0 && (
+                <Button variant="outlined" onClick={goBack} disabled={loading} sx={outlinedBtnSx}>
+                  {t("register.back", "Back")}
+                </Button>
+              )}
+              {step < TOTAL_STEPS - 1 ? (
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} style={{ flex: 2 }}>
+                  <Button variant="contained" onClick={goNext} fullWidth sx={primaryBtnSx}>
+                    {t("register.continue", "Continue")} →
+                  </Button>
+                </motion.div>
+              ) : (
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} style={{ flex: 2 }}>
+                  <Button variant="contained" onClick={handleSubmit(onSubmit)} disabled={loading} fullWidth sx={primaryBtnSx}>
+                    {loading ? <CircularProgress size={22} sx={{ color: "#fff" }} /> : t("register.complete", "Complete Registration")}
+                  </Button>
+                </motion.div>
+              )}
+            </Box>
+          </GlassCard>
+
+          <Typography variant="caption" sx={{ display: "block", textAlign: "center", mt: 2, color: "var(--color-text-secondary)" }}>
+            {t("register.already_have_account", "Already have an account?")}{" "}
+            <Typography component="span" variant="caption"
+              sx={{ color: "var(--color-primary)", cursor: "pointer", fontWeight: 600 }}
+              onClick={() => navigate("/login")}
             >
-              NyayaSetu
+              {t("register.sign_in", "Sign In")}
             </Typography>
-          </Box>
-        </motion.div>
-
-        <Box
-          sx={{
-            background: "var(--color-surface)",
-            borderRadius: `${RADIUS.xl}px`,
-            border: "1px solid var(--color-border)",
-            boxShadow: SHADOWS.lg,
-            p: { xs: 3, sm: 4 },
-            overflow: "hidden",
-          }}
-        >
-          <StepIndicator step={step} total={TOTAL_STEPS} />
-
-          {/* Sliding step content */}
-          <Box
-            sx={{ position: "relative", overflow: "hidden", minHeight: 340 }}
-          >
-            <AnimatePresence mode="wait" custom={direction}>
-              <motion.div
-                key={step}
-                custom={direction}
-                variants={slideVariants(direction)}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                style={{ width: "100%" }}
-              >
-                {stepComponents[step]}
-              </motion.div>
-            </AnimatePresence>
-          </Box>
-
-          {error && (
-            <Alert
-              severity="error"
-              sx={{ mt: 2, borderRadius: `${RADIUS.md}px` }}
-              onClose={() => dispatch(clearError())}
-            >
-              {error}
-            </Alert>
-          )}
-
-          {/* Navigation buttons */}
-          <Box sx={{ display: "flex", gap: 2, mt: 3 }}>
-            {step > 0 && (
-              <Button
-                variant="outlined"
-                onClick={goBack}
-                disabled={loading}
-                sx={{
-                  flex: 1,
-                  py: 1.4,
-                  borderRadius: `${RADIUS.md}px`,
-                  fontWeight: 600,
-                  borderColor: "var(--color-border)",
-                  color: "var(--color-text)",
-                  "&:hover": {
-                    borderColor: "var(--color-primary)",
-                    background: "var(--color-primary-alpha)",
-                  },
-                }}
-              >
-                {t("register.back", "Back")}
-              </Button>
-            )}
-            {step < TOTAL_STEPS - 1 ? (
-              <Button
-                variant="contained"
-                onClick={goNext}
-                sx={{
-                  flex: 2,
-                  py: 1.4,
-                  borderRadius: `${RADIUS.md}px`,
-                  fontWeight: 700,
-                  background: "var(--color-primary)",
-                  "&:hover": {
-                    background:
-                      "var(--color-primary-dark, var(--color-primary))",
-                  },
-                }}
-              >
-                {t("register.continue", "Continue")} →
-              </Button>
-            ) : (
-              <Button
-                variant="contained"
-                onClick={handleSubmit(onSubmit)}
-                disabled={loading}
-                sx={{
-                  flex: 2,
-                  py: 1.4,
-                  borderRadius: `${RADIUS.md}px`,
-                  fontWeight: 700,
-                  background: "var(--color-primary)",
-                  "&:hover": {
-                    background:
-                      "var(--color-primary-dark, var(--color-primary))",
-                  },
-                }}
-              >
-                {loading ? (
-                  <CircularProgress size={22} sx={{ color: "#fff" }} />
-                ) : (
-                  t("register.complete", "Complete Registration")
-                )}
-              </Button>
-            )}
-          </Box>
-        </Box>
-
-        <Typography
-          variant="caption"
-          sx={{
-            display: "block",
-            textAlign: "center",
-            mt: 2,
-            color: "var(--color-text-secondary)",
-          }}
-        >
-          {t("register.already_have_account", "Already have an account?")}{" "}
-          <Typography
-            component="span"
-            variant="caption"
-            sx={{
-              color: "var(--color-primary)",
-              cursor: "pointer",
-              fontWeight: 600,
-            }}
-            onClick={() => navigate("/login")}
-          >
-            {t("register.sign_in", "Sign In")}
           </Typography>
-        </Typography>
+
+        </Box>
       </Box>
     </Box>
   );

@@ -37,7 +37,11 @@ import {
   selectIsAuthenticated, selectUserPersona, clearError, resetOtpState,
 } from '../../store/slices/authSlice';
 import { setLanguage, setTheme } from '../../store/slices/uiSlice';
-import { RADIUS, SHADOWS } from '../../theme/tokens';
+import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
+import GlassCard from '../../components/ui/GlassCard';
+import GradientHeading from '../../components/ui/GradientHeading';
+import LanguageSelector from '../../components/ui/LanguageSelector';
+import { AuthVisualPanel } from './AuthShared';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -85,41 +89,6 @@ const INDIAN_STATES = [
 const looksLikeEmail = (val) => typeof val === 'string' && (val.includes('@') || /[a-zA-Z]/.test(val[0] || ''));
 const looksLikePhone = (val) => typeof val === 'string' && /^\d{0,10}$/.test(val);
 
-// ─── Scales of Justice SVG ────────────────────────────────────────────────────
-
-function ScalesOfJusticeSVG() {
-  return (
-    <svg viewBox="0 0 260 280" fill="none" xmlns="http://www.w3.org/2000/svg"
-      style={{ width: '100%', maxWidth: 260, filter: 'drop-shadow(0 8px 24px var(--color-primary-alpha))' }}>
-      <rect x="127" y="60" width="6" height="160" rx="3" fill="var(--color-primary)" opacity="0.9" />
-      <rect x="90" y="218" width="80" height="10" rx="5" fill="var(--color-primary)" opacity="0.8" />
-      <rect x="108" y="228" width="44" height="6" rx="3" fill="var(--color-primary)" opacity="0.6" />
-      <rect x="60" y="80" width="140" height="6" rx="3" fill="var(--color-primary)" opacity="0.9" />
-      <circle cx="130" cy="64" r="10" fill="var(--color-primary)" opacity="0.9" />
-      <circle cx="130" cy="64" r="5" fill="var(--color-surface)" opacity="0.9" />
-      <line x1="72" y1="86" x2="72" y2="136" stroke="var(--color-primary)" strokeWidth="2.5" strokeDasharray="4 3" opacity="0.7" />
-      <line x1="188" y1="86" x2="188" y2="116" stroke="var(--color-primary)" strokeWidth="2.5" strokeDasharray="4 3" opacity="0.7" />
-      <motion.g animate={{ rotate: [-3, 3, -3] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} style={{ transformOrigin: '72px 136px' }}>
-        <ellipse cx="72" cy="158" rx="30" ry="8" fill="var(--color-primary)" opacity="0.15" stroke="var(--color-primary)" strokeWidth="2" />
-        <path d="M44 138 Q72 132 100 138" stroke="var(--color-primary)" strokeWidth="2" fill="none" opacity="0.6" />
-        <line x1="44" y1="138" x2="44" y2="158" stroke="var(--color-primary)" strokeWidth="1.5" opacity="0.5" />
-        <line x1="100" y1="138" x2="100" y2="158" stroke="var(--color-primary)" strokeWidth="1.5" opacity="0.5" />
-      </motion.g>
-      <motion.g animate={{ rotate: [3, -3, 3] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} style={{ transformOrigin: '188px 116px' }}>
-        <ellipse cx="188" cy="138" rx="30" ry="8" fill="var(--color-primary)" opacity="0.15" stroke="var(--color-primary)" strokeWidth="2" />
-        <path d="M160 118 Q188 112 216 118" stroke="var(--color-primary)" strokeWidth="2" fill="none" opacity="0.6" />
-        <line x1="160" y1="118" x2="160" y2="138" stroke="var(--color-primary)" strokeWidth="1.5" opacity="0.5" />
-        <line x1="216" y1="118" x2="216" y2="138" stroke="var(--color-primary)" strokeWidth="1.5" opacity="0.5" />
-      </motion.g>
-      {[[40, 50], [210, 40], [230, 180], [28, 190]].map(([cx, cy], i) => (
-        <motion.circle key={i} cx={cx} cy={cy} r="3" fill="var(--color-primary)" opacity="0.3"
-          animate={{ opacity: [0.2, 0.6, 0.2], scale: [0.8, 1.2, 0.8] }}
-          transition={{ duration: 2.5 + i * 0.4, repeat: Infinity, delay: i * 0.5 }}
-          style={{ transformOrigin: `${cx}px ${cy}px` }} />
-      ))}
-    </svg>
-  );
-}
 
 // ─── OTP Input ────────────────────────────────────────────────────────────────
 
@@ -158,7 +127,7 @@ function OTPInput({ value, onChange, disabled }) {
             onPaste={handlePaste}
             style={{
               width: 44, height: 52, textAlign: 'center', fontSize: '1.375rem',
-              fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+              fontWeight: 700, fontFamily: TYPOGRAPHY.fontFamily.mono,
               borderRadius: RADIUS.md,
               border: digit ? '2px solid var(--color-primary)' : '1.5px solid var(--color-border)',
               background: digit ? 'var(--color-primary-alpha)' : 'var(--color-surface)',
@@ -506,21 +475,16 @@ function Login() {
 
   // ── Render helpers ────────────────────────────────────────────────────────
 
-  const FEATURES = [
-    { icon: '📄', key: 'auth.feature1', fallback: 'AI-generated legal documents in minutes' },
-    { icon: '⚖️', key: 'auth.feature2', fallback: 'Court case tracking with real-time alerts' },
-    { icon: '🌐', key: 'auth.feature3', fallback: 'Available in 11 Indian languages' },
-  ];
-
   const primaryBtnSx = {
     py: 1.5, fontWeight: 700, fontSize: '1rem',
-    background: 'var(--color-primary)', borderRadius: `${RADIUS.md}px`,
-    boxShadow: SHADOWS.md,
-    '&:hover': { background: 'var(--color-primary-dark, var(--color-primary))' },
+    background: 'var(--color-primary)', borderRadius: `${RADIUS.full}px`,
+    boxShadow: theme.custom?.glowPrimary || SHADOWS.md,
+    '&:hover': { background: 'var(--color-primary-dark, var(--color-primary))', transform: 'scale(1.01)' },
+    transition: 'all 0.18s ease',
   };
 
   const outlinedBtnSx = {
-    py: 1.4, borderRadius: `${RADIUS.md}px`, fontWeight: 600,
+    py: 1.4, borderRadius: `${RADIUS.full}px`, fontWeight: 600,
     borderColor: 'var(--color-border)', color: 'var(--color-text)',
     '&:hover': { borderColor: 'var(--color-primary)', background: 'var(--color-primary-alpha)' },
   };
@@ -528,49 +492,26 @@ function Login() {
   // ── JSX ───────────────────────────────────────────────────────────────────
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'flex', background: 'var(--color-bg)', position: 'relative', overflow: 'hidden' }}>
+    <Box sx={{ minHeight: '100vh', display: 'flex', background: 'var(--color-bg)' }}>
 
-      {/* Left decorative panel — desktop only */}
-      {!isMobile && (
-        <Box sx={{
-          width: { md: '46%' }, flexShrink: 0,
-          background: 'linear-gradient(150deg, var(--color-primary) 0%, var(--color-primary-dark, #0D47A1) 100%)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          p: 6, position: 'relative', overflow: 'hidden',
-        }}>
-          <Box sx={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 60% 40%, rgba(255,255,255,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: 'easeOut' }}
-            style={{ width: '100%', maxWidth: 320, textAlign: 'center' }}>
-            <ScalesOfJusticeSVG />
-            <Typography variant="h3" sx={{ fontFamily: "'Playfair Display', serif", color: '#FFFFFF', fontWeight: 700, mt: 4, mb: 1.5, lineHeight: 1.25, textShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
-              {t('auth.tagline', 'न्याय सबके लिए')}
-            </Typography>
-            <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.78)', mb: 4, lineHeight: 1.65 }}>
-              {t('auth.tagline_sub', 'Justice for every Indian, in every language')}
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, alignItems: 'flex-start' }}>
-              {FEATURES.map((f, i) => (
-                <motion.div key={i} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 + i * 0.12, duration: 0.4 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Box sx={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
-                      {f.icon}
-                    </Box>
-                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.88)', fontWeight: 500 }}>
-                      {t(f.key, f.fallback)}
-                    </Typography>
-                  </Box>
-                </motion.div>
-              ))}
-            </Box>
-          </motion.div>
-        </Box>
-      )}
+      {/* Left visual panel — 55%, desktop only */}
+      <AuthVisualPanel step={pageMode === 'register' ? regStep : null} />
 
       {/* Right form panel */}
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: { xs: 3, sm: 5 }, position: 'relative', overflowY: 'auto' }}>
+      <Box sx={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: { xs: 3, sm: 5 },
+        position: 'relative',
+        overflowY: 'auto',
+        minHeight: '100vh',
+      }}>
 
-        {/* Language selector */}
-        <Box sx={{ position: 'absolute', top: 20, right: 20 }}>
+        {/* Language selector top-right */}
+        <Box sx={{ position: 'absolute', top: 20, right: 20, zIndex: 1 }}>
           <FormControl size="small">
             <Select value={localLang} onChange={handleLangChange} sx={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--color-border)' }, '& .MuiSelect-select': { py: 0.75, px: 1.5 } }}>
               {UI_LANGUAGES.map((l) => <MenuItem key={l.code} value={l.code}>{l.label}</MenuItem>)}
@@ -578,14 +519,14 @@ function Login() {
           </FormControl>
         </Box>
 
-        <Box sx={{ width: '100%', maxWidth: 420 }}>
+        <GlassCard sx={{ width: '100%', maxWidth: 480, p: { xs: 3, sm: 4 } }}>
 
-          {/* Logo */}
+          {/* Brand mark */}
           <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-              <Box sx={{ width: 42, height: 42, borderRadius: `${RADIUS.md}px`, background: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, boxShadow: SHADOWS.md }}>⚖️</Box>
+              <Box sx={{ width: 42, height: 42, borderRadius: `${RADIUS.md}px`, background: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, boxShadow: theme.custom?.glowPrimary || SHADOWS.md }}>⚖️</Box>
               <Box>
-                <Typography variant="h5" sx={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, color: 'var(--color-primary)', lineHeight: 1.1 }}>NyayaSetu</Typography>
+                <GradientHeading variant="h5" component="div" sx={{ lineHeight: 1.1 }}>NyayaSetu</GradientHeading>
                 <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>{t('auth.bridge_to_justice', 'Bridge to Justice')}</Typography>
               </Box>
             </Box>
@@ -647,17 +588,19 @@ function Login() {
                                 </InputAdornment>
                               ),
                             } : undefined}
-                            sx={{ mb: 2.5, '& input': identifierIsPhone ? { fontFamily: "'JetBrains Mono', monospace", letterSpacing: 2 } : {} }}
+                            sx={{ mb: 2.5, '& input': identifierIsPhone ? { fontFamily: TYPOGRAPHY.fontFamily.mono, letterSpacing: 2 } : {} }}
                           />
                         </motion.div>
 
                         <motion.div variants={fadeUp}>
-                          <Button fullWidth variant="contained" type="submit"
-                            disabled={loading || (identifierIsPhone && identifier.length !== 10) || (identifierIsEmail && !identifier.includes('@')) || (!identifier)}
-                            sx={primaryBtnSx}>
-                            {/* BYPASS: renamed from 'Send OTP' — restore when verification is live */}
-                            {loading ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : t('auth.continue', 'Continue →')}
-                          </Button>
+                          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+                            <Button fullWidth variant="contained" type="submit"
+                              disabled={loading || (identifierIsPhone && identifier.length !== 10) || (identifierIsEmail && !identifier.includes('@')) || (!identifier)}
+                              sx={primaryBtnSx}>
+                              {/* BYPASS: renamed from 'Send OTP' — restore when verification is live */}
+                              {loading ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : t('auth.continue', 'Continue →')}
+                            </Button>
+                          </motion.div>
                         </motion.div>
                       </motion.form>
 
@@ -695,10 +638,12 @@ function Login() {
                         </motion.div>
 
                         <motion.div variants={fadeUp}>
-                          <Button fullWidth variant="contained" type="submit"
-                            disabled={loading || otp.length !== 6} sx={primaryBtnSx}>
-                            {loading ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : t('auth.verify', 'Verify & Continue')}
-                          </Button>
+                          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+                            <Button fullWidth variant="contained" type="submit"
+                              disabled={loading || otp.length !== 6} sx={primaryBtnSx}>
+                              {loading ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : t('auth.verify', 'Verify & Continue')}
+                            </Button>
+                          </motion.div>
                         </motion.div>
 
                         <motion.div variants={fadeUp} style={{ textAlign: 'center', marginTop: 20 }}>
@@ -744,7 +689,7 @@ function Login() {
                                 </InputAdornment>
                               ),
                             } : undefined}
-                            sx={{ mb: 2, '& input': identifierIsPhone ? { fontFamily: "'JetBrains Mono', monospace", letterSpacing: 2 } : {} }}
+                            sx={{ mb: 2, '& input': identifierIsPhone ? { fontFamily: TYPOGRAPHY.fontFamily.mono, letterSpacing: 2 } : {} }}
                           />
                         </motion.div>
 
@@ -769,10 +714,12 @@ function Login() {
                         </motion.div>
 
                         <motion.div variants={fadeUp}>
-                          <Button fullWidth variant="contained" type="submit"
-                            disabled={loading || (!identifier) || !password} sx={primaryBtnSx}>
-                            {loading ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : t('auth.login_btn', 'Login')}
-                          </Button>
+                          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+                            <Button fullWidth variant="contained" type="submit"
+                              disabled={loading || (!identifier) || !password} sx={primaryBtnSx}>
+                              {loading ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : t('auth.login_btn', 'Login')}
+                            </Button>
+                          </motion.div>
                         </motion.div>
 
                         <motion.div variants={fadeUp}>
@@ -833,7 +780,7 @@ function Login() {
                                 </InputAdornment>
                               ),
                             }}
-                            sx={{ '& input': { fontFamily: "'JetBrains Mono', monospace", letterSpacing: 2 } }}
+                            sx={{ '& input': { fontFamily: TYPOGRAPHY.fontFamily.mono, letterSpacing: 2 } }}
                           />
 
                           <TextField fullWidth select label={t('register.state', 'State')}
@@ -930,11 +877,11 @@ function Login() {
                               return (
                                 <motion.div key={p.value} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
                                   <Box onClick={() => updateRegData('persona', p.value)} sx={{
-                                    p: 2, borderRadius: `${RADIUS.lg}px`,
-                                    border: isSelected ? '2px solid var(--color-primary)' : '1.5px solid var(--color-border)',
-                                    background: isSelected ? 'var(--color-primary-alpha)' : 'var(--color-surface)',
+                                    p: 2.5, borderRadius: `${RADIUS.lg}px`,
+                                    border: isSelected ? '3px solid var(--color-primary)' : '1.5px solid var(--color-border)',
+                                    background: isSelected ? 'var(--color-primary-alpha)' : theme.custom?.cardBg || 'var(--color-surface)',
                                     cursor: 'pointer', transition: 'all 0.2s ease',
-                                    boxShadow: isSelected ? SHADOWS.md : 'none',
+                                    boxShadow: isSelected ? (theme.custom?.glowPrimary || SHADOWS.md) : 'none',
                                   }}>
                                     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
                                       <Radio value={p.value} sx={{ mt: -0.5, color: 'var(--color-primary)' }} />
@@ -1108,7 +1055,12 @@ function Login() {
             )}
           </Typography>
 
-        </Box>
+          {/* Language quick-toggle */}
+          <Box sx={{ mt: 2.5, display: 'flex', justifyContent: 'center' }}>
+            <LanguageSelector variant="chips" size="small" />
+          </Box>
+
+        </GlassCard>
       </Box>
 
       <Snackbar
