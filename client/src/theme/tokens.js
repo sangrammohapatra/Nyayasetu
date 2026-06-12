@@ -37,9 +37,9 @@ export const SHADOWS = {
 
 export const TYPOGRAPHY = {
   fontFamily: {
-    display: "'Playfair Display', Georgia, 'Times New Roman', serif",
-    body: "'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    mono: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Courier New', monospace",
+    display: '"Playfair Display", "Tiro Devanagari Hindi", Georgia, serif',
+    body:    '"Inter", "Noto Sans Devanagari", system-ui, -apple-system, sans-serif',
+    mono:    'ui-monospace, "SF Mono", Menlo, monospace',
   },
   fontSize: {
     xs: '0.75rem',    // 12px

@@ -1,0 +1,27 @@
+/*
+ * NyayaSetu — Global font configuration
+ *
+ * Script splitting strategy:
+ *   Latin script  → Playfair Display (display) / Inter (body)
+ *   Devanagari    → Tiro Devanagari Hindi (display) / Noto Sans Devanagari (body)
+ *
+ * The Google Fonts stylesheet loaded in index.html already declares @font-face
+ * rules with the correct unicode-range for each family:
+ *   Inter              → U+0000-00FF, U+0131, U+0152-0153, ... (Latin)
+ *   Noto Sans Devanagari → U+0900-097F, U+1CD0-1CFF, ...       (Devanagari)
+ *   Playfair Display   → U+0000-00FF, ... (Latin)
+ *   Tiro Devanagari Hindi → U+0900-097F, ...                   (Devanagari)
+ *
+ * Because the font stacks in tokens.js list both Latin and Devanagari fonts,
+ * the browser automatically selects the right font per Unicode range without
+ * any additional @font-face declarations here.
+ *
+ * CSS custom properties below expose the font stacks for use outside MUI
+ * (plain CSS files, inline style strings, etc.).
+ */
+
+:root {
+  --font-display: "Playfair Display", "Tiro Devanagari Hindi", Georgia, serif;
+  --font-body:    "Inter", "Noto Sans Devanagari", system-ui, -apple-system, sans-serif;
+  --font-mono:    ui-monospace, "SF Mono", Menlo, monospace;
+}

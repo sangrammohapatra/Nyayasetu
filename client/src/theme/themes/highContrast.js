@@ -103,6 +103,18 @@ export const muiTheme = createTheme({
     HC_SHADOWS.lg, HC_SHADOWS.lg, HC_SHADOWS.lg, HC_SHADOWS.lg,
     HC_SHADOWS.lg, HC_SHADOWS.lg, HC_SHADOWS.lg,
   ],
+  custom: {
+    gradientText:  '#0000CC',
+    gradientBrand: 'linear-gradient(135deg, #0000CC 0%, #660000 60%, #00008B 100%)',
+    glowPrimary:   '0 0 0 2px #0000CC',
+    glowAccent:    '0 0 0 2px #00008B',
+    cardBg:        '#FFFFFF',
+    cardBorder:    '1px solid #000000',
+    cardBlur:      'none',
+    cardShadow:    '0 6px 28px rgba(18,23,43,0.07)',
+    darkStrip:     '#000000',
+    focusRing:     '0 0 0 3px #000000',
+  },
   components: {
     MuiButton: {
       styleOverrides: {

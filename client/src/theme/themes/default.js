@@ -109,6 +109,18 @@ export const muiTheme = createTheme({
     SHADOWS.xl,
     SHADOWS.xl,
   ],
+  custom: {
+    gradientText:  'linear-gradient(130deg, #1565C0 0%, #0277BD 100%)',
+    gradientBrand: 'linear-gradient(135deg, #1565C0 0%, #E65100 60%, #0277BD 100%)',
+    glowPrimary:   '0 0 28px rgba(21, 101, 192, 0.50)',
+    glowAccent:    '0 0 28px rgba(2, 119, 189, 0.45)',
+    cardBg:        '#FFFFFF',
+    cardBorder:    '1px solid #E8EAF6',
+    cardBlur:      'blur(12px)',
+    cardShadow:    '0 6px 28px rgba(18,23,43,0.07)',
+    darkStrip:     '#0F1623',
+    focusRing:     '0 0 0 3px rgba(21, 101, 192, 0.35)',
+  },
   components: {
     MuiButton: {
       styleOverrides: {

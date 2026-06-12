@@ -79,6 +79,18 @@ export const muiTheme = createTheme({
   },
   shape: { borderRadius: RADIUS.md },
   spacing: SPACING.sm,
+  custom: {
+    gradientText:  'linear-gradient(130deg, #FF6F00 0%, #01579B 100%)',
+    gradientBrand: 'linear-gradient(135deg, #FF6F00 0%, #1B5E20 60%, #01579B 100%)',
+    glowPrimary:   '0 0 28px rgba(255, 111, 0, 0.50)',
+    glowAccent:    '0 0 28px rgba(1, 87, 155, 0.45)',
+    cardBg:        '#FFFFFF',
+    cardBorder:    '1px solid #FFE0B2',
+    cardBlur:      'blur(12px)',
+    cardShadow:    '0 6px 28px rgba(18,23,43,0.07)',
+    darkStrip:     '#0F1623',
+    focusRing:     '0 0 0 3px rgba(255, 111, 0, 0.35)',
+  },
   components: {
     MuiButton: {
       styleOverrides: {

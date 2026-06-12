@@ -8,7 +8,12 @@
  * Inheritance model:
  *   - Each higher plan implicitly includes all lower-plan features.
  *   - The PLAN_HIERARCHY arrays express this ordering.
+ *
+ * UI / visual feature flags live at the bottom of this file.
+ * Use useFeatureFlag('flagName') in components; use isEnabled('flagName') outside React.
  */
+
+import { useState } from 'react';
 
 // ─── Plan hierarchies ────────────────────────────────────────────────────────
 
@@ -164,4 +169,34 @@ export function minimumPlanFor(persona, featureName) {
     if (tierFeatures.includes(featureName)) return plan;
   }
   return null;
+}
+
+// ─── UI / Visual feature flags ───────────────────────────────────────────────
+// Heavy effects are OFF by default — low-end Android + 4G users must never pay
+// the cost of blur, particles, or conic gradients unless the flag is toggled on.
+
+export const featureFlags = {
+  enableBlur:            false, // backdrop-filter blur on cards/navbar
+  enableParticles:       false, // tsparticles backgrounds (auth pages only)
+  enableMagneticCursor:  false, // magnetic CTA buttons
+  enableScrollProgress:  false, // top scroll progress bar
+  enableConicGradient:   false, // animated conic-gradient hero
+  enablePageTransitions: true,  // Framer Motion page transitions (safe)
+  enableHoverLift:       true,  // card hover lift (cheap, safe)
+  enableScrollReveal:    true,  // scroll-reveal entrance animations (safe)
+};
+
+/** Imperative check — safe to call outside React (e.g. in sx callbacks, utils). */
+export const isEnabled = (flag) => Boolean(featureFlags[flag]);
+
+/**
+ * React hook — returns the flag value.
+ * Wrap in useState so call-sites need no refactor if flags become reactive later.
+ *
+ * @param {string} flag  Key from featureFlags
+ * @returns {boolean}
+ */
+export function useFeatureFlag(flag) {
+  const [value] = useState(() => Boolean(featureFlags[flag]));
+  return value;
 }
