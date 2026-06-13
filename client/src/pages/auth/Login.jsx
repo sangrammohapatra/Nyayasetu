@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
@@ -95,6 +95,7 @@ const looksLikePhone = (val) => typeof val === 'string' && /^\d{0,10}$/.test(val
 function OTPInput({ value, onChange, disabled }) {
   const digits = Array.from({ length: 6 }, (_, i) => value[i] || '');
   const inputRefs = useRef([]);
+  const prefersReducedMotion = useReducedMotion();
 
   const handleChange = (index, e) => {
     const val = e.target.value.replace(/\D/g, '').slice(-1);
@@ -118,7 +119,7 @@ function OTPInput({ value, onChange, disabled }) {
   return (
     <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
       {digits.map((digit, i) => (
-        <motion.div key={i} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: i * 0.05 }}>
+        <motion.div key={i} initial={prefersReducedMotion ? false : { scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: i * 0.05 }}>
           <input
             ref={(el) => (inputRefs.current[i] = el)}
             type="text" inputMode="numeric" maxLength={1} value={digit} disabled={disabled}
@@ -191,6 +192,7 @@ function Login() {
   const { t, i18n } = useTranslation();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const prefersReducedMotion = useReducedMotion();
   const [searchParams] = useSearchParams();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -522,7 +524,7 @@ function Login() {
         <GlassCard sx={{ width: '100%', maxWidth: 480, p: { xs: 3, sm: 4 } }}>
 
           {/* Brand mark */}
-          <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
+          <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
               <Box sx={{ width: 42, height: 42, borderRadius: `${RADIUS.md}px`, background: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, boxShadow: theme.custom?.glowPrimary || SHADOWS.md }}>⚖️</Box>
               <Box>
@@ -536,7 +538,7 @@ function Login() {
           {/* ═══════════════════════ LOGIN MODE ═══════════════════════ */}
           {pageMode === 'login' && (
             <AnimatePresence mode="wait">
-              <motion.div key="login-panel" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div key="login-panel" initial={prefersReducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={prefersReducedMotion ? undefined : { opacity: 0 }}>
 
                 {/* Login method tabs */}
                 <Box sx={{ display: 'flex', mb: 3, background: 'var(--color-surface)', borderRadius: `${RADIUS.md}px`, border: '1.5px solid var(--color-border)', overflow: 'hidden' }}>
@@ -562,7 +564,7 @@ function Login() {
 
                   {/* OTP — enter identifier */}
                   {loginMode === 'otp' && !otpSent && (
-                    <motion.div key="login-phone" variants={stagger} initial="hidden" animate="show" exit={{ opacity: 0, x: -30, transition: { duration: 0.22 } }}>
+                    <motion.div key="login-phone" variants={stagger} initial={prefersReducedMotion ? false : "hidden"} animate="show" exit={prefersReducedMotion ? undefined : { opacity: 0, x: -30, transition: { duration: 0.22 } }}>
                       <motion.div variants={fadeUp}>
                         <Typography variant="h4" sx={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.75, lineHeight: 1.25 }}>
                           {t('auth.login_title', 'Welcome back')}
@@ -593,7 +595,7 @@ function Login() {
                         </motion.div>
 
                         <motion.div variants={fadeUp}>
-                          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+                          <motion.div whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }} whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}>
                             <Button fullWidth variant="contained" type="submit"
                               disabled={loading || (identifierIsPhone && identifier.length !== 10) || (identifierIsEmail && !identifier.includes('@')) || (!identifier)}
                               sx={primaryBtnSx}>
@@ -614,7 +616,7 @@ function Login() {
 
                   {/* OTP — verify */}
                   {loginMode === 'otp' && otpSent && (
-                    <motion.div key="login-otp" variants={stagger} initial="hidden" animate="show" exit={{ opacity: 0, x: 30, transition: { duration: 0.22 } }}>
+                    <motion.div key="login-otp" variants={stagger} initial={prefersReducedMotion ? false : "hidden"} animate="show" exit={prefersReducedMotion ? undefined : { opacity: 0, x: 30, transition: { duration: 0.22 } }}>
                       <motion.div variants={fadeUp}>
                         <Typography variant="h4" sx={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.75 }}>
                           {t('auth.otp_title', 'Enter OTP')}
@@ -638,7 +640,7 @@ function Login() {
                         </motion.div>
 
                         <motion.div variants={fadeUp}>
-                          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+                          <motion.div whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }} whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}>
                             <Button fullWidth variant="contained" type="submit"
                               disabled={loading || otp.length !== 6} sx={primaryBtnSx}>
                               {loading ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : t('auth.verify', 'Verify & Continue')}
@@ -663,7 +665,7 @@ function Login() {
 
                   {/* Password login */}
                   {loginMode === 'password' && (
-                    <motion.div key="login-password" variants={stagger} initial="hidden" animate="show" exit={{ opacity: 0, x: 30, transition: { duration: 0.22 } }}>
+                    <motion.div key="login-password" variants={stagger} initial={prefersReducedMotion ? false : "hidden"} animate="show" exit={prefersReducedMotion ? undefined : { opacity: 0, x: 30, transition: { duration: 0.22 } }}>
                       <motion.div variants={fadeUp}>
                         <Typography variant="h4" sx={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.75, lineHeight: 1.25 }}>
                           {t('auth.login_title', 'Welcome back')}
@@ -714,7 +716,7 @@ function Login() {
                         </motion.div>
 
                         <motion.div variants={fadeUp}>
-                          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+                          <motion.div whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }} whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}>
                             <Button fullWidth variant="contained" type="submit"
                               disabled={loading || (!identifier) || !password} sx={primaryBtnSx}>
                               {loading ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : t('auth.login_btn', 'Login')}
@@ -739,7 +741,7 @@ function Login() {
           {/* ═══════════════════════ REGISTER MODE ══════════════════════ */}
           {pageMode === 'register' && (
             <AnimatePresence mode="wait">
-              <motion.div key="register-panel" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div key="register-panel" initial={prefersReducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={prefersReducedMotion ? undefined : { opacity: 0 }}>
 
                 <RegStepIndicator step={regStep} />
 
@@ -748,7 +750,7 @@ function Login() {
 
                     {/* Step 0 — Personal Information */}
                     {regStep === 0 && (
-                      <motion.div key="reg-0" custom={regDirection} variants={slideVariants} initial="enter" animate="center" exit="exit">
+                      <motion.div key="reg-0" custom={prefersReducedMotion ? 0 : regDirection} variants={slideVariants} initial={prefersReducedMotion ? false : "enter"} animate="center" exit={prefersReducedMotion ? undefined : "exit"}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <Box>
                             <Typography variant="h5" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.5 }}>
@@ -842,7 +844,7 @@ function Login() {
 
                     {/* BYPASS: Step 1 (Verify Phone) hidden while OTP is disabled — restore when live */}
                     {/* {regStep === 1 && (
-                      <motion.div key="reg-1" custom={regDirection} variants={slideVariants} initial="enter" animate="center" exit="exit">
+                      <motion.div key="reg-1" custom={prefersReducedMotion ? 0 : regDirection} variants={slideVariants} initial={prefersReducedMotion ? false : "enter"} animate="center" exit={prefersReducedMotion ? undefined : "exit"}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
                           <Box>
                             <Typography variant="h5">Verify Your Phone</Typography>
@@ -859,7 +861,7 @@ function Login() {
 
                     {/* Step 2 — Choose Role */}
                     {regStep === 2 && (
-                      <motion.div key="reg-2" custom={regDirection} variants={slideVariants} initial="enter" animate="center" exit="exit">
+                      <motion.div key="reg-2" custom={prefersReducedMotion ? 0 : regDirection} variants={slideVariants} initial={prefersReducedMotion ? false : "enter"} animate="center" exit={prefersReducedMotion ? undefined : "exit"}>
                         <Box>
                           <Typography variant="h5" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.5 }}>
                             {t('register.step2_title', 'Choose Your Role')}
@@ -875,7 +877,7 @@ function Login() {
                             ].map((p) => {
                               const isSelected = regData.persona === p.value;
                               return (
-                                <motion.div key={p.value} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                                <motion.div key={p.value} whileHover={prefersReducedMotion ? undefined : { scale: 1.01 }} whileTap={prefersReducedMotion ? undefined : { scale: 0.99 }}>
                                   <Box onClick={() => updateRegData('persona', p.value)} sx={{
                                     p: 2.5, borderRadius: `${RADIUS.lg}px`,
                                     border: isSelected ? '3px solid var(--color-primary)' : '1.5px solid var(--color-border)',
@@ -914,7 +916,7 @@ function Login() {
 
                     {/* Step 3 — Preferences */}
                     {regStep === 3 && (
-                      <motion.div key="reg-3" custom={regDirection} variants={slideVariants} initial="enter" animate="center" exit="exit">
+                      <motion.div key="reg-3" custom={prefersReducedMotion ? 0 : regDirection} variants={slideVariants} initial={prefersReducedMotion ? false : "enter"} animate="center" exit={prefersReducedMotion ? undefined : "exit"}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
                           <Box>
                             <Typography variant="h5" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.5 }}>
@@ -950,7 +952,7 @@ function Login() {
                             <Box sx={{ display: 'flex', gap: 1.5 }}>
                               {THEMES.map((th) => (
                                 <Box key={th.id} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-                                  <motion.button whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.95 }}
+                                  <motion.button whileHover={prefersReducedMotion ? undefined : { scale: 1.12 }} whileTap={prefersReducedMotion ? undefined : { scale: 0.95 }}
                                     onClick={() => dispatch(setTheme(th.id))} title={th.label}
                                     style={{ width: 32, height: 32, borderRadius: '50%', background: th.color, border: '2.5px solid var(--color-border)', cursor: 'pointer', outline: 'none' }} />
                                   <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', fontSize: '0.62rem' }}>{th.label}</Typography>

@@ -6,7 +6,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -26,6 +26,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import Skeleton from '@mui/material/Skeleton';
 
 import {
   createSession, sendMessage, loadSession, abandonSession,
@@ -52,11 +53,12 @@ const LANGUAGES = [
  * ------------------------------------------------------------------------ */
 function GeneratingOverlay() {
   const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={prefersReducedMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={prefersReducedMotion ? undefined : { opacity: 0 }}
       style={{
         position: 'fixed', inset: 0, zIndex: 1400,
         background: 'rgba(var(--color-bg-rgb, 248,250,255), 0.92)',
@@ -66,14 +68,14 @@ function GeneratingOverlay() {
       }}
     >
       <motion.div
-        animate={{ rotate: 360 }}
+        animate={prefersReducedMotion ? undefined : { rotate: 360 }}
         transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
         style={{ fontSize: 64 }}
       >
         ⚖️
       </motion.div>
       <Typography variant="h5" sx={{
-        fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-primary)',
+        fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, color: 'var(--color-primary)',
       }}>
         {t('myDocs.generating', 'Generating your document…')}
       </Typography>
@@ -231,6 +233,7 @@ function ChatFlow() {
   const { t } = useTranslation();
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
+  const prefersReducedMotion = useReducedMotion();
 
   const reduxLang = useSelector(selectLanguage);
   const session = useSelector(selectCurrentSession);
@@ -416,15 +419,21 @@ function ChatFlow() {
     displayMessages.push({ role: 'assistant', typing: true, content: '' });
   }
 
-  // Show a spinner while checking for resumable sessions
+  // Show skeleton while checking for resumable sessions
   if (initPhase === 'checking') {
     return (
       <Box sx={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        display: 'flex', flexDirection: 'column',
         height: { xs: 'calc(100vh - 56px)', md: 'calc(100vh - 64px)' },
-        background: 'var(--color-bg)',
+        background: 'var(--color-bg)', p: 2, gap: 1.5,
       }}>
-        <CircularProgress size={36} sx={{ color: 'var(--color-primary)' }} />
+        {[80, 120, 60, 100].map((h, i) => (
+          <Skeleton key={i} variant="rounded" height={h} animation="wave"
+            sx={{ borderRadius: 2, bgcolor: 'var(--color-surface)', alignSelf: i % 2 === 0 ? 'flex-start' : 'flex-end', width: '65%' }} />
+        ))}
+        <Box sx={{ flex: 1 }} />
+        <Skeleton variant="rounded" height={52} animation="wave"
+          sx={{ borderRadius: 3, bgcolor: 'var(--color-surface)' }} />
       </Box>
     );
   }
@@ -497,7 +506,7 @@ function ChatFlow() {
         <AnimatePresence>
           {isStreaming && (
             <motion.div
-              initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={prefersReducedMotion ? undefined : { opacity: 0, y: -8 }}
               style={{ position: 'absolute', top: 80, left: 0, right: 0, zIndex: 9 }}
             >
               <Box sx={{
@@ -509,7 +518,7 @@ function ChatFlow() {
                 display: 'flex', alignItems: 'center', gap: 1,
               }}>
                 <motion.div
-                  animate={{ opacity: [1, 0.3, 1] }}
+                  animate={prefersReducedMotion ? { opacity: 1 } : { opacity: [1, 0.3, 1] }}
                   transition={{ duration: 1.2, repeat: Infinity }}
                   style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-primary)' }}
                 />
@@ -575,9 +584,9 @@ function ChatFlow() {
               <AnimatePresence>
                 {langOpen && (
                   <motion.div
-                    initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                    initial={prefersReducedMotion ? false : { opacity: 0, y: 8, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                    exit={prefersReducedMotion ? undefined : { opacity: 0, y: 8, scale: 0.95 }}
                     transition={{ duration: 0.18 }}
                     style={{
                       position: 'absolute', bottom: 36, left: 0, zIndex: 100,
@@ -632,7 +641,7 @@ function ChatFlow() {
             <VoiceInput onTranscript={handleVoiceTranscript} disabled={isStreaming || dataComplete} />
 
             {/* Send button */}
-            <motion.div whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}>
+            <motion.div whileHover={prefersReducedMotion ? undefined : { scale: 1.06 }} whileTap={prefersReducedMotion ? undefined : { scale: 0.94 }}>
               <IconButton
                 onClick={handleSend}
                 disabled={!inputValue.trim() || isStreaming || dataComplete}

@@ -89,12 +89,13 @@ function parseLine(text) {
  * TypingIndicator — three dots, staggered bounce
  * ------------------------------------------------------------------------ */
 export function TypingIndicator() {
+  const prefersReducedMotion = useReducedMotion();
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1.5, py: 1 }}>
       {[0, 1, 2].map((i) => (
         <motion.div
           key={i}
-          animate={{ y: [0, -5, 0] }}
+          animate={prefersReducedMotion ? { opacity: [0.5, 1, 0.5] } : { y: [0, -5, 0] }}
           transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15, ease: 'easeInOut' }}
           style={{
             width: 7, height: 7, borderRadius: '50%',
@@ -208,7 +209,7 @@ function MessageBubble({ message, isStreaming = false, onRegenerate, onExplain }
                   {renderMarkdown(message.content)}
                   {isStreaming && (
                     <motion.span
-                      animate={{ opacity: [1, 0, 1] }}
+                      animate={prefersReducedMotion ? { opacity: 1 } : { opacity: [1, 0, 1] }}
                       transition={{ duration: 0.8, repeat: Infinity }}
                       style={{
                         display: 'inline-block',

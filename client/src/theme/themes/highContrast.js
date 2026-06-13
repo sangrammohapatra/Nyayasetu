@@ -182,7 +182,7 @@ export const muiTheme = createTheme({
       },
     },
     MuiCssBaseline: {
-      styleOverrides: `
+      styleOverrides: (themeParam) => `
         body {
           background-color: var(--color-bg);
           color: var(--color-text);
@@ -196,6 +196,10 @@ export const muiTheme = createTheme({
         ::selection { background-color: #0000CC; color: #FFFFFF; }
         a { color: var(--color-primary); text-decoration: underline; text-underline-offset: 3px; }
         a:visited { color: var(--color-secondary); }
+        ::-webkit-scrollbar { width: 7px; height: 7px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: ${themeParam.custom?.gradientBrand || themeParam.palette.primary.main}; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { filter: brightness(1.15); }
       `,
     },
   },

@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -74,6 +74,7 @@ function ConsultationRowSkeleton() {
 function ConsultationRow({ consultation, delay, onAccept, onReject, actionLoading }) {
   const { t } = useTranslation();
   const muiTheme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
   const citizen = consultation.citizen || {};
   const initials = citizen.name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || '?';
   const modeMeta = MODE_META[consultation.mode] || { icon: '📋', label: consultation.mode };
@@ -93,9 +94,9 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, actionLoadin
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
+      exit={prefersReducedMotion ? undefined : { opacity: 0, y: -8 }}
       transition={{ delay, duration: 0.3 }}
     >
       <Box sx={{
@@ -203,6 +204,7 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, actionLoadin
 function ConsultationsPage() {
   const { t } = useTranslation();
   const dispatch = useDispatch();
+  const prefersReducedMotion = useReducedMotion();
   const consultations = useSelector(selectConsultations);
   const loading = useSelector(selectLawyerLoading);
 
@@ -245,7 +247,7 @@ function ConsultationsPage() {
       <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 1000, mx: 'auto', pb: { xs: 10, md: 4 } }}>
 
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
             <Box>
               <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
@@ -264,7 +266,7 @@ function ConsultationsPage() {
         </motion.div>
 
         {/* Status tabs */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }}>
           <Tabs
             value={activeTab}
             onChange={(_, v) => setActiveTab(v)}

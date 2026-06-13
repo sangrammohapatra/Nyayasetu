@@ -13,7 +13,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@mui/material/styles';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 import Drawer from '@mui/material/Drawer';
 import Box from '@mui/material/Box';
@@ -95,9 +95,10 @@ function useNavItems(persona, t) {
 function NavItem({ icon, label, path, collapsed, isActive }) {
   const navigate = useNavigate();
   const theme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
 
   const item = (
-    <motion.div whileHover={{ x: collapsed ? 0 : 3 }} transition={{ duration: 0.15 }}>
+    <motion.div whileHover={prefersReducedMotion ? undefined : { x: collapsed ? 0 : 3 }} transition={{ duration: 0.15 }}>
       <Box
         className="ns-nav-item"
         onClick={() => navigate(path)}
@@ -168,6 +169,7 @@ function NavItem({ icon, label, path, collapsed, isActive }) {
 function SubscriptionCard({ collapsed, plan, freeUsage }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const prefersReducedMotion = useReducedMotion();
 
   if (collapsed || plan !== 'free') return null;
 
@@ -176,7 +178,7 @@ function SubscriptionCard({ collapsed, plan, freeUsage }) {
   const pct = Math.min(100, (docsUsed / docsLimit) * 100);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+    <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
       <Box sx={{
         mx: 1.5, mb: 2, p: 1.75,
         borderRadius: `${RADIUS.lg}px`,

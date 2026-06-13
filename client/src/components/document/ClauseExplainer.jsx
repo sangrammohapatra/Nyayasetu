@@ -8,7 +8,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import Popover from '@mui/material/Popover';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -38,6 +38,7 @@ function ClauseExplainer({ anchorEl, onClose, documentId, clauseIndex, clauseTex
   const dispatch = useDispatch();
   const { t } = useTranslation();
   const muiTheme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
 
   const explanations = useSelector(selectClauseExplanations);
@@ -85,9 +86,9 @@ function ClauseExplainer({ anchorEl, onClose, documentId, clauseIndex, clauseTex
       slotProps={{ backdrop: { sx: { background: 'transparent' } } }}
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.94, y: -8 }}
+        initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.94, y: -8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.94, y: -8 }}
+        exit={prefersReducedMotion ? undefined : { opacity: 0, scale: 0.94, y: -8 }}
         transition={{ duration: 0.22, ease: 'easeOut' }}
       >
         {/* Header */}
@@ -137,7 +138,7 @@ function ClauseExplainer({ anchorEl, onClose, documentId, clauseIndex, clauseTex
             {loading && !displayText ? (
               <motion.div
                 key="loading"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                initial={prefersReducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={prefersReducedMotion ? undefined : { opacity: 0 }}
                 style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 8 }}
               >
                 <CircularProgress size={16} sx={{ color: 'var(--color-primary)' }} />
@@ -148,14 +149,14 @@ function ClauseExplainer({ anchorEl, onClose, documentId, clauseIndex, clauseTex
             ) : (
               <motion.div
                 key={`${clauseIndex}-${lang}`}
-                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25 }}
               >
                 <Typography variant="body2" sx={{ color: 'var(--color-text)', lineHeight: 1.7, fontFamily: TYPOGRAPHY.fontFamily.body }}>
                   {displayText}
                   {loading && (
                     <motion.span
-                      animate={{ opacity: [1, 0, 1] }}
+                      animate={prefersReducedMotion ? { opacity: 1 } : { opacity: [1, 0, 1] }}
                       transition={{ duration: 0.8, repeat: Infinity }}
                       style={{
                         display: 'inline-block', width: 2, height: 12,

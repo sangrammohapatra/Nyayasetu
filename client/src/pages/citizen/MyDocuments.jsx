@@ -6,7 +6,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -60,8 +60,9 @@ const PAGE_SIZE = 10;
  * ------------------------------------------------------------------------ */
 function EmptyState({ onCreateNew }) {
   const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+    <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
       <Box sx={{ textAlign: 'center', py: 8, px: 3 }}>
         <svg viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg"
           style={{ width: 180, maxWidth: '60vw', marginBottom: 24 }}>
@@ -103,15 +104,16 @@ function EmptyState({ onCreateNew }) {
  * ------------------------------------------------------------------------ */
 function DocumentCard({ doc, plan, onView, onDownload, onShare, onDelete, delay = 0 }) {
   const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
   const status = STATUS_CONFIG[doc.status] || STATUS_CONFIG.completed;
   const catIcon = CATEGORY_ICONS[doc.template?.category || doc.category] || '📄';
   const isPaid = doc.isPaid || plan === 'basic' || plan === 'pro';
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+      exit={prefersReducedMotion ? undefined : { opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
       transition={{ delay, duration: 0.35 }}
       layout
     >
@@ -218,6 +220,7 @@ function MyDocuments() {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const prefersReducedMotion = useReducedMotion();
   const plan = useSelector(selectUserPlan);
   const allDocuments = useSelector(selectDocuments);
 
@@ -308,7 +311,7 @@ function MyDocuments() {
     <AnimatedPage>
       <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 900, mx: 'auto', pb: { xs: 10, md: 4 } }}>
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
             <Box>
               <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
@@ -330,7 +333,7 @@ function MyDocuments() {
         </motion.div>
 
         {/* Filters */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
           <Box sx={{ display: 'flex', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
             <TextField
               placeholder={t('myDocs.search_placeholder', 'Search documents…')}

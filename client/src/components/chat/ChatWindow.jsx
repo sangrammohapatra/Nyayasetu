@@ -320,9 +320,9 @@ const ChatWindow = ({ sessionId, initialMessages = [] }) => {
           {messages.map((msg, idx) => (
             <motion.div
               key={idx}
-              initial={{ opacity: 0, y: 10 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
+              exit={prefersReducedMotion ? undefined : { opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
               <MessageBubble
@@ -339,7 +339,7 @@ const ChatWindow = ({ sessionId, initialMessages = [] }) => {
         {/* STREAMING INDICATOR */}
         {streaming && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
+            initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
           >
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -367,7 +367,7 @@ const ChatWindow = ({ sessionId, initialMessages = [] }) => {
         {/* RECORDING INDICATOR */}
         {isRecording && (
           <motion.div
-            initial={{ scale: 0.8 }}
+            initial={prefersReducedMotion ? false : { scale: 0.8 }}
             animate={{ scale: 1 }}
             style={{
               display: 'flex',
@@ -380,7 +380,7 @@ const ChatWindow = ({ sessionId, initialMessages = [] }) => {
             }}
           >
             <motion.div
-              animate={{ opacity: [1, 0.5, 1] }}
+              animate={prefersReducedMotion ? { opacity: 1 } : { opacity: [1, 0.5, 1] }}
               transition={{ duration: 1, repeat: Infinity }}
             >
               <MicIcon sx={{ color: 'error.main' }} />

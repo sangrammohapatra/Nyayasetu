@@ -126,14 +126,14 @@ export const muiTheme = createTheme({
       },
     },
     MuiCssBaseline: {
-      styleOverrides: `
+      styleOverrides: (themeParam) => `
         body { background-color: var(--color-bg); color: var(--color-text); }
         ::selection { background-color: var(--color-primary-alpha); color: var(--color-primary-light); }
         a { color: var(--color-primary); }
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: var(--color-bg); }
-        ::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--color-text-secondary); }
+        ::-webkit-scrollbar { width: 7px; height: 7px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: ${themeParam.custom?.gradientBrand || themeParam.palette.primary.main}; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { filter: brightness(1.15); }
       `,
     },
   },

@@ -18,7 +18,7 @@ import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
 import CheckIcon from '@mui/icons-material/Check';
 import PaletteOutlinedIcon from '@mui/icons-material/PaletteOutlined';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { selectTheme, setTheme } from '../../store/slices/uiSlice';
 import { RADIUS, SHADOWS } from '../../theme/tokens';
 
@@ -37,6 +37,7 @@ const THEMES = [
 function ThemeSwitcher() {
   const dispatch = useDispatch();
   const muiTheme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
   const currentTheme = useSelector(selectTheme);
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
@@ -102,7 +103,7 @@ function ThemeSwitcher() {
         slotProps={{ backdrop: { invisible: true } }}
       >
         <motion.div
-          initial={{ opacity: 0, y: -8, scale: 0.97 }}
+          initial={prefersReducedMotion ? false : { opacity: 0, y: -8, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
         >

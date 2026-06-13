@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -287,6 +287,7 @@ function Step1({ control, errors, existingPhone }) {
 function Step2({ control, errors, watch }) {
   const { t } = useTranslation();
   const muiTheme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
   const selected = watch("persona");
 
   const PERSONAS = [
@@ -344,8 +345,8 @@ function Step2({ control, errors, watch }) {
               return (
                 <motion.div
                   key={p.value}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
+                  whileHover={prefersReducedMotion ? undefined : { scale: 1.01 }}
+                  whileTap={prefersReducedMotion ? undefined : { scale: 0.99 }}
                 >
                   <Box
                     onClick={() => field.onChange(p.value)}
@@ -449,6 +450,7 @@ function Step2({ control, errors, watch }) {
 function Step3({ control, watch }) {
   const { t } = useTranslation();
   const dispatch = useDispatch();
+  const prefersReducedMotion = useReducedMotion();
   const whatsappOptIn = watch("whatsappOptIn");
 
   return (
@@ -534,8 +536,8 @@ function Step3({ control, watch }) {
               }}
             >
               <motion.button
-                whileHover={{ scale: 1.12 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={prefersReducedMotion ? undefined : { scale: 1.12 }}
+                whileTap={prefersReducedMotion ? undefined : { scale: 0.95 }}
                 onClick={() => dispatch(setTheme(th.id))}
                 title={th.label}
                 style={{
@@ -608,7 +610,7 @@ function Step3({ control, watch }) {
         </Box>
         {whatsappOptIn && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
+            initial={prefersReducedMotion ? false : { opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             transition={{ duration: 0.25 }}
           >
@@ -641,6 +643,7 @@ function Step3({ control, watch }) {
 function StepIndicator({ step, total }) {
   const { t } = useTranslation();
   const muiTheme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
   const labels = [
     t("register.step_label_0", "Personal Info"),
     t("register.step_label_1", "Your Role"),
@@ -653,7 +656,7 @@ function StepIndicator({ step, total }) {
         {Array.from({ length: total }).map((_, i) => (
           <React.Fragment key={i}>
             <motion.div
-              animate={{ scale: i === step ? 1.2 : 1 }}
+              animate={prefersReducedMotion ? undefined : { scale: i === step ? 1.2 : 1 }}
               transition={{ type: "spring", stiffness: 400, damping: 20 }}
             >
               <Box sx={{
@@ -705,6 +708,7 @@ function Register() {
   const loading = useSelector(selectAuthLoading);
   const error = useSelector(selectAuthError);
   const muiTheme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
 
   const phone = location.state?.phone || "";
   const email = location.state?.email || "";
@@ -812,7 +816,7 @@ function Register() {
 
           {/* Brand mark */}
           <motion.div
-            initial={{ opacity: 0, y: -16 }}
+            initial={prefersReducedMotion ? false : { opacity: 0, y: -16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >
@@ -840,10 +844,10 @@ function Register() {
                 <motion.div
                   key={step}
                   custom={direction}
-                  variants={slideVariants(direction)}
-                  initial="enter"
+                  variants={prefersReducedMotion ? undefined : slideVariants(direction)}
+                  initial={prefersReducedMotion ? false : "enter"}
                   animate="center"
-                  exit="exit"
+                  exit={prefersReducedMotion ? undefined : "exit"}
                   style={{ width: "100%" }}
                 >
                   {stepComponents[step]}
@@ -869,13 +873,13 @@ function Register() {
                 </Button>
               )}
               {step < TOTAL_STEPS - 1 ? (
-                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} style={{ flex: 2 }}>
+                <motion.div whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }} whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }} style={{ flex: 2 }}>
                   <Button variant="contained" onClick={goNext} fullWidth sx={primaryBtnSx}>
                     {t("register.continue", "Continue")} →
                   </Button>
                 </motion.div>
               ) : (
-                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} style={{ flex: 2 }}>
+                <motion.div whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }} whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }} style={{ flex: 2 }}>
                   <Button variant="contained" onClick={handleSubmit(onSubmit)} disabled={loading} fullWidth sx={primaryBtnSx}>
                     {loading ? <CircularProgress size={22} sx={{ color: "#fff" }} /> : t("register.complete", "Complete Registration")}
                   </Button>

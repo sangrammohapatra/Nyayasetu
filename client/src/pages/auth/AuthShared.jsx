@@ -12,12 +12,14 @@ import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
+import { TYPOGRAPHY } from '../../theme/tokens';
 import { selectTheme } from '../../store/slices/uiSlice';
 
 // ─── Illustration ─────────────────────────────────────────────────────────────
 
 export function ScalesOfJusticeSVG() {
+  const prefersReducedMotion = useReducedMotion();
   return (
     <svg viewBox="0 0 260 280" fill="none" xmlns="http://www.w3.org/2000/svg"
       style={{ width: '100%', maxWidth: 240, filter: 'drop-shadow(0 8px 24px rgba(255,255,255,0.15))' }}>
@@ -29,13 +31,13 @@ export function ScalesOfJusticeSVG() {
       <circle cx="130" cy="64" r="5" fill="rgba(255,255,255,0.35)" />
       <line x1="72" y1="86" x2="72" y2="136" stroke="rgba(255,255,255,0.7)" strokeWidth="2.5" strokeDasharray="4 3" />
       <line x1="188" y1="86" x2="188" y2="116" stroke="rgba(255,255,255,0.7)" strokeWidth="2.5" strokeDasharray="4 3" />
-      <motion.g animate={{ rotate: [-3, 3, -3] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} style={{ transformOrigin: '72px 136px' }}>
+      <motion.g animate={prefersReducedMotion ? undefined : { rotate: [-3, 3, -3] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} style={{ transformOrigin: '72px 136px' }}>
         <ellipse cx="72" cy="158" rx="30" ry="8" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
         <path d="M44 138 Q72 132 100 138" stroke="rgba(255,255,255,0.6)" strokeWidth="2" fill="none" />
         <line x1="44" y1="138" x2="44" y2="158" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
         <line x1="100" y1="138" x2="100" y2="158" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
       </motion.g>
-      <motion.g animate={{ rotate: [3, -3, 3] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} style={{ transformOrigin: '188px 116px' }}>
+      <motion.g animate={prefersReducedMotion ? undefined : { rotate: [3, -3, 3] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} style={{ transformOrigin: '188px 116px' }}>
         <ellipse cx="188" cy="138" rx="30" ry="8" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
         <path d="M160 118 Q188 112 216 118" stroke="rgba(255,255,255,0.6)" strokeWidth="2" fill="none" />
         <line x1="160" y1="118" x2="160" y2="138" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
@@ -43,7 +45,7 @@ export function ScalesOfJusticeSVG() {
       </motion.g>
       {[[40, 50], [210, 40], [230, 180], [28, 190]].map(([cx, cy], i) => (
         <motion.circle key={i} cx={cx} cy={cy} r="3" fill="rgba(255,255,255,0.4)"
-          animate={{ opacity: [0.2, 0.7, 0.2], scale: [0.8, 1.3, 0.8] }}
+          animate={prefersReducedMotion ? undefined : { opacity: [0.2, 0.7, 0.2], scale: [0.8, 1.3, 0.8] }}
           transition={{ duration: 2.5 + i * 0.4, repeat: Infinity, delay: i * 0.5 }}
           style={{ transformOrigin: `${cx}px ${cy}px` }} />
       ))}
@@ -56,6 +58,7 @@ export function ScalesOfJusticeSVG() {
 export function AuthVisualPanel({ step = null }) {
   const { t } = useTranslation();
   const muiTheme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
   const themeId = useSelector(selectTheme);
   const isHighContrast = themeId === 'highContrast';
 
@@ -114,7 +117,7 @@ export function AuthVisualPanel({ step = null }) {
 
       {/* Illustration + text */}
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, ease: 'easeOut' }}
         style={{ width: '100%', maxWidth: 320, textAlign: 'center', position: 'relative', zIndex: 1 }}
@@ -122,7 +125,7 @@ export function AuthVisualPanel({ step = null }) {
         <ScalesOfJusticeSVG />
 
         <Typography variant="h3" sx={{
-          fontFamily: "'Playfair Display', 'Tiro Devanagari Hindi', serif",
+          fontFamily: TYPOGRAPHY.fontFamily.display,
           color: '#FFFFFF',
           fontWeight: 700,
           mt: 4, mb: 1.5,
@@ -146,7 +149,7 @@ export function AuthVisualPanel({ step = null }) {
       {chips.map((chip, i) => (
         <motion.div
           key={`${step}-${i}`}
-          animate={{ y: [0, -10, 0] }}
+          animate={prefersReducedMotion ? undefined : { y: [0, -10, 0] }}
           transition={{ duration: 3 + i * 0.9, repeat: Infinity, delay: i * 0.85, ease: 'easeInOut' }}
           style={{ position: 'absolute', zIndex: 2, ...chip.style }}
         >

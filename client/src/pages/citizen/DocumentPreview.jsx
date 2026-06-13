@@ -6,7 +6,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -49,10 +49,11 @@ import api from '../../services/api';
  * ------------------------------------------------------------------------ */
 function GeneratingSkeleton() {
   const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
   return (
     <Box sx={{ p: { xs: 2, sm: 4 } }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        <motion.div animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.4, repeat: Infinity }}>
+        <motion.div animate={prefersReducedMotion ? { opacity: 1 } : { opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.4, repeat: Infinity }}>
           <Typography sx={{ fontSize: 40 }}>⚖️</Typography>
         </motion.div>
         <Box>
@@ -70,7 +71,7 @@ function GeneratingSkeleton() {
       ))}
       <Box sx={{ mt: 3, display: 'flex', alignItems: 'center', gap: 1.5 }}>
         <motion.div
-          animate={{ opacity: [1, 0.3, 1] }}
+          animate={prefersReducedMotion ? { opacity: 1 } : { opacity: [1, 0.3, 1] }}
           transition={{ duration: 1, repeat: Infinity }}
           style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-primary)' }}
         />
@@ -86,6 +87,7 @@ function GeneratingSkeleton() {
  * Document text renderer — makes clauses clickable
  * ------------------------------------------------------------------------ */
 function DocumentText({ content, onClauseClick, activeClauseIndex = null }) {
+  const prefersReducedMotion = useReducedMotion();
   if (!content) return null;
 
   const paragraphs = content.split(/\n{2,}/).filter(Boolean);
@@ -101,7 +103,7 @@ function DocumentText({ content, onClauseClick, activeClauseIndex = null }) {
         return (
           <motion.div
             key={pIdx}
-            initial={{ opacity: 0, y: 8 }}
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: pIdx * 0.04, duration: 0.3 }}
           >
@@ -134,7 +136,7 @@ function DocumentText({ content, onClauseClick, activeClauseIndex = null }) {
               </Box>
             ) : /^#+\s/.test(para.trim()) ? (
               <Typography variant="h6" sx={{
-                fontFamily: "'Playfair Display',serif", fontWeight: 700,
+                fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700,
                 color: 'var(--color-text)', mt: pIdx > 0 ? 3 : 0, mb: 1.5,
               }}>
                 {para.replace(/^#+\s/, '')}
@@ -328,6 +330,7 @@ function DocumentPreview() {
   const { t } = useTranslation();
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'));
+  const prefersReducedMotion = useReducedMotion();
 
   const doc = useSelector(selectCurrentDocument);
   const plan = useSelector(selectUserPlan);
@@ -431,7 +434,7 @@ function DocumentPreview() {
     <AnimatedPage>
       <Box sx={{ p: { xs: 1.5, sm: 2.5, md: 3 }, maxWidth: 1200, mx: 'auto', pb: { xs: 10, md: 4 } }}>
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
             <Box
               onClick={() => navigate('/citizen/documents')}

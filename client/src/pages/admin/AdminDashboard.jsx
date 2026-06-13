@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
-import CircularProgress from '@mui/material/CircularProgress';
+import Skeleton from '@mui/material/Skeleton';
 import Alert from '@mui/material/Alert';
 import Divider from '@mui/material/Divider';
 import LinearProgress from '@mui/material/LinearProgress';
@@ -101,11 +101,27 @@ export default function AdminDashboard() {
           </Typography>
         </Box>
 
-        {loading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-            <CircularProgress sx={{ color: 'var(--color-primary)' }} />
-          </Box>
-        )}
+        <AnimatePresence>
+          {loading && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Grid container spacing={2} sx={{ mb: 4 }}>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Grid item xs={12} sm={6} md={4} key={i}>
+                    <Skeleton variant="rounded" height={100} animation="wave"
+                      sx={{ borderRadius: 2, bgcolor: 'var(--color-surface)' }} />
+                  </Grid>
+                ))}
+              </Grid>
+              <Skeleton variant="rounded" height={300} animation="wave"
+                sx={{ borderRadius: 2, bgcolor: 'var(--color-surface)', mb: 3 }} />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {error && <Alert severity="error" sx={{ borderRadius: 2 }}>{error}</Alert>}
 

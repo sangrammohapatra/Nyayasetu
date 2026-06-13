@@ -23,7 +23,7 @@ import {
   Add, Balance, HistoryOutlined, Menu as MenuIcon,
   PushPin, PushPinOutlined,
 } from '@mui/icons-material';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   createNyayaBotSession,
   getNyayaBotSession,
@@ -192,6 +192,7 @@ export default function NyayaBotPage() {
   const { t } = useTranslation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const prefersReducedMotion = useReducedMotion();
 
   const sessions = useSelector((s) => s.nyayabot.sessions);
   const activeSessionId = useSelector((s) => s.nyayabot.activeSessionId || sessionId);
@@ -255,7 +256,7 @@ export default function NyayaBotPage() {
     return (
       <Box sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'var(--color-bg)' }}>
         <Box sx={{ textAlign: 'center' }}>
-          <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 2, repeat: Infinity }}>
+          <motion.div animate={prefersReducedMotion ? undefined : { rotate: [0, 10, -10, 0] }} transition={{ duration: 2, repeat: Infinity }}>
             <Balance sx={{ fontSize: 52, color: 'var(--color-primary)', mb: 2 }} />
           </motion.div>
           <Box sx={{ color: 'var(--color-text)', fontWeight: 600 }}>{t('nyayabot.starting')}</Box>
@@ -267,7 +268,7 @@ export default function NyayaBotPage() {
   return (
     <Box
       component={motion.div}
-      initial={{ opacity: 0 }}
+      initial={prefersReducedMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.25 }}
       sx={{

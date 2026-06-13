@@ -6,7 +6,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -76,6 +76,7 @@ function TemplateCardSkeleton() {
 function TemplateCard({ template, onSelect, delay = 0, isMostUsed = false }) {
   const { t } = useTranslation();
   const muiTheme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
   const plan = useSelector(selectUserPlan);
   const persona = useSelector(selectUserPersona);
 
@@ -105,11 +106,11 @@ function TemplateCard({ template, onSelect, delay = 0, isMostUsed = false }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 18 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.38, ease: 'easeOut' }}
-      whileHover={canAccess ? { scale: 1.028, y: -3, transition: { duration: 0.18 } } : {}}
-      whileTap={canAccess ? { scale: 0.98 } : {}}
+      whileHover={prefersReducedMotion || !canAccess ? undefined : { scale: 1.028, y: -3, transition: { duration: 0.18 } }}
+      whileTap={prefersReducedMotion || !canAccess ? undefined : { scale: 0.98 }}
       style={{ height: '100%' }}
     >
       <Box
@@ -213,6 +214,7 @@ function NewDocument() {
   const navigate = useNavigate();
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
+  const prefersReducedMotion = useReducedMotion();
 
   const CATEGORIES = useMemo(
     () => CATEGORY_DEFS.map((c) => ({ ...c, label: t(c.tKey, c.fallback) })),
@@ -254,7 +256,7 @@ function NewDocument() {
     <AnimatedPage>
       <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 1100, mx: 'auto', pb: { xs: 10, md: 4 } }}>
         {/* Page header */}
-        <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
           <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 0.75 }}>
             {t('newDoc.title', 'Create a Legal Document')}
           </GradientHeading>
@@ -264,7 +266,7 @@ function NewDocument() {
         </motion.div>
 
         {/* Search */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }}>
           <TextField
             fullWidth
             placeholder={t('newDoc.search', 'Search templates…')}
@@ -295,7 +297,7 @@ function NewDocument() {
         }}>
           {CATEGORIES.map((cat, i) => (
             <motion.div key={cat.slug}
-              initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.04 }}>
               <Chip
                 label={`${cat.icon} ${cat.label}`}
@@ -316,7 +318,7 @@ function NewDocument() {
         {!search && activeCategory === 'all' && featured.length > 0 && (
           <Box sx={{ mb: 4 }}>
             <Typography variant="h6" sx={{
-              fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 2,
+              fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, color: 'var(--color-text)', mb: 2,
             }}>
               🌟 {t('newDoc.popular', 'Popular this week')}
             </Typography>
@@ -378,7 +380,7 @@ function NewDocument() {
           {gateTemplate && (
             <motion.div
               key="gate-overlay"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              initial={prefersReducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={prefersReducedMotion ? undefined : { opacity: 0 }}
               onClick={() => setGateTemplate(null)}
               style={{
                 position: 'fixed', inset: 0, zIndex: 1300,
@@ -387,7 +389,7 @@ function NewDocument() {
               }}
             >
               <motion.div
-                initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+                initial={prefersReducedMotion ? false : { scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={prefersReducedMotion ? undefined : { scale: 0.9, y: 20 }}
                 transition={{ type: 'spring', stiffness: 320, damping: 24 }}
                 onClick={(e) => e.stopPropagation()}
                 style={{ width: '100%', maxWidth: 420 }}

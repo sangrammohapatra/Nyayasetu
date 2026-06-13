@@ -28,6 +28,7 @@ import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
 
 import store, { persistor } from "./store/store";
+import { TYPOGRAPHY } from "./theme/tokens";
 import NyayaThemeProvider from "./theme/ThemeProvider";
 import ProtectedRoute from "./components/ui/ProtectedRoute";
 import AnimatedPage from "./components/ui/AnimatedPage";
@@ -35,6 +36,7 @@ import Navbar from "./components/layout/Navbar";
 import Sidebar from "./components/layout/Sidebar";
 import BottomNav from "./components/layout/BottomNav";
 import NyayaBotWidget from "./components/nyayabot/NyayaBotWidget";
+import ScrollProgressBar from "./components/ui/ScrollProgressBar";
 import ErrorBoundaryWithDispatch from "./components/ui/ErrorBoundary";
 import { ErrorNotificationSnackbar } from "./hooks/useErrorHandling";
 
@@ -146,6 +148,7 @@ function AppLayout() {
         background: "var(--color-bg)",
       }}
     >
+      <ScrollProgressBar />
       <Navbar />
 
       <Box sx={{ display: "flex", flex: 1 }}>
@@ -191,7 +194,7 @@ function NotFound() {
         <Box sx={{ fontSize: 64, mb: 2 }}>⚖️</Box>
         <Box
           sx={{
-            fontFamily: "'Playfair Display',serif",
+            fontFamily: TYPOGRAPHY.fontFamily.display,
             fontSize: "2rem",
             fontWeight: 700,
             color: "var(--color-text)",
@@ -411,10 +414,15 @@ function GlobalSnackbars() {
           severity={active.severity || "info"}
           onClose={() => dispatch(dismissSnackbar(active.id))}
           sx={{
-            borderRadius: 2,
+            borderRadius: '14px',
             background: "var(--color-surface)",
             color: "var(--color-text)",
             border: "1px solid var(--color-border)",
+            borderLeft: `4px solid ${{
+              error: 'var(--color-error)',
+              success: 'var(--color-success)',
+              warning: 'var(--color-secondary)',
+            }[active.severity] || 'var(--color-primary)'}`,
             boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
           }}
         >

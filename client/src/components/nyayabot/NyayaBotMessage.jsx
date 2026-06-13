@@ -16,7 +16,7 @@ import {
   ThumbUp, ThumbDown, ContentCopy, Check,
   ExpandMore, OpenInNew, AutoStories, Balance
 } from '@mui/icons-material';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { rateNyayaBotMessage } from '../../store/slices/nyayabotSlice';
 import { useNavigate } from 'react-router-dom';
@@ -188,6 +188,7 @@ function FollowUpChips({ questions, onSelect }) {
 export default function NyayaBotMessage({ message, onFollowUp, compact = false }) {
   const dispatch = useDispatch();
   const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
   const [copied, setCopied] = useState(false);
   const [localThumb, setLocalThumb] = useState(message.thumbsUp); // null | true | false
 
@@ -213,7 +214,7 @@ export default function NyayaBotMessage({ message, onFollowUp, compact = false }
   if (!isBot) {
     return (
       <motion.div
-        initial={{ opacity: 0, y: 8 }}
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: isOptimistic ? 0.6 : 1, y: 0 }}
         transition={{ duration: 0.22, ease: 'easeOut' }}
         style={{ display: 'flex', justifyContent: 'flex-end' }}

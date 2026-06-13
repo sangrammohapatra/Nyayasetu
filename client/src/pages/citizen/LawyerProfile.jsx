@@ -212,7 +212,7 @@ function LawyerProfile() {
             {/* CTA buttons */}
             <Box sx={{ display: 'flex', gap: 1.5, mt: 3, flexWrap: 'wrap' }}>
               <FeatureGate feature="book_consultation" compact>
-                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                <motion.div whileHover={prefersReducedMotion ? undefined : { scale: 1.03 }} whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}>
                   <Button
                     variant="contained"
                     disabled={!lawyer.isAvailableForConsultation}
@@ -230,7 +230,7 @@ function LawyerProfile() {
               </FeatureGate>
 
               {isWAEnabled && (
-                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                <motion.div whileHover={prefersReducedMotion ? undefined : { scale: 1.03 }} whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}>
                   <Button
                     variant="outlined"
                     onClick={handleWhatsApp}

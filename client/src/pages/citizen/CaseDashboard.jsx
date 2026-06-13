@@ -6,7 +6,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -189,6 +189,7 @@ function CaseCardSkeleton() {
 
 function CaseCard({ caseData, onRefresh, onDelete }) {
   const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
   const [expanded, setExpanded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [remindSnack, setRemindSnack] = useState(null); // 'success' | 'error' | null
@@ -217,9 +218,9 @@ function CaseCard({ caseData, onRefresh, onDelete }) {
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 20, scale: 0.97 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 20, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+      exit={prefersReducedMotion ? undefined : { opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
       transition={{ type: 'spring', stiffness: 300, damping: 25 }}
     >
       <Box sx={{
@@ -316,7 +317,7 @@ function CaseCard({ caseData, onRefresh, onDelete }) {
                 <IconButton size="small" onClick={handleRefresh} disabled={refreshing}
                   sx={{ color: 'var(--color-text-secondary)', '&:hover': { color: 'var(--color-primary)' } }}>
                   <motion.span
-                    animate={refreshing ? { rotate: 360 } : {}}
+                    animate={prefersReducedMotion ? {} : refreshing ? { rotate: 360 } : {}}
                     transition={{ duration: 1, repeat: refreshing ? Infinity : 0, ease: 'linear' }}
                     style={{ display: 'inline-block', fontSize: 16 }}>
                     🔄
@@ -373,6 +374,7 @@ function CaseDashboard() {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const prefersReducedMotion = useReducedMotion();
 
   const cases = useSelector(selectCases);
   const loading = useSelector(selectCaseLoading);
@@ -403,7 +405,7 @@ function CaseDashboard() {
     <AnimatedPage>
       <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 1000, mx: 'auto', pb: { xs: 10, md: 4 } }}>
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
             <Box>
               <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
@@ -432,9 +434,9 @@ function CaseDashboard() {
         <AnimatePresence>
           {atLimit && (
             <motion.div
-              initial={{ opacity: 0, y: -8, height: 0 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, y: -8, height: 0 }}
               animate={{ opacity: 1, y: 0, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
+              exit={prefersReducedMotion ? undefined : { opacity: 0, height: 0 }}
               transition={{ duration: 0.3 }}
             >
               <Alert
@@ -461,7 +463,7 @@ function CaseDashboard() {
             ))}
           </Grid>
         ) : cases.length === 0 ? (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
             <Box sx={{
               textAlign: 'center', py: 8,
               borderRadius: `${RADIUS.xl}px`,

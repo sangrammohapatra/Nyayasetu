@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -27,6 +27,7 @@ import api from '../../services/api';
 
 function CaseCard({ caseData, clientName, delay }) {
   const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
   const [expanded, setExpanded] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [note, setNote] = useState('');
@@ -51,7 +52,7 @@ function CaseCard({ caseData, clientName, delay }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.35 }}
     >
@@ -149,6 +150,7 @@ function CaseCard({ caseData, clientName, delay }) {
 function CaseManagement() {
   const { t } = useTranslation();
   const dispatch = useDispatch();
+  const prefersReducedMotion = useReducedMotion();
   const clients = useSelector(selectClients);
   const loading = useSelector(selectLawyerLoading);
   const [search, setSearch] = useState('');
@@ -170,7 +172,7 @@ function CaseManagement() {
   return (
     <AnimatedPage>
       <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 900, mx: 'auto', pb: { xs: 10, md: 4 } }}>
-        <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
           <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 0.5 }}>
             {t('case.management_title', 'Case Management')}
           </GradientHeading>

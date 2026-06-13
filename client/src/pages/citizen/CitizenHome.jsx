@@ -12,6 +12,7 @@ import {
   useTransform,
   animate,
   AnimatePresence,
+  useReducedMotion,
 } from "framer-motion";
 
 import Box from "@mui/material/Box";
@@ -65,9 +66,10 @@ function useAnimatedCounter(target, duration = 1.8) {
 
 function StatBadge({ icon, value, label, delay = 0 }) {
   const count = useAnimatedCounter(value);
+  const prefersReducedMotion = useReducedMotion();
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.45 }}
     >
@@ -107,13 +109,14 @@ function StatBadge({ icon, value, label, delay = 0 }) {
 
 function QuickActionCard({ icon, title, description, path, color, delay = 0 }) {
   const navigate = useNavigate();
+  const prefersReducedMotion = useReducedMotion();
   return (
     <motion.div
-      initial={{ opacity: 0, y: 24 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.4, ease: "easeOut" }}
-      whileHover={{ y: -4, transition: { duration: 0.2 } }}
-      whileTap={{ scale: 0.97 }}
+      whileHover={prefersReducedMotion ? undefined : { y: -4, transition: { duration: 0.2 } }}
+      whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}
       style={{ height: "100%" }}
     >
       <Box
@@ -172,6 +175,7 @@ function QuickActionCard({ icon, title, description, path, color, delay = 0 }) {
 function DocumentRow({ doc, delay }) {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
   const statusColors = {
     completed: "var(--color-success)",
     generating: "var(--color-warning)",
@@ -180,7 +184,7 @@ function DocumentRow({ doc, delay }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: -16 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, x: -16 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay, duration: 0.35 }}
     >
@@ -257,6 +261,7 @@ function DocumentRow({ doc, delay }) {
 function HearingCard({ hearingCase }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const prefersReducedMotion = useReducedMotion();
   if (!hearingCase) return null;
 
   const hearing = hearingCase.hearings?.find(
@@ -271,7 +276,7 @@ function HearingCard({ hearingCase }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.97 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.97 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: 0.4 }}
     >
@@ -358,6 +363,7 @@ function HearingCard({ hearingCase }) {
 function UsageMeter({ freeUsage, plan }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const prefersReducedMotion = useReducedMotion();
 
   if (plan !== "free") return null;
 
@@ -368,7 +374,7 @@ function UsageMeter({ freeUsage, plan }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={prefersReducedMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.5 }}
     >
@@ -454,6 +460,7 @@ function CitizenHome() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const muiTheme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down("sm"));
 
   const user = useSelector(selectUser);
@@ -535,7 +542,7 @@ function CitizenHome() {
       >
         {/* Hero section */}
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
@@ -599,7 +606,7 @@ function CitizenHome() {
             <Typography
               variant={isMobile ? "h5" : "h4"}
               sx={{
-                fontFamily: "'Playfair Display',serif",
+                fontFamily: TYPOGRAPHY.fontFamily.display,
                 fontWeight: 700,
                 color: "#FFFFFF",
                 mb: 1,
@@ -646,7 +653,7 @@ function CitizenHome() {
 
         {/* Quick actions */}
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={prefersReducedMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
         >
@@ -748,7 +755,7 @@ function CitizenHome() {
                 ))
               ) : (
                 <motion.div
-                  initial={{ opacity: 0 }}
+                  initial={prefersReducedMotion ? false : { opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.2 }}
                 >

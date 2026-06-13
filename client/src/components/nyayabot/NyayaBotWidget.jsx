@@ -36,13 +36,14 @@ import { RADIUS, SHADOWS } from '../../theme/tokens';
 
 function FabLabel({ show }) {
   const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
   return (
     <AnimatePresence>
       {show && (
         <motion.div
-          initial={{ opacity: 0, x: 12, scale: 0.9 }}
+          initial={prefersReducedMotion ? false : { opacity: 0, x: 12, scale: 0.9 }}
           animate={{ opacity: 1, x: 0, scale: 1 }}
-          exit={{ opacity: 0, x: 12, scale: 0.9 }}
+          exit={prefersReducedMotion ? undefined : { opacity: 0, x: 12, scale: 0.9 }}
           transition={{ duration: 0.2 }}
           style={{
             position: 'absolute',
@@ -181,7 +182,7 @@ export default function NyayaBotWidget() {
                 }}
               >
                 <motion.div
-                  animate={{ rotate: [0, 8, -8, 0] }}
+                  animate={prefersReducedMotion ? undefined : { rotate: [0, 8, -8, 0] }}
                   transition={{ duration: 2, repeat: Infinity }}
                 >
                   <Balance sx={{ fontSize: 40, color: 'var(--color-primary)' }} />
@@ -244,9 +245,9 @@ export default function NyayaBotWidget() {
                   {isOpen ? (
                     <motion.div
                       key="close"
-                      initial={{ rotate: -90, opacity: 0 }}
+                      initial={prefersReducedMotion ? false : { rotate: -90, opacity: 0 }}
                       animate={{ rotate: 0, opacity: 1 }}
-                      exit={{ rotate: 90, opacity: 0 }}
+                      exit={prefersReducedMotion ? undefined : { rotate: 90, opacity: 0 }}
                       transition={{ duration: 0.2 }}
                     >
                       <Close />
@@ -254,9 +255,9 @@ export default function NyayaBotWidget() {
                   ) : (
                     <motion.div
                       key="open"
-                      initial={{ rotate: 90, opacity: 0 }}
+                      initial={prefersReducedMotion ? false : { rotate: 90, opacity: 0 }}
                       animate={{ rotate: 0, opacity: 1 }}
-                      exit={{ rotate: -90, opacity: 0 }}
+                      exit={prefersReducedMotion ? undefined : { rotate: -90, opacity: 0 }}
                       transition={{ duration: 0.2 }}
                     >
                       <AutoAwesome sx={{ fontSize: 24 }} />

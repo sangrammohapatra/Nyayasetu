@@ -173,7 +173,7 @@ export const muiTheme = createTheme({
       },
     },
     MuiCssBaseline: {
-      styleOverrides: `
+      styleOverrides: (themeParam) => `
         *, *::before, *::after { box-sizing: border-box; }
         html { scroll-behavior: smooth; }
         body {
@@ -190,6 +190,10 @@ export const muiTheme = createTheme({
         }
         a { color: var(--color-primary); }
         a:hover { color: var(--color-primary-light); }
+        ::-webkit-scrollbar { width: 7px; height: 7px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: ${themeParam.custom?.gradientBrand || themeParam.palette.primary.main}; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { filter: brightness(1.15); }
       `,
     },
   },

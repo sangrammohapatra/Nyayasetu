@@ -23,7 +23,7 @@ import {
   Send, Mic, MicOff, MoreVert, Share, Archive,
   Delete, Add, Close, Balance, InfoOutlined,
 } from '@mui/icons-material';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   sendNyayaBotMessage,
   createNyayaBotSession,
@@ -37,6 +37,7 @@ import NyayaBotMessage from './NyayaBotMessage';
 
 // ─── Streaming dots indicator ─────────────────────────────────────────────────
 function ThinkingDots() {
+  const prefersReducedMotion = useReducedMotion();
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.5, py: 0.75 }}>
       <Box
@@ -61,7 +62,7 @@ function ThinkingDots() {
         {[0, 1, 2].map((i) => (
           <motion.div
             key={i}
-            animate={{ scale: [1, 1.4, 1], opacity: [0.4, 1, 0.4] }}
+            animate={prefersReducedMotion ? { opacity: 1, scale: 1 } : { scale: [1, 1.4, 1], opacity: [0.4, 1, 0.4] }}
             transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.2 }}
             style={{
               width: 7, height: 7, borderRadius: '50%',
@@ -143,6 +144,7 @@ export default function NyayaBotWindow({ sessionId, compact = false, onClose, on
   const dispatch = useDispatch();
   const { t } = useTranslation();
   const muiTheme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
 
   const {
     messages,
@@ -320,9 +322,9 @@ export default function NyayaBotWindow({ sessionId, compact = false, onClose, on
       <AnimatePresence>
         {error && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
+            initial={prefersReducedMotion ? false : { height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
+            exit={prefersReducedMotion ? undefined : { height: 0, opacity: 0 }}
           >
             <Alert
               severity={error.includes('QUOTA') ? 'warning' : 'error'}
@@ -367,7 +369,7 @@ export default function NyayaBotWindow({ sessionId, compact = false, onClose, on
 
         {/* Streaming indicator */}
         {isStreaming && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <motion.div initial={prefersReducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }}>
             <ThinkingDots />
           </motion.div>
         )}
@@ -382,9 +384,9 @@ export default function NyayaBotWindow({ sessionId, compact = false, onClose, on
       <AnimatePresence>
         {isRecording && (
           <motion.div
-            initial={{ height: 0 }}
+            initial={prefersReducedMotion ? false : { height: 0 }}
             animate={{ height: 'auto' }}
-            exit={{ height: 0 }}
+            exit={prefersReducedMotion ? undefined : { height: 0 }}
           >
             <Box
               sx={{
@@ -395,7 +397,7 @@ export default function NyayaBotWindow({ sessionId, compact = false, onClose, on
               }}
             >
               <motion.div
-                animate={{ opacity: [1, 0.3, 1] }}
+                animate={prefersReducedMotion ? { opacity: 1 } : { opacity: [1, 0.3, 1] }}
                 transition={{ duration: 1, repeat: Infinity }}
               >
                 <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'var(--color-error)' }} />

@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -90,9 +90,10 @@ function formatMemberSince(dateStr) {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function Section({ title, icon, children, delay = 0 }) {
+  const prefersReducedMotion = useReducedMotion();
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay }}
     >
@@ -176,6 +177,7 @@ export default function CitizenProfile() {
   const navigate  = useNavigate();
   const user      = useSelector(selectUser);
   const muiTheme  = useTheme();
+  const prefersReducedMotion = useReducedMotion();
 
   // ── Personal info ──────────────────────────────────────────────────────────
   const [personal, setPersonal]     = useState({ name: '', email: '' });
@@ -313,7 +315,7 @@ export default function CitizenProfile() {
         </GradientHeading>
 
         {/* ── Profile hero ──────────────────────────────────────────────────── */}
-        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
           <Box sx={{
             background: 'linear-gradient(135deg, var(--color-primary-alpha) 0%, var(--color-surface) 100%)',
             border: '1px solid var(--color-border)',

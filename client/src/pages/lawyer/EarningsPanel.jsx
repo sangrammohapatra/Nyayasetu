@@ -6,7 +6,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useTheme as useMuiTheme } from '@mui/material/styles';
 
 import Box from '@mui/material/Box';
@@ -28,8 +28,9 @@ import api from '../../services/api';
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
 function EarningCard({ icon, label, value, sub, color, delay = 0 }) {
+  const prefersReducedMotion = useReducedMotion();
   return (
-    <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay, duration: 0.38 }}>
+    <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay, duration: 0.38 }}>
       <Box sx={{
         p: 2.5, borderRadius: `${RADIUS.xl}px`,
         background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: SHADOWS.sm,
@@ -49,12 +50,13 @@ function EarningCard({ icon, label, value, sub, color, delay = 0 }) {
 
 // ─── Payment history table ────────────────────────────────────────────────────
 function PaymentRow({ payment, i }) {
+  const prefersReducedMotion = useReducedMotion();
   const date = new Date(payment.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' });
   const earning = Math.round((payment.lawyerEarnings || 0) / 100);
   const type = payment.type?.replace(/_/g, ' ') || 'consultation';
 
   return (
-    <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}>
+    <motion.div initial={prefersReducedMotion ? false : { opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}>
       <Box sx={{
         display: 'flex', alignItems: 'center', gap: 2, py: 1.5, px: 2,
         borderBottom: '1px solid var(--color-border)',
@@ -102,6 +104,7 @@ function CustomTooltip({ active, payload, label }) {
 function EarningsPanel() {
   const { t } = useTranslation();
   const muiTheme = useMuiTheme();
+  const prefersReducedMotion = useReducedMotion();
 
   // Extract all chart colors from theme — NEVER hardcoded
   const chartColors = useMemo(() => ({
@@ -162,7 +165,7 @@ function EarningsPanel() {
   return (
     <AnimatedPage>
       <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 1000, mx: 'auto', pb: { xs: 10, md: 4 } }}>
-        <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
           <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 3 }}>
             {t('earnings.title', 'Earnings')}
           </GradientHeading>
@@ -189,7 +192,7 @@ function EarningsPanel() {
         </Grid>
 
         {/* Bar chart */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           <Box sx={{ p: 2.5, borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)', boxShadow: SHADOWS.sm, mb: 3 }}>
             <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 2.5 }}>
               {t('earnings.chart', 'Monthly Earnings (Last 6 Months)')}
@@ -218,7 +221,7 @@ function EarningsPanel() {
         </motion.div>
 
         {/* Payment history */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.38 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.38 }}>
           <Box sx={{ borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)', boxShadow: SHADOWS.sm, overflow: 'hidden' }}>
             <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid var(--color-border)' }}>
               <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>

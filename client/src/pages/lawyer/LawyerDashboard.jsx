@@ -288,6 +288,7 @@ function StepDocuments({ file, setFile, error }) {
 function UnderReview() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const prefersReducedMotion = useReducedMotion();
   const steps = [
     { label: t('lawyer_setup.r1', 'Application submitted'), done: true },
     { label: t('lawyer_setup.r2', 'Document review'), done: false },
@@ -296,9 +297,9 @@ function UnderReview() {
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }}>
+    <motion.div initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }}>
       <Box sx={{ textAlign: 'center', py: 4 }}>
-        <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 1.2, repeat: Infinity, repeatDelay: 3 }}>
+        <motion.div animate={prefersReducedMotion ? undefined : { rotate: [0, 10, -10, 0] }} transition={{ duration: 1.2, repeat: Infinity, repeatDelay: 3 }}>
           <Typography sx={{ fontSize: 64, mb: 2 }}>⚖️</Typography>
         </motion.div>
         <GradientHeading variant="h5" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 1 }}>
