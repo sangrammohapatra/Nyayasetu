@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 
 import Box from "@mui/material/Box";
 import Grid from "@mui/material/Grid";
@@ -25,8 +25,10 @@ import {
   selectLawyerLoading,
 } from "../../store/slices/lawyerSlice";
 import ConsultationBooking from "./ConsultationBooking";
-import { RADIUS, SHADOWS } from "../../theme/tokens";
+import GradientHeading from "../ui/GradientHeading";
+import { RADIUS, SHADOWS, TYPOGRAPHY } from "../../theme/tokens";
 import AnimatedPage from "../ui/AnimatedPage";
+import { useTheme } from "@mui/material/styles";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -111,16 +113,18 @@ function StarRating({ rating = 0, count }) {
 // ─── Lawyer card ──────────────────────────────────────────────────────────────
 function LawyerCard({ lawyer, onBook, delay = 0 }) {
   const { t } = useTranslation();
+  const muiTheme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
   const feeRupees = lawyer.consultationFee
     ? Math.round(lawyer.consultationFee / 100)
     : 0;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.38 }}
-      whileHover={{ y: -4, transition: { duration: 0.18 } }}
+      whileHover={prefersReducedMotion ? undefined : { y: -4, transition: { duration: 0.18 } }}
     >
       <Box
         sx={{
@@ -306,26 +310,31 @@ function LawyerCard({ lawyer, onBook, delay = 0 }) {
               {feeRupees > 0 ? `₹${feeRupees}` : "Free"}
             </Typography>
           </Box>
-          <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
+          <motion.div
+            whileHover={prefersReducedMotion ? undefined : { scale: 1.04 }}
+            whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}
+          >
             <Button
               variant="contained"
               size="small"
               onClick={() => onBook(lawyer)}
               disabled={!lawyer.isAvailable}
               sx={{
-                borderRadius: `${RADIUS.md}px`,
+                borderRadius: `${RADIUS.full}px`,
                 fontWeight: 700,
                 fontSize: "0.8rem",
                 background: lawyer.isAvailable
-                  ? "var(--color-primary)"
+                  ? (muiTheme.custom?.gradientBrand || "var(--color-primary)")
                   : "var(--color-border)",
+                boxShadow: lawyer.isAvailable ? muiTheme.custom?.glowPrimary : 'none',
                 color: lawyer.isAvailable
                   ? "#fff"
                   : "var(--color-text-secondary)",
                 "&:hover": {
                   background: lawyer.isAvailable
-                    ? "var(--color-primary-dark, var(--color-primary))"
+                    ? (muiTheme.custom?.gradientBrand || "var(--color-primary)")
                     : undefined,
+                  opacity: lawyer.isAvailable ? 0.92 : 1,
                 },
                 "&:disabled": {
                   background: "var(--color-border)",
@@ -348,6 +357,8 @@ function LawyerCard({ lawyer, onBook, delay = 0 }) {
 function LawyerSearch() {
   const { t } = useTranslation();
   const dispatch = useDispatch();
+  const muiTheme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
   const results = useSelector(selectLawyerResults);
   const loading = useSelector(selectLawyerLoading);
 
@@ -404,7 +415,7 @@ function LawyerSearch() {
       >
         {/* Search filters */}
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
+          initial={prefersReducedMotion ? false : { opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
         >
@@ -418,17 +429,16 @@ function LawyerSearch() {
               boxShadow: SHADOWS.sm,
             }}
           >
-            <Typography
+            <GradientHeading
               variant="h6"
               sx={{
-                fontFamily: "'Playfair Display',serif",
+                fontFamily: TYPOGRAPHY.fontFamily.display,
                 fontWeight: 700,
-                color: "var(--color-text)",
                 mb: 2,
               }}
             >
               🔍 {t("lawyer.search_title", "Find a Lawyer")}
-            </Typography>
+            </GradientHeading>
 
             <Grid container spacing={2} sx={{ mb: 2 }}>
               <Grid item xs={12} sm={4}>
@@ -554,9 +564,10 @@ function LawyerSearch() {
                   onClick={handleSearch}
                   disabled={loading}
                   sx={{
-                    borderRadius: `${RADIUS.md}px`,
+                    borderRadius: `${RADIUS.full}px`,
                     fontWeight: 700,
-                    background: "var(--color-primary)",
+                    background: muiTheme.custom?.gradientBrand || "var(--color-primary)",
+                    boxShadow: muiTheme.custom?.glowPrimary,
                   }}
                 >
                   {loading

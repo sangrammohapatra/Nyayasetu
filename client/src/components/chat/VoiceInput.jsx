@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 import Box from '@mui/material/Box';
@@ -14,7 +14,10 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
+import MicIcon from '@mui/icons-material/Mic';
+import MicOffIcon from '@mui/icons-material/MicOff';
 import { selectLanguage } from '../../store/slices/uiSlice';
+import { useFeatureFlag } from '../../utils/featureFlags';
 
 /* ---------------------------------------------------------------------------
  * Language code → BCP-47 locale mapping for SpeechRecognition
@@ -39,6 +42,9 @@ const isSupported = () =>
 function VoiceInput({ onTranscript, disabled = false }) {
   const { t } = useTranslation();
   const language = useSelector(selectLanguage);
+  const animEnabled = useFeatureFlag('enableScrollReveal');
+  const prefersReducedMotion = useReducedMotion();
+  const shouldAnimate = animEnabled && !prefersReducedMotion;
   const [recording, setRecording] = useState(false);
   const [denied, setDenied] = useState(false);
   const [noSupport, setNoSupport] = useState(false);
@@ -146,41 +152,54 @@ function VoiceInput({ onTranscript, disabled = false }) {
             position: 'relative',
             width: 44, height: 44,
             borderRadius: '50%',
-            border: 'none',
-            background: recording ? 'var(--color-error)' : 'var(--color-border)',
+            border: recording ? 'none' : '2px solid var(--color-primary)',
+            background: recording ? 'var(--color-error)' : 'transparent',
             cursor: disabled ? 'not-allowed' : 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 20,
-            transition: 'background 0.2s',
+            transition: 'background 0.22s, border-color 0.22s',
             userSelect: 'none',
             WebkitUserSelect: 'none',
             outline: 'none',
             flexShrink: 0,
+            color: recording ? '#fff' : 'var(--color-primary)',
             '&:focus-visible': { outline: '2px solid var(--color-primary)', outlineOffset: 2 },
           }}
         >
-          {/* Pulsing ring when recording */}
+          {/* Two concentric pulsing rings when recording — gated by enableScrollReveal */}
           <AnimatePresence>
-            {recording && (
-              <motion.div
-                key="pulse"
-                initial={{ scale: 1, opacity: 0.6 }}
-                animate={{ scale: [1, 1.7, 1], opacity: [0.6, 0, 0.6] }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 1.1, repeat: Infinity, ease: 'easeOut' }}
-                style={{
-                  position: 'absolute', inset: -4,
-                  borderRadius: '50%',
-                  border: '2px solid var(--color-error)',
-                  pointerEvents: 'none',
-                }}
-              />
+            {recording && shouldAnimate && (
+              <>
+                <motion.div
+                  key="pulse-inner"
+                  initial={{ scale: 1, opacity: 0.55 }}
+                  animate={{ scale: [1, 1.65, 1], opacity: [0.55, 0, 0.55] }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 1.1, repeat: Infinity, ease: 'easeOut' }}
+                  style={{
+                    position: 'absolute', inset: -5,
+                    borderRadius: '50%',
+                    border: '2px solid var(--color-error)',
+                    pointerEvents: 'none',
+                  }}
+                />
+                <motion.div
+                  key="pulse-outer"
+                  initial={{ scale: 1, opacity: 0.3 }}
+                  animate={{ scale: [1, 2.1, 1], opacity: [0.3, 0, 0.3] }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 1.1, repeat: Infinity, ease: 'easeOut', delay: 0.22 }}
+                  style={{
+                    position: 'absolute', inset: -10,
+                    borderRadius: '50%',
+                    border: '2px solid var(--color-error)',
+                    pointerEvents: 'none',
+                  }}
+                />
+              </>
             )}
           </AnimatePresence>
 
-          <Typography sx={{ fontSize: 20, lineHeight: 1, userSelect: 'none' }}>
-            {recording ? '🔴' : '🎤'}
-          </Typography>
+          {recording ? <MicOffIcon sx={{ fontSize: 20 }} /> : <MicIcon sx={{ fontSize: 20 }} />}
         </Box>
       </Tooltip>
 

@@ -11,7 +11,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 import Drawer from '@mui/material/Drawer';
 import Box from '@mui/material/Box';
@@ -30,7 +30,9 @@ import { selectUser } from '../../store/slices/authSlice';
 import { selectDocuments } from '../../store/slices/documentSlice';
 import { openCheckout } from '../../services/razorpay';
 import api from '../../services/api';
-import { RADIUS, SHADOWS } from '../../theme/tokens';
+import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
+import GradientHeading from '../ui/GradientHeading';
+import { useTheme } from '@mui/material/styles';
 
 // ─── Mode options ─────────────────────────────────────────────────────────────
 
@@ -130,8 +132,10 @@ function Step2({ date, setDate, time, setTime }) {
                     fontWeight: isActive ? 700 : 500, height: 28, fontSize: '0.78rem',
                     background: isActive ? 'var(--color-primary)' : 'var(--color-surface)',
                     color: isActive ? '#fff' : 'var(--color-text)',
-                    border: isActive ? 'none' : '1px solid var(--color-border)',
-                    '&:hover': { background: isActive ? 'var(--color-primary)' : 'var(--color-overlay)' },
+                    border: isActive ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                    boxShadow: isActive ? '0 0 0 3px var(--color-primary-alpha)' : 'none',
+                    transition: 'all 0.15s',
+                    '&:hover': { background: isActive ? 'var(--color-primary)' : 'var(--color-overlay)', borderColor: 'var(--color-primary)' },
                   }} />
               );
             })}
@@ -210,6 +214,8 @@ function Step4({ lawyer, mode, date, time, notes, fee }) {
 // ─── Main drawer ──────────────────────────────────────────────────────────────
 function ConsultationBooking({ open, onClose, lawyer }) {
   const { t } = useTranslation();
+  const muiTheme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
   const user = useSelector(selectUser);
   const documents = useSelector(selectDocuments);
 
@@ -306,9 +312,9 @@ function ConsultationBooking({ open, onClose, lawyer }) {
         {/* Header */}
         <Box sx={{ px: 3, py: 2.5, borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box>
-            <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
+            <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
               📅 {t('lawyer.booking_title', 'Book Consultation')}
-            </Typography>
+            </GradientHeading>
             {lawyer && <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>with {lawyer.name}</Typography>}
           </Box>
           <IconButton onClick={handleClose} sx={{ color: 'var(--color-text-secondary)' }}>✕</IconButton>
@@ -338,9 +344,9 @@ function ConsultationBooking({ open, onClose, lawyer }) {
               <AnimatePresence mode="wait">
                 <motion.div
                   key={step}
-                  initial={{ opacity: 0, x: 24 }}
+                  initial={prefersReducedMotion ? false : { opacity: 0, x: 24 }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -24 }}
+                  exit={prefersReducedMotion ? undefined : { opacity: 0, x: -24 }}
                   transition={{ duration: 0.28 }}
                 >
                   {step === 0 && <Step1 mode={mode} onSelect={setMode} supportedModes={supportedModes} />}
@@ -362,12 +368,20 @@ function ConsultationBooking({ open, onClose, lawyer }) {
               )}
               {step < 3 ? (
                 <Button variant="contained" onClick={handleNext} disabled={!canNext()}
-                  sx={{ flex: 2, borderRadius: `${RADIUS.md}px`, fontWeight: 700, background: 'var(--color-primary)' }}>
+                  sx={{
+                    flex: 2, borderRadius: `${RADIUS.full}px`, fontWeight: 700,
+                    background: muiTheme.custom?.gradientBrand || 'var(--color-primary)',
+                    boxShadow: muiTheme.custom?.glowPrimary,
+                  }}>
                   {t('common.continue', 'Continue')} →
                 </Button>
               ) : (
                 <Button variant="contained" onClick={handlePay} disabled={loading}
-                  sx={{ flex: 2, borderRadius: `${RADIUS.md}px`, fontWeight: 700, background: 'var(--color-primary)', py: 1.25 }}>
+                  sx={{
+                    flex: 2, borderRadius: `${RADIUS.full}px`, fontWeight: 700, py: 1.25,
+                    background: muiTheme.custom?.gradientBrand || 'var(--color-primary)',
+                    boxShadow: muiTheme.custom?.glowPrimary,
+                  }}>
                   {loading ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : `💳 ${t('lawyer.pay', 'Pay')} ₹${Math.round(fee / 100)} & Confirm`}
                 </Button>
               )}
@@ -377,20 +391,24 @@ function ConsultationBooking({ open, onClose, lawyer }) {
           /* Confirmation screen */
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', px: 3, textAlign: 'center' }}>
             <motion.div
-              initial={{ scale: 0.5, opacity: 0 }}
+              initial={prefersReducedMotion ? false : { scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 280, damping: 20 }}
             >
               <Typography sx={{ fontSize: 72, mb: 2 }}>🎉</Typography>
             </motion.div>
-            <Typography variant="h5" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 800, color: 'var(--color-text)', mb: 1 }}>
+            <GradientHeading variant="h5" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 800, mb: 1 }}>
               {t('lawyer.confirmed', 'Consultation Booked!')}
-            </Typography>
+            </GradientHeading>
             <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3, lineHeight: 1.65, maxWidth: 300 }}>
               {t('lawyer.confirmed_desc', `Your ${mode} consultation with ${lawyer?.name} has been confirmed. You will receive a WhatsApp reminder before the session.`, { mode, lawyerName: lawyer?.name })}
             </Typography>
             <Button variant="contained" onClick={handleClose}
-              sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 700, background: 'var(--color-primary)', px: 4 }}>
+              sx={{
+                borderRadius: `${RADIUS.full}px`, fontWeight: 700, px: 4,
+                background: muiTheme.custom?.gradientBrand || 'var(--color-primary)',
+                boxShadow: muiTheme.custom?.glowPrimary,
+              }}>
               {t('lawyer.done', 'Done')}
             </Button>
           </Box>

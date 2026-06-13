@@ -16,7 +16,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import { RADIUS } from '../../theme/tokens';
+import { RADIUS, TYPOGRAPHY } from '../../theme/tokens';
 
 const CNR_REGEX = /^[A-Z]{4}\d{2}\d{6}\d{4}$/;
 const PARTIAL_CHECKS = [
@@ -102,7 +102,7 @@ const CNRInput = forwardRef(function CNRInput(
       inputProps={{
         maxLength: 16,
         style: {
-          fontFamily: "'JetBrains Mono', monospace",
+          fontFamily: TYPOGRAPHY.fontFamily.mono,
           letterSpacing: '0.12em',
           textTransform: 'uppercase',
           fontSize: '1rem',
@@ -155,7 +155,7 @@ const CNRInput = forwardRef(function CNRInput(
           </InputAdornment>
         ),
         sx: {
-          borderRadius: `${RADIUS.md}px`,
+          borderRadius: `${RADIUS.lg}px`,
           background: 'var(--color-surface)',
           '& fieldset': { borderColor: isError ? 'var(--color-error)' : valid === true ? 'var(--color-success)' : 'var(--color-border)' },
         },

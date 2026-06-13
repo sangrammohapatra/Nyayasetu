@@ -38,6 +38,8 @@ import AnimatedPage from '../../components/ui/AnimatedPage';
 import ClauseExplainer from '../../components/document/ClauseExplainer';
 import FeatureGate from '../../components/ui/FeatureGate';
 import GlassCard from '../../components/ui/GlassCard';
+import GradientHeading from '../../components/ui/GradientHeading';
+import { TYPOGRAPHY } from '../../theme/tokens';
 import { openCheckout } from '../../services/razorpay';
 import { RADIUS, SHADOWS } from '../../theme/tokens';
 import api from '../../services/api';
@@ -83,7 +85,7 @@ function GeneratingSkeleton() {
 /* ---------------------------------------------------------------------------
  * Document text renderer — makes clauses clickable
  * ------------------------------------------------------------------------ */
-function DocumentText({ content, onClauseClick }) {
+function DocumentText({ content, onClauseClick, activeClauseIndex = null }) {
   if (!content) return null;
 
   const paragraphs = content.split(/\n{2,}/).filter(Boolean);
@@ -94,6 +96,7 @@ function DocumentText({ content, onClauseClick }) {
       {paragraphs.map((para, pIdx) => {
         const isClause = /^\d+\.|^[IVX]+\./.test(para.trim());
         const thisIndex = isClause ? clauseIndex++ : null;
+        const isActive = isClause && activeClauseIndex === thisIndex;
 
         return (
           <motion.div
@@ -108,12 +111,14 @@ function DocumentText({ content, onClauseClick }) {
                 sx={{
                   p: 1.75, mb: 1.5,
                   borderRadius: `${RADIUS.md}px`,
-                  border: '1px solid var(--color-border)',
-                  background: 'var(--color-surface)',
+                  border: isActive ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
+                  borderLeft: isActive ? '3px solid var(--color-primary)' : '1px solid var(--color-border)',
+                  background: isActive ? 'var(--color-primary-alpha)' : 'var(--color-surface)',
                   cursor: 'pointer',
-                  transition: 'border-color 0.15s, background 0.15s',
+                  transition: 'border-color 0.3s, background 0.3s, border-left-width 0.3s',
                   '&:hover': {
                     borderColor: 'var(--color-primary)',
+                    borderLeft: '3px solid var(--color-primary)',
                     background: 'var(--color-primary-alpha)',
                   },
                 }}
@@ -434,12 +439,12 @@ function DocumentPreview() {
               ←
             </Box>
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography variant={isMobile ? 'h6' : 'h5'} sx={{
-                fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)',
+              <GradientHeading variant={isMobile ? 'h6' : 'h5'} sx={{
+                fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
                 {doc?.title || t('myDocs.loading', 'Loading document…')}
-              </Typography>
+              </GradientHeading>
               {doc?.createdAt && (
                 <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
                   {new Date(doc.createdAt).toLocaleDateString('en-IN', { dateStyle: 'long' })}
@@ -471,7 +476,7 @@ function DocumentPreview() {
           <Box>
             {mobileTab === 0 && (
               <Box sx={{ p: 2, background: 'var(--color-surface)', borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)' }}>
-                <DocumentText content={doc.content} onClauseClick={handleClauseClick} />
+                <DocumentText content={doc.content} onClauseClick={handleClauseClick} activeClauseIndex={activeClauseIndex} />
                 <Box sx={{ mt: 3 }}>
                   <Button fullWidth variant="contained" onClick={handleDownload}
                     sx={{ mb: 1, borderRadius: `${RADIUS.md}px`, fontWeight: 700, background: 'var(--color-primary)' }}>
@@ -508,7 +513,7 @@ function DocumentPreview() {
                 background: 'var(--color-surface)', borderRadius: `${RADIUS.xl}px`,
                 border: '1px solid var(--color-border)', boxShadow: SHADOWS.sm,
               }}>
-                <DocumentText content={doc?.content} onClauseClick={handleClauseClick} />
+                <DocumentText content={doc?.content} onClauseClick={handleClauseClick} activeClauseIndex={activeClauseIndex} />
               </Box>
             </Grid>
             <Grid item md={4}>

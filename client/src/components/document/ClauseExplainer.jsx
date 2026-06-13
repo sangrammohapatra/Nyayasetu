@@ -25,7 +25,8 @@ import {
   selectExplanationLoading,
 } from '../../store/slices/documentSlice';
 import { selectLanguage } from '../../store/slices/uiSlice';
-import { RADIUS, SHADOWS } from '../../theme/tokens';
+import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
+import GradientHeading from '../ui/GradientHeading';
 
 const LANGUAGE_OPTIONS = [
   { code: 'en', label: 'EN' }, { code: 'hi', label: 'HI' },
@@ -96,10 +97,13 @@ function ClauseExplainer({ anchorEl, onClose, documentId, clauseIndex, clauseTex
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography sx={{ fontSize: 20 }}>💡</Typography>
-            <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)' }}>
+            <Typography sx={{ fontSize: 18, lineHeight: 1 }}>💡</Typography>
+            <GradientHeading variant="h6" sx={{
+              fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2,
+              fontFamily: TYPOGRAPHY.fontFamily.display,
+            }}>
               {t('myDocs.clause_explainer_title', 'In Simple Terms')}
-            </Typography>
+            </GradientHeading>
           </Box>
           <IconButton size="small" onClick={onClose}
             sx={{ color: 'var(--color-text-secondary)', '&:hover': { background: 'var(--color-overlay)' } }}>
@@ -147,7 +151,7 @@ function ClauseExplainer({ anchorEl, onClose, documentId, clauseIndex, clauseTex
                 initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25 }}
               >
-                <Typography variant="body2" sx={{ color: 'var(--color-text)', lineHeight: 1.7 }}>
+                <Typography variant="body2" sx={{ color: 'var(--color-text)', lineHeight: 1.7, fontFamily: TYPOGRAPHY.fontFamily.body }}>
                   {displayText}
                   {loading && (
                     <motion.span
@@ -161,28 +165,59 @@ function ClauseExplainer({ anchorEl, onClose, documentId, clauseIndex, clauseTex
                     />
                   )}
                 </Typography>
+                {/* Ask follow-up link */}
+                {!loading && displayText && (
+                  <Box sx={{ mt: 1.5 }}>
+                    <Typography
+                      component="span"
+                      onClick={onClose}
+                      variant="caption"
+                      sx={{
+                        color: 'var(--color-primary)', cursor: 'pointer',
+                        fontWeight: 600, fontSize: '0.78rem',
+                        textDecoration: 'underline',
+                        textUnderlineOffset: '2px',
+                        '&:hover': { opacity: 0.8 },
+                      }}
+                    >
+                      ↳ {t('myDocs.ask_followup', 'Ask a follow-up question')}
+                    </Typography>
+                  </Box>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
         </Box>
 
-        {/* Original clause snippet */}
+        {/* Citation chip + original clause snippet */}
         {clauseText && (
-          <Box sx={{
-            mx: 2.5, mb: 2, p: 1.5,
-            borderRadius: `${RADIUS.md}px`,
-            background: 'var(--color-bg)',
-            border: '1px solid var(--color-border)',
-          }}>
-            <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', fontWeight: 600, display: 'block', mb: 0.25 }}>
-              {t('myDocs.clause_original', 'Original clause')}
-            </Typography>
-            <Typography variant="caption" sx={{
-              color: 'var(--color-text)', lineHeight: 1.5,
-              display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          <Box sx={{ mx: 2.5, mb: 2 }}>
+            <Chip
+              label={`Clause ${clauseIndex != null ? clauseIndex + 1 : ''}`}
+              size="small"
+              sx={{
+                mb: 1, height: 22, fontSize: '0.68rem', fontWeight: 700,
+                background: 'var(--color-primary-alpha)',
+                color: 'var(--color-primary)',
+                border: '1px solid var(--color-primary)',
+              }}
+            />
+            <Box sx={{
+              p: 1.5,
+              borderRadius: `${RADIUS.md}px`,
+              background: 'var(--color-bg)',
+              border: '1px solid var(--color-border)',
             }}>
-              {clauseText}
-            </Typography>
+              <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', fontWeight: 600, display: 'block', mb: 0.25 }}>
+                {t('myDocs.clause_original', 'Original clause')}
+              </Typography>
+              <Typography variant="caption" sx={{
+                color: 'var(--color-text)', lineHeight: 1.5, fontFamily: TYPOGRAPHY.fontFamily.body,
+                display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+              }}>
+                {clauseText}
+              </Typography>
+            </Box>
           </Box>
         )}
       </motion.div>

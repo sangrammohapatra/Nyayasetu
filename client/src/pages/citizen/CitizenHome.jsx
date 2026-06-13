@@ -37,7 +37,8 @@ import {
 import AnimatedPage from "../../components/ui/AnimatedPage";
 import GlassCard from "../../components/ui/GlassCard";
 import FeatureGate from "../../components/ui/FeatureGate";
-import { RADIUS, SHADOWS } from "../../theme/tokens";
+import GradientHeading from "../../components/ui/GradientHeading";
+import { RADIUS, SHADOWS, TYPOGRAPHY } from "../../theme/tokens";
 
 // ─── Animated counter hook ────────────────────────────────────────────────────
 
@@ -81,16 +82,16 @@ function StatBadge({ icon, value, label, delay = 0 }) {
         }}
       >
         <Typography sx={{ fontSize: 28, mb: 0.5 }}>{icon}</Typography>
-        <Typography
+        <GradientHeading
           variant="h5"
           sx={{
             fontWeight: 800,
-            color: "var(--color-primary)",
+            fontFamily: TYPOGRAPHY.fontFamily.display,
             lineHeight: 1.1,
           }}
         >
           {count}
-        </Typography>
+        </GradientHeading>
         <Typography
           variant="caption"
           sx={{ color: "var(--color-text-secondary)" }}
@@ -649,17 +650,16 @@ function CitizenHome() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
         >
-          <Typography
+          <GradientHeading
             variant="h6"
             sx={{
-              fontFamily: "'Playfair Display',serif",
+              fontFamily: TYPOGRAPHY.fontFamily.display,
               fontWeight: 700,
-              color: "var(--color-text)",
               mb: 2,
             }}
           >
             {t("home.quick_actions", "Quick Actions")}
-          </Typography>
+          </GradientHeading>
         </motion.div>
 
         <Grid container spacing={2} sx={{ mb: 4 }}>
@@ -717,16 +717,15 @@ function CitizenHome() {
               alignItems: "center",
             }}
           >
-            <Typography
+            <GradientHeading
               variant="h6"
               sx={{
-                fontFamily: "'Playfair Display',serif",
+                fontFamily: TYPOGRAPHY.fontFamily.display,
                 fontWeight: 700,
-                color: "var(--color-text)",
               }}
             >
               {t("home.recent_docs", "Recent Documents")}
-            </Typography>
+            </GradientHeading>
             <Typography
               variant="caption"
               sx={{

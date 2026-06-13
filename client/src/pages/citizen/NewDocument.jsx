@@ -20,7 +20,9 @@ import { useTheme } from '@mui/material/styles';
 
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import FeatureGate from '../../components/ui/FeatureGate';
-import { RADIUS, SHADOWS } from '../../theme/tokens';
+import GradientHeading from '../../components/ui/GradientHeading';
+import GlassCard from '../../components/ui/GlassCard';
+import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
 import { selectUserPlan, selectUserPersona } from '../../store/slices/authSlice';
 import { hasFeature } from '../../utils/featureFlags';
 import api from '../../services/api';
@@ -71,8 +73,9 @@ function TemplateCardSkeleton() {
   );
 }
 
-function TemplateCard({ template, onSelect, delay = 0 }) {
+function TemplateCard({ template, onSelect, delay = 0, isMostUsed = false }) {
   const { t } = useTranslation();
+  const muiTheme = useTheme();
   const plan = useSelector(selectUserPlan);
   const persona = useSelector(selectUserPersona);
 
@@ -116,7 +119,7 @@ function TemplateCard({ template, onSelect, delay = 0 }) {
           p: 2.5,
           borderRadius: `${RADIUS.lg}px`,
           border: '1.5px solid var(--color-border)',
-          background: 'var(--color-surface)',
+          background: muiTheme.custom?.cardBg || 'var(--color-surface)',
           cursor: canAccess ? 'pointer' : 'default',
           display: 'flex', flexDirection: 'column', gap: 1,
           transition: 'border-color 0.2s, box-shadow 0.2s',
@@ -124,7 +127,7 @@ function TemplateCard({ template, onSelect, delay = 0 }) {
           overflow: 'hidden',
           '&:hover': canAccess ? {
             borderColor: 'var(--color-primary)',
-            boxShadow: SHADOWS.md,
+            boxShadow: muiTheme.custom?.glowPrimary || SHADOWS.md,
           } : {},
         }}
       >
@@ -141,12 +144,23 @@ function TemplateCard({ template, onSelect, delay = 0 }) {
           </Box>
         )}
 
+        {/* "Most used" badge */}
+        {isMostUsed && (
+          <Chip label="⭐ Most used" size="small" sx={{
+            position: 'absolute', top: 10, left: 10,
+            height: 20, fontSize: '0.65rem', fontWeight: 700,
+            background: 'rgba(255,193,7,0.15)', color: '#B8860B',
+            border: '1px solid rgba(255,193,7,0.4)',
+          }} />
+        )}
+
         {/* Category icon */}
         <Box sx={{
           width: 48, height: 48, borderRadius: `${RADIUS.md}px`,
           background: 'var(--color-primary-alpha)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 24, flexShrink: 0,
+          mt: isMostUsed ? 2.5 : 0,
         }}>
           {catIcon}
         </Box>
@@ -241,11 +255,9 @@ function NewDocument() {
       <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 1100, mx: 'auto', pb: { xs: 10, md: 4 } }}>
         {/* Page header */}
         <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-          <Typography variant="h4" sx={{
-            fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.75,
-          }}>
+          <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 0.75 }}>
             {t('newDoc.title', 'Create a Legal Document')}
-          </Typography>
+          </GradientHeading>
           <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3 }}>
             {t('newDoc.subtitle', 'Choose a template and our AI will guide you step by step.')}
           </Typography>
@@ -317,7 +329,7 @@ function NewDocument() {
                   ))
                 : featured.map((tmpl, i) => (
                     <Grid item xs={12} sm={6} md={3} key={tmpl._id || tmpl.slug}>
-                      <TemplateCard template={tmpl} onSelect={handleSelect} delay={i * 0.07} />
+                      <TemplateCard template={tmpl} onSelect={handleSelect} delay={i * 0.07} isMostUsed={i < 3} />
                     </Grid>
                   ))}
             </Grid>

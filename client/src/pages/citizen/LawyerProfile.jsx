@@ -8,7 +8,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -24,9 +24,10 @@ import { getLawyerProfile, selectCurrentLawyer, selectLawyerLoading } from '../.
 import { selectUserPlan, selectIsAuthenticated } from '../../store/slices/authSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GlassCard from '../../components/ui/GlassCard';
+import GradientHeading from '../../components/ui/GradientHeading';
 import ConsultationBooking from '../../components/lawyer/ConsultationBooking';
 import FeatureGate from '../../components/ui/FeatureGate';
-import { RADIUS, SHADOWS } from '../../theme/tokens';
+import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
 
 // ─── Star rating ──────────────────────────────────────────────────────────────
 function StarRating({ rating = 0, size = 18 }) {
@@ -43,8 +44,9 @@ function StarRating({ rating = 0, size = 18 }) {
 
 // ─── Review card ──────────────────────────────────────────────────────────────
 function ReviewCard({ review, delay }) {
+  const prefersReducedMotion = useReducedMotion();
   return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay, duration: 0.35 }}>
+    <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay, duration: 0.35 }}>
       <Box sx={{ p: 2, borderRadius: `${RADIUS.lg}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)', mb: 1.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
           <Avatar sx={{ width: 32, height: 32, background: 'var(--color-primary)', fontSize: '0.8rem', fontWeight: 700 }}>
@@ -85,6 +87,7 @@ function LawyerProfile() {
   const plan = useSelector(selectUserPlan);
 
   const [bookingOpen, setBookingOpen] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (lawyerId) dispatch(getLawyerProfile(lawyerId));
@@ -146,7 +149,7 @@ function LawyerProfile() {
       <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 900, mx: 'auto', pb: { xs: 10, md: 4 } }}>
 
         {/* Back button */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
           <Typography
             variant="body2"
             onClick={() => navigate(-1)}
@@ -158,7 +161,7 @@ function LawyerProfile() {
         </motion.div>
 
         {/* Hero card */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
           <Box sx={{
             p: { xs: 3, sm: 4 }, mb: 3,
             borderRadius: `${RADIUS.xxl || 20}px`,
@@ -250,11 +253,11 @@ function LawyerProfile() {
           <Grid item xs={12} md={8}>
             {/* Bio */}
             {lawyer.bio && (
-              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+              <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
                 <Box sx={{ p: 3, mb: 2.5, borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)', boxShadow: SHADOWS.sm }}>
-                  <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 1.5 }}>
+                  <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 1.5 }}>
                     {t('lawyer.about', 'About')}
-                  </Typography>
+                  </GradientHeading>
                   <Typography variant="body2" sx={{ color: 'var(--color-text)', lineHeight: 1.75 }}>
                     {lawyer.bio}
                   </Typography>
@@ -264,11 +267,11 @@ function LawyerProfile() {
 
             {/* Specialisations */}
             {lawyer.specialisations?.length > 0 && (
-              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
+              <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
                 <Box sx={{ p: 3, mb: 2.5, borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)', boxShadow: SHADOWS.sm }}>
-                  <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 1.5 }}>
+                  <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 1.5 }}>
                     {t('lawyer.specialisations', 'Specialisations')}
-                  </Typography>
+                  </GradientHeading>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                     {lawyer.specialisations.map((s) => (
                       <Chip key={s} label={s} sx={{
@@ -283,11 +286,11 @@ function LawyerProfile() {
 
             {/* Reviews */}
             {lawyer.recentRatings?.length > 0 && (
-              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+              <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
                 <Box sx={{ p: 3, borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)', boxShadow: SHADOWS.sm }}>
-                  <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 2 }}>
+                  <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 2 }}>
                     ⭐ {t('lawyer.reviews', 'Client Reviews')}
-                  </Typography>
+                  </GradientHeading>
                   {lawyer.recentRatings.map((r, i) => (
                     <ReviewCard key={i} review={r} delay={i * 0.08} />
                   ))}
@@ -298,7 +301,7 @@ function LawyerProfile() {
 
           {/* Right: Details sidebar */}
           <Grid item xs={12} md={4}>
-            <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 }}>
+            <motion.div initial={prefersReducedMotion ? false : { opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 }}>
               <GlassCard sx={{ p: 2.5, mb: 2 }}>
                 <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 1.75 }}>
                   {t('lawyer.details', 'Details')}

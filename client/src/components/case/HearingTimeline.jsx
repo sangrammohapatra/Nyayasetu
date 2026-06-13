@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -35,11 +35,12 @@ function formatDate(date) {
 }
 
 function TimelineNode({ isPastNode, isNext }) {
+  const prefersReducedMotion = useReducedMotion();
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 28, flexShrink: 0 }}>
       {/* Dot */}
       <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {isNext && (
+        {isNext && !prefersReducedMotion && (
           <motion.div
             animate={{ scale: [1, 1.8, 1], opacity: [0.6, 0, 0.6] }}
             transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' }}
@@ -60,6 +61,9 @@ function TimelineNode({ isPastNode, isNext }) {
             ? 'var(--color-primary)'
             : 'var(--color-text-secondary)',
           border: isNext ? '2px solid var(--color-primary)' : '2px solid var(--color-border)',
+          boxShadow: isNext ? '0 0 0 3px var(--color-primary-alpha)' : 'none',
+          transform: isNext ? 'scale(1.1)' : 'none',
+          transition: 'transform 0.2s, box-shadow 0.2s',
           zIndex: 1,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
@@ -74,12 +78,13 @@ function TimelineNode({ isPastNode, isNext }) {
 
 function HearingEntry({ hearing, isNext, isLast, onRemind }) {
   const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
   const past = isPast(hearing.date);
   const urgent = isWithinDays(hearing.date, 7);
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: -12 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, x: -12 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.35 }}
     >

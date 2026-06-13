@@ -37,7 +37,8 @@ import {
 } from '../../store/slices/documentSlice';
 import { selectUserPlan } from '../../store/slices/authSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
-import { RADIUS, SHADOWS } from '../../theme/tokens';
+import GradientHeading from '../../components/ui/GradientHeading';
+import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
 import api from '../../services/api';
 
 const CATEGORY_ICONS = {
@@ -78,11 +79,9 @@ function EmptyState({ onCreateNew }) {
           <path d="M155 27v16M147 35h16" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
         </svg>
 
-        <Typography variant="h6" sx={{
-          fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 1,
-        }}>
+        <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 1 }}>
           {t('myDocs.empty_title', 'No documents yet')}
-        </Typography>
+        </GradientHeading>
         <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3, maxWidth: 300, mx: 'auto' }}>
           {t('myDocs.empty_desc', 'Create your first legal document. Our AI will guide you every step of the way.')}
         </Typography>
@@ -312,9 +311,9 @@ function MyDocuments() {
         <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
             <Box>
-              <Typography variant="h4" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
+              <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
                 {t('myDocs.title', 'My Documents')}
-              </Typography>
+              </GradientHeading>
               <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mt: 0.25 }}>
                 {filtered.length} {t('myDocs.count', 'documents')}
               </Typography>

@@ -29,6 +29,7 @@ import {
   DialogContent,
   DialogActions,
 } from '@mui/material';
+import { useTheme, alpha } from '@mui/material/styles';
 import {
   Send as SendIcon,
   Mic as MicIcon,
@@ -38,7 +39,10 @@ import {
   Delete as DeleteIcon,
   MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import GradientHeading from '../ui/GradientHeading';
+import { TYPOGRAPHY, RADIUS, SHADOWS } from '../../theme/tokens';
+import { useFeatureFlag } from '../../utils/featureFlags';
 import {
   sendMessage,
   sendVoiceMessage,
@@ -58,6 +62,7 @@ const ChatWindow = ({ sessionId, initialMessages = [] }) => {
   const dispatch = useDispatch();
   const { t } = useTranslation();
   const theme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Redux state
@@ -225,7 +230,7 @@ const ChatWindow = ({ sessionId, initialMessages = [] }) => {
   return (
     <Box
       component={motion.div}
-      initial={{ opacity: 0, y: 20 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       sx={{
@@ -237,19 +242,22 @@ const ChatWindow = ({ sessionId, initialMessages = [] }) => {
     >
       {/* HEADER */}
       <Paper
-        elevation={1}
+        elevation={0}
         sx={{
           p: 2,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           borderRadius: 0,
+          background: theme.custom?.cardBg || 'var(--color-surface)',
+          borderBottom: theme.custom?.cardBorder || '1px solid var(--color-border)',
+          boxShadow: SHADOWS.sm,
         }}
       >
         <Box>
-          <h2 style={{ color: 'var(--color-text)', margin: '0 0 8px 0' }}>
+          <GradientHeading variant="h6" sx={{ mb: 0.5, fontFamily: TYPOGRAPHY.fontFamily.display }}>
             {t('chat.title')}
-          </h2>
+          </GradientHeading>
           <Chip
             label={`${quota.remainingMessages}/${quota.totalDailyQuota || '∞'} ${t('chat.messagesRemaining')}`}
             color={quota.remainingMessages <= 2 ? 'error' : 'primary'}
@@ -395,8 +403,13 @@ const ChatWindow = ({ sessionId, initialMessages = [] }) => {
             maxRows={3}
             sx={{
               '& .MuiOutlinedInput-root': {
-                borderColor: 'var(--color-border)',
-                '&:hover': { borderColor: 'var(--color-primary)' },
+                borderRadius: `${RADIUS.lg}px`,
+                background: 'var(--color-bg)',
+                fontSize: '0.9rem',
+                fontFamily: TYPOGRAPHY.fontFamily.body,
+                '& fieldset': { borderColor: 'var(--color-border)' },
+                '&:hover fieldset': { borderColor: 'var(--color-primary)' },
+                '&.Mui-focused fieldset': { borderColor: 'var(--color-primary)', borderWidth: 2 },
                 color: 'var(--color-text)',
               },
             }}
@@ -417,13 +430,26 @@ const ChatWindow = ({ sessionId, initialMessages = [] }) => {
 
             <Tooltip title={t('chat.send')}>
               <span>
-                <IconButton
-                  type="submit"
-                  disabled={!inputValue.trim() || streaming || loading}
-                  sx={{ color: 'var(--color-primary)' }}
+                <motion.div
+                  whileHover={prefersReducedMotion ? undefined : { scale: 1.08 }}
+                  whileTap={prefersReducedMotion ? undefined : { scale: 0.93 }}
                 >
-                  <SendIcon />
-                </IconButton>
+                  <IconButton
+                    type="submit"
+                    disabled={!inputValue.trim() || streaming || loading}
+                    sx={{
+                      width: 44, height: 44,
+                      background: theme.custom?.gradientBrand || 'var(--color-primary)',
+                      boxShadow: theme.custom?.glowPrimary,
+                      borderRadius: '50%',
+                      color: '#fff',
+                      '&:hover': { background: theme.custom?.gradientBrand || 'var(--color-primary)', opacity: 0.9 },
+                      '&:disabled': { background: 'var(--color-border)', color: 'var(--color-text-secondary)', boxShadow: 'none' },
+                    }}
+                  >
+                    <SendIcon sx={{ fontSize: 20 }} />
+                  </IconButton>
+                </motion.div>
               </span>
             </Tooltip>
           </Box>

@@ -32,6 +32,9 @@ import Snackbar from '@mui/material/Snackbar';
 import Divider from '@mui/material/Divider';
 
 import AnimatedPage from '../../components/ui/AnimatedPage';
+import GradientHeading from '../../components/ui/GradientHeading';
+import { useTheme } from '@mui/material/styles';
+import { TYPOGRAPHY } from '../../theme/tokens';
 import {
   selectUser,
   updateMe, setPassword, deactivateAccount,
@@ -172,6 +175,7 @@ export default function CitizenProfile() {
   const dispatch  = useDispatch();
   const navigate  = useNavigate();
   const user      = useSelector(selectUser);
+  const muiTheme  = useTheme();
 
   // ── Personal info ──────────────────────────────────────────────────────────
   const [personal, setPersonal]     = useState({ name: '', email: '' });
@@ -301,12 +305,12 @@ export default function CitizenProfile() {
       <Box sx={{ maxWidth: 940, mx: 'auto', px: { xs: 2, sm: 3 }, py: 3 }}>
 
         {/* Page heading */}
-        <Typography
+        <GradientHeading
           variant="h5"
-          sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 3 }}
+          sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 3 }}
         >
           My Profile
-        </Typography>
+        </GradientHeading>
 
         {/* ── Profile hero ──────────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
@@ -326,7 +330,7 @@ export default function CitizenProfile() {
               background: getAvatarColor(user?.name),
               fontSize: '2rem', fontWeight: 700,
               border: '3px solid var(--color-surface)',
-              boxShadow: '0 4px 18px rgba(0,0,0,0.14)',
+              boxShadow: muiTheme.custom?.glowPrimary || '0 4px 18px rgba(0,0,0,0.14)',
               flexShrink: 0,
             }}>
               {getInitials(user?.name)}
