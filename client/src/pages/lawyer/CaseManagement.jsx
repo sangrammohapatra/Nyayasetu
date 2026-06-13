@@ -21,7 +21,8 @@ import Alert from '@mui/material/Alert';
 import { fetchMyClients, selectClients, selectLawyerLoading } from '../../store/slices/lawyerSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import HearingTimeline from '../../components/case/HearingTimeline';
-import { RADIUS, SHADOWS } from '../../theme/tokens';
+import GradientHeading from '../../components/ui/GradientHeading';
+import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
 import api from '../../services/api';
 
 function CaseCard({ caseData, clientName, delay }) {
@@ -82,7 +83,7 @@ function CaseCard({ caseData, clientName, delay }) {
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography sx={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem', letterSpacing: '0.06em', color: 'var(--color-text-secondary)' }}>
+            <Typography sx={{ fontFamily: TYPOGRAPHY.fontFamily.mono, fontSize: '0.75rem', letterSpacing: '0.06em', color: 'var(--color-text-secondary)' }}>
               {caseData.cnrNumber}
             </Typography>
             {caseData.nextHearingDate && (
@@ -170,9 +171,9 @@ function CaseManagement() {
     <AnimatedPage>
       <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 900, mx: 'auto', pb: { xs: 10, md: 4 } }}>
         <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
-          <Typography variant="h4" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.5 }}>
+          <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 0.5 }}>
             {t('case.management_title', 'Case Management')}
-          </Typography>
+          </GradientHeading>
           <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3 }}>
             {filtered.length} {t('case.cases', 'cases shared with you')}
           </Typography>
@@ -195,9 +196,9 @@ function CaseManagement() {
         ) : filtered.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 8 }}>
             <Typography sx={{ fontSize: 52, mb: 2 }}>⚖️</Typography>
-            <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 1 }}>
+            <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 1 }}>
               {search ? t('case.no_match', 'No cases match') : t('case.empty', 'No cases yet')}
-            </Typography>
+            </GradientHeading>
             <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
               {t('case.cases_mgmt_empty_desc', 'Cases will appear here once clients share them with you.')}
             </Typography>

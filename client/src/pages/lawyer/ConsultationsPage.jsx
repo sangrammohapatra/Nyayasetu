@@ -29,7 +29,9 @@ import {
   selectLawyerLoading,
 } from '../../store/slices/lawyerSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
-import { RADIUS, SHADOWS } from '../../theme/tokens';
+import GradientHeading from '../../components/ui/GradientHeading';
+import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
+import { useTheme } from '@mui/material/styles';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -71,6 +73,7 @@ function ConsultationRowSkeleton() {
 
 function ConsultationRow({ consultation, delay, onAccept, onReject, actionLoading }) {
   const { t } = useTranslation();
+  const muiTheme = useTheme();
   const citizen = consultation.citizen || {};
   const initials = citizen.name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || '?';
   const modeMeta = MODE_META[consultation.mode] || { icon: '📋', label: consultation.mode };
@@ -168,9 +171,10 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, actionLoadin
               onClick={() => onAccept(consultation._id)}
               sx={{
                 fontSize: '0.72rem', fontWeight: 600,
-                borderRadius: `${RADIUS.md}px`, py: 0.4,
-                background: 'var(--color-primary)',
-                '&:hover': { background: 'var(--color-primary-dark, var(--color-primary))' },
+                borderRadius: `${RADIUS.full}px`, py: 0.4,
+                background: muiTheme.custom?.gradientBrand || 'var(--color-primary)',
+                boxShadow: muiTheme.custom?.glowPrimary || 'none',
+                '&:hover': { background: muiTheme.custom?.gradientBrand || 'var(--color-primary-dark, var(--color-primary))' },
               }}
             >
               {t('consultations.accept', 'Accept')}
@@ -244,9 +248,9 @@ function ConsultationsPage() {
         <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
             <Box>
-              <Typography variant="h4" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
+              <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
                 {t('consultations.title', 'Consultations')}
-              </Typography>
+              </GradientHeading>
               <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mt: 0.25 }}>
                 {displayed.length} {t('consultations.total', 'consultations')}
                 {requestedCount > 0 && (
@@ -297,11 +301,11 @@ function ConsultationsPage() {
           ) : displayed.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 7 }}>
               <Typography sx={{ fontSize: 48, mb: 1.5 }}>📅</Typography>
-              <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 1 }}>
+              <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 1 }}>
                 {activeTab === 'all'
                   ? t('consultations.empty', 'No consultations yet')
                   : t('consultations.emptyStatus', `No ${activeTab} consultations`)}
-              </Typography>
+              </GradientHeading>
               <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
                 {t('consultations.emptyDesc', 'Consultations booked by clients will appear here.')}
               </Typography>
@@ -330,7 +334,7 @@ function ConsultationsPage() {
         maxWidth="xs" fullWidth
         PaperProps={{ sx: { borderRadius: `${RADIUS.xl}px`, background: 'var(--color-surface)' } }}
       >
-        <DialogTitle sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
+        <DialogTitle sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, color: 'var(--color-text)' }}>
           {t('consultations.rejectTitle', 'Decline Consultation')}
         </DialogTitle>
         <DialogContent>

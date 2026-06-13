@@ -6,7 +6,7 @@ import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -18,7 +18,8 @@ import Skeleton from '@mui/material/Skeleton';
 
 import { fetchMyClients, selectClients, selectLawyerLoading } from '../../store/slices/lawyerSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
-import { RADIUS, SHADOWS } from '../../theme/tokens';
+import GradientHeading from '../../components/ui/GradientHeading';
+import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
 
 const MODE_ICON = { chat: '💬', video: '📹', phone: '📞', in_person: '🤝' };
 
@@ -44,13 +45,14 @@ function SectionTitle({ children }) {
 }
 
 function ConsultationCard({ c, i }) {
+  const prefersReducedMotion = useReducedMotion();
   const sm = STATUS_META[c.status] || { label: c.status, bg: 'transparent', color: 'inherit' };
   const scheduled = c.scheduledAt
     ? new Date(c.scheduledAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
     : '—';
 
   return (
-    <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}>
+    <motion.div initial={prefersReducedMotion ? false : { opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}>
       <Box sx={{
         display: 'flex', alignItems: 'center', gap: 2, py: 1.5, px: 2,
         borderBottom: '1px solid var(--color-border)',
@@ -80,10 +82,11 @@ function ConsultationCard({ c, i }) {
 }
 
 function CaseCard({ c, i }) {
+  const prefersReducedMotion = useReducedMotion();
   const sm = STATUS_META[(c.status || 'active').toLowerCase()] || { label: c.status, bg: 'rgba(46,125,50,0.1)', color: '#2e7d32' };
 
   return (
-    <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}>
+    <motion.div initial={prefersReducedMotion ? false : { opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}>
       <Box sx={{
         display: 'flex', alignItems: 'center', gap: 2, py: 1.5, px: 2,
         borderBottom: '1px solid var(--color-border)',
@@ -116,6 +119,7 @@ function CaseCard({ c, i }) {
 function ClientDetail() {
   const { t } = useTranslation();
   const { userId } = useParams();
+  const prefersReducedMotion = useReducedMotion();
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const clients = useSelector(selectClients);
@@ -152,9 +156,9 @@ function ClientDetail() {
       <AnimatedPage>
         <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 800, mx: 'auto', textAlign: 'center', pt: 8 }}>
           <Typography sx={{ fontSize: 52, mb: 2 }}>👤</Typography>
-          <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 1 }}>
+          <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 1 }}>
             {t('clients.notFound', 'Client not found')}
-          </Typography>
+          </GradientHeading>
           <Button onClick={() => navigate('/lawyer/clients')} sx={{ mt: 2, color: 'var(--color-primary)', fontWeight: 600 }}>
             ← {t('clients.backToList', 'Back to Clients')}
           </Button>
@@ -176,7 +180,7 @@ function ClientDetail() {
         </Button>
 
         {/* Client header card */}
-        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
           <Box sx={{
             p: 3, borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)',
             background: 'var(--color-surface)', boxShadow: SHADOWS.sm, mb: 3,
@@ -186,9 +190,9 @@ function ClientDetail() {
               {initials}
             </Avatar>
             <Box sx={{ flex: 1, minWidth: 160 }}>
-              <Typography variant="h5" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
+              <GradientHeading variant="h5" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
                 {u.name || t('common.unknown', 'Unknown')}
-              </Typography>
+              </GradientHeading>
               <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mt: 0.25 }}>
                 {u.phone}{u.email && ` · ${u.email}`}
               </Typography>
@@ -203,7 +207,7 @@ function ClientDetail() {
         </motion.div>
 
         {/* Consultations */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Box sx={{ borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)', boxShadow: SHADOWS.sm, overflow: 'hidden', mb: 3 }}>
             <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid var(--color-border)' }}>
               <SectionTitle>{t('consultations.title', 'Consultations')}</SectionTitle>
@@ -222,7 +226,7 @@ function ClientDetail() {
         </motion.div>
 
         {/* Shared cases */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
           <Box sx={{ borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)', boxShadow: SHADOWS.sm, overflow: 'hidden' }}>
             <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid var(--color-border)' }}>
               <SectionTitle>{t('case.cases', 'Cases shared with you')}</SectionTitle>

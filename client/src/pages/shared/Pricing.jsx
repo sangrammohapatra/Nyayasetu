@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform, animate, useReducedMotion } from 'framer-motion';
 
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -30,8 +30,9 @@ import {
   createOrder, verifyPayment, selectSubscriptionLoading,
 } from '../../store/slices/subscriptionSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
+import GradientHeading from '../../components/ui/GradientHeading';
 import { openCheckout } from '../../services/razorpay';
-import { RADIUS, SHADOWS } from '../../theme/tokens';
+import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -215,16 +216,18 @@ function AnimatedPrice({ value, annual }) {
 
 function PlanCard({ plan, annual, currentPlan, onSelect, loading, persona }) {
   const { t } = useTranslation();
+  const muiTheme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
   const isCurrentPlan = plan.id === currentPlan;
   const price = annual ? plan.annual : plan.monthly;
   const isFree = price === 0;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 24 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
-      whileHover={!isCurrentPlan ? { y: -6, transition: { duration: 0.2 } } : {}}
+      whileHover={(!isCurrentPlan && !prefersReducedMotion) ? { y: -6, transition: { duration: 0.2 } } : {}}
       style={{ height: '100%' }}
     >
       <Box sx={{
@@ -236,8 +239,9 @@ function PlanCard({ plan, annual, currentPlan, onSelect, loading, persona }) {
         background: plan.popular ? 'var(--color-primary-alpha)' : 'var(--color-surface)',
         display: 'flex', flexDirection: 'column',
         position: 'relative',
-        boxShadow: plan.popular ? SHADOWS.lg : SHADOWS.sm,
-        transition: 'box-shadow 0.2s',
+        boxShadow: plan.popular ? (muiTheme.custom?.glowPrimary || SHADOWS.lg) : SHADOWS.sm,
+        transform: { md: plan.popular ? 'scale(1.03)' : 'none' },
+        transition: 'box-shadow 0.2s, transform 0.2s',
       }}>
         {/* Popular badge */}
         {plan.popular && (
@@ -293,15 +297,15 @@ function PlanCard({ plan, annual, currentPlan, onSelect, loading, persona }) {
         </Box>
 
         {/* CTA */}
-        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+        <motion.div whileHover={prefersReducedMotion ? undefined : { scale: 1.03 }} whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}>
           <Button
             fullWidth
             variant={plan.popular ? 'contained' : 'outlined'}
             disabled={isCurrentPlan || loading}
             onClick={() => !isFree && onSelect(plan.id, persona)}
             sx={{
-              py: 1.25, borderRadius: `${RADIUS.md}px`, fontWeight: 700, fontSize: '0.95rem',
-              background: plan.popular ? 'var(--color-primary)' : 'transparent',
+              py: 1.25, borderRadius: `${RADIUS.full}px`, fontWeight: 700, fontSize: '0.95rem',
+              background: plan.popular ? (muiTheme.custom?.gradientBrand || 'var(--color-primary)') : 'transparent',
               borderColor: plan.popular ? 'transparent' : 'var(--color-border)',
               color: plan.popular ? '#fff' : 'var(--color-text)',
               '&:hover': {
@@ -331,6 +335,7 @@ function Pricing() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const muiTheme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'));
 
   const user = useSelector(selectUser);
@@ -411,12 +416,12 @@ function Pricing() {
               }} />
             </motion.div>
           )}
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-            <Typography variant={isMobile ? 'h4' : 'h3'} sx={{
-              fontFamily: "'Playfair Display',serif", fontWeight: 800, color: 'var(--color-text)', mb: 1.5,
+          <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+            <GradientHeading variant={isMobile ? 'h4' : 'h3'} sx={{
+              fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 800, mb: 1.5,
             }}>
               {t('pricing.hero', 'Legal help that fits your pocket')}
-            </Typography>
+            </GradientHeading>
             <Typography variant="h6" sx={{ color: 'var(--color-text-secondary)', fontWeight: 400, maxWidth: 520, mx: 'auto' }}>
               {t('pricing.hero_sub', 'Professional legal documents from ₹0. Access justice without the lawyer fees.')}
             </Typography>
@@ -461,9 +466,9 @@ function Pricing() {
           <AnimatePresence mode="wait">
             <motion.div
               key={persona}
-              initial={{ opacity: 0, x: persona === 'citizen' ? -20 : 20 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, x: persona === 'citizen' ? -20 : 20 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: persona === 'citizen' ? 20 : -20 }}
+              exit={prefersReducedMotion ? undefined : { opacity: 0, x: persona === 'citizen' ? 20 : -20 }}
               transition={{ duration: 0.3 }}
             >
               <Grid container spacing={3} sx={{ mb: 5 }}>
@@ -539,9 +544,9 @@ function Pricing() {
 
           {/* Testimonials */}
           <Box sx={{ mb: 5 }}>
-            <Typography variant="h5" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', textAlign: 'center', mb: 3 }}>
+            <GradientHeading variant="h5" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, textAlign: 'center', mb: 3 }}>
               💬 Still not sure? Here's what our users say
-            </Typography>
+            </GradientHeading>
             <Grid container spacing={2}>
               {TESTIMONIALS.map((t, i) => (
                 <Grid item xs={12} md={4} key={i}>
@@ -571,9 +576,9 @@ function Pricing() {
 
           {/* FAQ */}
           <Box>
-            <Typography variant="h5" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 3 }}>
+            <GradientHeading variant="h5" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 3 }}>
               ❓ Frequently Asked Questions
-            </Typography>
+            </GradientHeading>
             {FAQS.map((faq, i) => (
               <MuiAccordion key={i} elevation={0} sx={{
                 mb: 1, borderRadius: `${RADIUS.lg}px !important`,

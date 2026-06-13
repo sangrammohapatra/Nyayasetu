@@ -63,7 +63,10 @@ import {
 } from "../../store/slices/uiSlice";
 import AnimatedPage from "../../components/ui/AnimatedPage";
 import LordIcon from "../../components/ui/LordIcon";
-import { RADIUS, SHADOWS } from "../../theme/tokens";
+import GlassCard from "../../components/ui/GlassCard";
+import GradientHeading from "../../components/ui/GradientHeading";
+import ThemeSwitcher from "../../components/layout/ThemeSwitcher";
+import { RADIUS, SHADOWS, TYPOGRAPHY } from "../../theme/tokens";
 
 const IC = {
   settings: "https://cdn.lordicon.com/asyunleq.json",
@@ -112,43 +115,6 @@ const INDIAN_STATES = [
   "Puducherry",
 ];
 
-const THEMES = [
-  {
-    id: "default",
-    label: "Blue Justice",
-    primary: "#1565C0",
-    bg: "#F8FAFF",
-    desc: "Professional",
-  },
-  {
-    id: "saffron",
-    label: "Saffron India",
-    primary: "#FF6F00",
-    bg: "#FFFBF0",
-    desc: "Patriotic",
-  },
-  {
-    id: "dark",
-    label: "Dark Mode",
-    primary: "#5C9BF5",
-    bg: "#0D1117",
-    desc: "Developer",
-  },
-  {
-    id: "highContrast",
-    label: "High Contrast",
-    primary: "#0000CC",
-    bg: "#FFFFFF",
-    desc: "Accessible",
-  },
-  {
-    id: "emerald",
-    label: "Emerald",
-    primary: "#00695C",
-    bg: "#F0FDF4",
-    desc: "Calm",
-  },
-];
 
 const LANGUAGES = [
   { code: "en", label: "English", native: "English" },
@@ -433,16 +399,15 @@ function AccountSection({ user, showSnack }) {
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-      <Typography
+      <GradientHeading
         variant="h6"
         sx={{
-          fontFamily: "'Playfair Display',serif",
+          fontFamily: TYPOGRAPHY.fontFamily.display,
           fontWeight: 700,
-          color: "var(--color-text)",
         }}
       >
         {t("settings.account", "Account Information")}
-      </Typography>
+      </GradientHeading>
 
       {/* Personal info */}
       <Box sx={boxSx}>
@@ -605,17 +570,16 @@ function AppearanceSection() {
 
   return (
     <Box>
-      <Typography
+      <GradientHeading
         variant="h6"
         sx={{
-          fontFamily: "'Playfair Display',serif",
+          fontFamily: TYPOGRAPHY.fontFamily.display,
           fontWeight: 700,
-          color: "var(--color-text)",
           mb: 2,
         }}
       >
         {t("settings.appearance", "Appearance")}
-      </Typography>
+      </GradientHeading>
       <Typography
         variant="body2"
         sx={{ color: "var(--color-text-secondary)", mb: 2.5 }}
@@ -626,100 +590,11 @@ function AppearanceSection() {
         )}
       </Typography>
 
-      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-        {THEMES.map((th) => {
-          const isActive = activeTheme === th.id;
-          return (
-            <motion.div
-              key={th.id}
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.97 }}
-            >
-              <Box
-                onClick={() => dispatch(setTheme(th.id))}
-                sx={{
-                  width: { xs: 130, sm: 150 },
-                  cursor: "pointer",
-                  borderRadius: `${RADIUS.lg}px`,
-                  border: isActive
-                    ? "2.5px solid var(--color-primary)"
-                    : "1.5px solid var(--color-border)",
-                  overflow: "hidden",
-                  boxShadow: isActive ? SHADOWS.md : "none",
-                  transition: "border-color 0.2s, box-shadow 0.2s",
-                }}
-              >
-                <Box
-                  sx={{
-                    height: 70,
-                    background: th.bg,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 0.75,
-                    p: 1.5,
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: "100%",
-                      height: 8,
-                      borderRadius: 4,
-                      background: th.primary,
-                    }}
-                  />
-                  <Box
-                    sx={{
-                      width: "70%",
-                      height: 5,
-                      borderRadius: 4,
-                      background: th.primary,
-                      opacity: 0.4,
-                    }}
-                  />
-                  <Box
-                    sx={{
-                      width: "85%",
-                      height: 5,
-                      borderRadius: 4,
-                      background: th.primary,
-                      opacity: 0.25,
-                    }}
-                  />
-                </Box>
-                <Box
-                  sx={{
-                    p: 1,
-                    background: "var(--color-surface)",
-                    borderTop: `1px solid ${isActive ? "var(--color-primary)" : "var(--color-border)"}`,
-                  }}
-                >
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      fontWeight: isActive ? 700 : 500,
-                      color: isActive
-                        ? "var(--color-primary)"
-                        : "var(--color-text)",
-                    }}
-                  >
-                    {th.label}
-                    {isActive && " ✓"}
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      display: "block",
-                      color: "var(--color-text-secondary)",
-                      fontSize: "0.65rem",
-                    }}
-                  >
-                    {th.desc}
-                  </Typography>
-                </Box>
-              </Box>
-            </motion.div>
-          );
-        })}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <ThemeSwitcher />
+        <Typography variant="body2" sx={{ color: "var(--color-text-secondary)" }}>
+          {t("settings.theme.click_to_change", "Click to change theme")}
+        </Typography>
       </Box>
     </Box>
   );
@@ -735,17 +610,16 @@ function LanguageSection() {
 
   return (
     <Box>
-      <Typography
+      <GradientHeading
         variant="h6"
         sx={{
-          fontFamily: "'Playfair Display',serif",
+          fontFamily: TYPOGRAPHY.fontFamily.display,
           fontWeight: 700,
-          color: "var(--color-text)",
           mb: 2,
         }}
       >
         {t("settings.language", "Language")}
-      </Typography>
+      </GradientHeading>
 
       {preview && (
         <Box
@@ -905,16 +779,15 @@ function NotificationsSection({ user, showSnack }) {
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-      <Typography
+      <GradientHeading
         variant="h6"
         sx={{
-          fontFamily: "'Playfair Display',serif",
+          fontFamily: TYPOGRAPHY.fontFamily.display,
           fontWeight: 700,
-          color: "var(--color-text)",
         }}
       >
         {t("settings.notificationSec", "Notifications")}
-      </Typography>
+      </GradientHeading>
 
       {/* Alert channels */}
       <Box
@@ -1112,16 +985,15 @@ function SubscriptionSection() {
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-      <Typography
+      <GradientHeading
         variant="h6"
         sx={{
-          fontFamily: "'Playfair Display',serif",
+          fontFamily: TYPOGRAPHY.fontFamily.display,
           fontWeight: 700,
-          color: "var(--color-text)",
         }}
       >
         {t("settings.subscription", "Subscription")}
-      </Typography>
+      </GradientHeading>
 
       <Box
         sx={{
@@ -1348,9 +1220,9 @@ function LawyerProfileSection({ lawyerProfile, showSnack }) {
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-      <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: "var(--color-text)" }}>
+      <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
         ⚖️ Lawyer Profile
-      </Typography>
+      </GradientHeading>
 
       {/* Practice details */}
       <Box sx={boxSx}>
@@ -1613,16 +1485,15 @@ function SecuritySection({ showSnack }) {
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-      <Typography
+      <GradientHeading
         variant="h6"
         sx={{
-          fontFamily: "'Playfair Display',serif",
+          fontFamily: TYPOGRAPHY.fontFamily.display,
           fontWeight: 700,
-          color: "var(--color-text)",
         }}
       >
         {t("settings.security", "Security")}
-      </Typography>
+      </GradientHeading>
 
       {/* Change password */}
       <Box
@@ -1915,16 +1786,15 @@ function Settings() {
               state="loop-cog"
               colors="primary:#1565C0,secondary:#5C9BF5"
             />
-            <Typography
+            <GradientHeading
               variant="h4"
               sx={{
-                fontFamily: "'Playfair Display',serif",
+                fontFamily: TYPOGRAPHY.fontFamily.display,
                 fontWeight: 700,
-                color: "var(--color-text)",
               }}
             >
               {t("settings.title", "Settings")}
-            </Typography>
+            </GradientHeading>
           </Box>
         </motion.div>
 
@@ -2026,17 +1896,13 @@ function Settings() {
                   exit={{ opacity: 0, x: -16 }}
                   transition={{ duration: 0.25 }}
                 >
-                  <Box
+                  <GlassCard
                     sx={{
                       p: 3.5,
-                      borderRadius: `${RADIUS.xl}px`,
-                      border: "1px solid var(--color-border)",
-                      background: "var(--color-surface)",
-                      boxShadow: SHADOWS.sm,
                     }}
                   >
                     {sectionContent[activeTab]}
-                  </Box>
+                  </GlassCard>
                 </motion.div>
               </AnimatePresence>
             </Box>

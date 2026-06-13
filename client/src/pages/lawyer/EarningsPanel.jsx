@@ -22,7 +22,8 @@ import {
 
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GlassCard from '../../components/ui/GlassCard';
-import { RADIUS, SHADOWS } from '../../theme/tokens';
+import GradientHeading from '../../components/ui/GradientHeading';
+import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
 import api from '../../services/api';
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
@@ -36,9 +37,9 @@ function EarningCard({ icon, label, value, sub, color, delay = 0 }) {
         <Box sx={{ width: 42, height: 42, borderRadius: `${RADIUS.md}px`, background: color || 'var(--color-primary-alpha)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, mb: 1.5 }}>
           {icon}
         </Box>
-        <Typography variant="h4" sx={{ fontWeight: 800, color: 'var(--color-text)', lineHeight: 1.1, mb: 0.25 }}>
+        <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 800, lineHeight: 1.1, mb: 0.25 }}>
           {value}
-        </Typography>
+        </GradientHeading>
         <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', display: 'block' }}>{label}</Typography>
         {sub && <Typography variant="caption" sx={{ color: 'var(--color-primary)', fontWeight: 600 }}>{sub}</Typography>}
       </Box>
@@ -162,9 +163,9 @@ function EarningsPanel() {
     <AnimatedPage>
       <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 1000, mx: 'auto', pb: { xs: 10, md: 4 } }}>
         <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
-          <Typography variant="h4" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 3 }}>
+          <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 3 }}>
             {t('earnings.title', 'Earnings')}
-          </Typography>
+          </GradientHeading>
         </motion.div>
 
         {/* Stats */}
@@ -190,9 +191,9 @@ function EarningsPanel() {
         {/* Bar chart */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           <Box sx={{ p: 2.5, borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)', boxShadow: SHADOWS.sm, mb: 3 }}>
-            <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 2.5 }}>
+            <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 2.5 }}>
               {t('earnings.chart', 'Monthly Earnings (Last 6 Months)')}
-            </Typography>
+            </GradientHeading>
             {chartData.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 4 }}>
                 <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
@@ -220,9 +221,9 @@ function EarningsPanel() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.38 }}>
           <Box sx={{ borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)', boxShadow: SHADOWS.sm, overflow: 'hidden' }}>
             <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid var(--color-border)' }}>
-              <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
+              <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
                 {t('earnings.history', 'Payment History')}
-              </Typography>
+              </GradientHeading>
             </Box>
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (

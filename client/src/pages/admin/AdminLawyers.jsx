@@ -24,8 +24,9 @@ import Tooltip from '@mui/material/Tooltip';
 
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GlassCard from '../../components/ui/GlassCard';
+import GradientHeading from '../../components/ui/GradientHeading';
 import api from '../../services/api';
-import { RADIUS } from '../../theme/tokens';
+import { RADIUS, TYPOGRAPHY } from '../../theme/tokens';
 
 export default function AdminLawyers() {
   const [lawyers, setLawyers] = useState([]);
@@ -77,9 +78,9 @@ export default function AdminLawyers() {
   return (
     <AnimatedPage>
       <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 1200, mx: 'auto' }}>
-        <Typography variant="h5" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 3 }}>
+        <GradientHeading variant="h5" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 3 }}>
           👨‍⚖️ Lawyers
-        </Typography>
+        </GradientHeading>
 
         {/* Filters */}
         <GlassCard sx={{ p: 2, mb: 2 }}>

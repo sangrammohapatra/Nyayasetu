@@ -25,8 +25,9 @@ import Skeleton from '@mui/material/Skeleton';
 
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GlassCard from '../../components/ui/GlassCard';
+import GradientHeading from '../../components/ui/GradientHeading';
 import api from '../../services/api';
-import { RADIUS } from '../../theme/tokens';
+import { RADIUS, TYPOGRAPHY } from '../../theme/tokens';
 
 const PERSONA_COLORS = {
   citizen: { bg: 'rgba(25,118,210,0.1)', color: '#1976d2' },
@@ -65,7 +66,7 @@ function UserDetail({ userId, onClose }) {
   return (
     <Box sx={{ width: { xs: '100vw', sm: 420 }, p: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700 }}>User Detail</Typography>
+        <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>User Detail</GradientHeading>
         <IconButton onClick={onClose} size="small">✕</IconButton>
       </Box>
       <Divider sx={{ mb: 2, borderColor: 'var(--color-border)' }} />
@@ -144,9 +145,9 @@ export default function AdminUsers() {
   return (
     <AnimatedPage>
       <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 1200, mx: 'auto' }}>
-        <Typography variant="h5" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 3 }}>
+        <GradientHeading variant="h5" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 3 }}>
           👥 Users
-        </Typography>
+        </GradientHeading>
 
         {/* Filters */}
         <GlassCard sx={{ p: 2, mb: 2 }}>

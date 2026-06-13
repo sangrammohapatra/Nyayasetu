@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
@@ -11,13 +11,15 @@ import LinearProgress from '@mui/material/LinearProgress';
 
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GlassCard from '../../components/ui/GlassCard';
+import GradientHeading from '../../components/ui/GradientHeading';
 import api from '../../services/api';
-import { SHADOWS } from '../../theme/tokens';
+import { SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
 
 /* ── Stat card ───────────────────────────────────────────────────────────── */
 function StatCard({ icon, label, value, sub, onClick, color }) {
+  const prefersReducedMotion = useReducedMotion();
   return (
-    <motion.div whileHover={{ y: -3 }} transition={{ duration: 0.2 }}>
+    <motion.div whileHover={prefersReducedMotion ? undefined : { y: -3 }} transition={{ duration: 0.2 }}>
       <GlassCard
         onClick={onClick}
         sx={{
@@ -33,9 +35,9 @@ function StatCard({ icon, label, value, sub, onClick, color }) {
             <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
               {label}
             </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--color-text)', lineHeight: 1.1, mt: 0.25 }}>
+            <GradientHeading variant="h5" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 800, lineHeight: 1.1, mt: 0.25 }}>
               {value ?? '—'}
-            </Typography>
+            </GradientHeading>
             {sub && (
               <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', display: 'block', mt: 0.25 }}>
                 {sub}
@@ -91,9 +93,9 @@ export default function AdminDashboard() {
 
         {/* Header */}
         <Box sx={{ mb: 3 }}>
-          <Typography variant="h5" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
+          <GradientHeading variant="h5" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
             ⚖️ Dashboard
-          </Typography>
+          </GradientHeading>
           <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mt: 0.5 }}>
             Platform overview &amp; analytics
           </Typography>

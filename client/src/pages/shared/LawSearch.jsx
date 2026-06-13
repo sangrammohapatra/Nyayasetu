@@ -12,14 +12,16 @@ import {
   Paper,
 } from "@mui/material";
 import { Gavel, OpenInNew, Search } from "@mui/icons-material";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import api from "../../services/api";
 import AnimatedPage from "../../components/ui/AnimatedPage";
-import { RADIUS } from "../../theme/tokens";
+import GradientHeading from "../../components/ui/GradientHeading";
+import { RADIUS, TYPOGRAPHY } from "../../theme/tokens";
 
 const PAGE_SIZE = 10;
 
 function ResultCard({ doc, index }) {
+  const prefersReducedMotion = useReducedMotion();
   const date = doc.publishdate
     ? new Date(doc.publishdate).toLocaleDateString("en-IN", {
         year: "numeric",
@@ -30,7 +32,7 @@ function ResultCard({ doc, index }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04 }}
     >
@@ -173,6 +175,7 @@ export default function LawSearch() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const prefersReducedMotion = useReducedMotion();
 
   const urlQuery = searchParams.get("q") || "";
   const urlPage = Math.max(0, parseInt(searchParams.get("page") || "0", 10));
@@ -232,17 +235,17 @@ export default function LawSearch() {
       <Box sx={{ maxWidth: 800, mx: "auto", px: { xs: 2, md: 4 }, py: 4 }}>
         {/* Header */}
         <Box sx={{ mb: 3 }}>
-          <Typography
+          <GradientHeading
+            variant="h4"
             sx={{
-              fontFamily: "'Playfair Display', serif",
+              fontFamily: TYPOGRAPHY.fontFamily.display,
               fontWeight: 700,
               fontSize: { xs: "1.5rem", md: "1.9rem" },
-              color: "var(--color-text)",
               mb: 0.5,
             }}
           >
             {t("lawSearch.title", "Legal Search")}
-          </Typography>
+          </GradientHeading>
           <Typography
             sx={{ fontSize: "0.875rem", color: "var(--color-text-secondary)" }}
           >
@@ -318,7 +321,7 @@ export default function LawSearch() {
           {searched && !loading && (
             <motion.div
               key={`${urlQuery}-${urlPage}`}
-              initial={{ opacity: 0 }}
+              initial={prefersReducedMotion ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
             >
               {results.length > 0 ? (
@@ -417,7 +420,7 @@ export default function LawSearch() {
           {!searched && !loading && (
             <motion.div
               key="empty"
-              initial={{ opacity: 0 }}
+              initial={prefersReducedMotion ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
             >
               <Box sx={{ textAlign: "center", py: 8 }}>

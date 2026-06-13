@@ -27,8 +27,9 @@ import IconButton from '@mui/material/IconButton';
 
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GlassCard from '../../components/ui/GlassCard';
+import GradientHeading from '../../components/ui/GradientHeading';
 import api from '../../services/api';
-import { RADIUS } from '../../theme/tokens';
+import { RADIUS, TYPOGRAPHY } from '../../theme/tokens';
 
 const CATEGORY_OPTIONS = ['consumer', 'property', 'employment', 'family', 'criminal', 'rti', 'civil', 'financial', 'labour', 'startup'];
 const COMPLEXITY_OPTIONS = ['simple', 'moderate', 'complex', 'premium'];
@@ -71,9 +72,9 @@ function TemplateForm({ template, onSave, onClose, saving }) {
   return (
     <Box sx={{ width: { xs: '100vw', sm: 480 }, p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700 }}>
+        <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
           {isEdit ? 'Edit Template' : 'New Template'}
-        </Typography>
+        </GradientHeading>
         <IconButton onClick={onClose} size="small">✕</IconButton>
       </Box>
       <Divider sx={{ borderColor: 'var(--color-border)' }} />
@@ -181,9 +182,9 @@ export default function AdminTemplates() {
     <AnimatedPage>
       <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 1200, mx: 'auto' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-          <Typography variant="h5" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
+          <GradientHeading variant="h5" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
             📋 Templates
-          </Typography>
+          </GradientHeading>
           <Button variant="contained" size="small" onClick={openCreate}
             sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 700, background: 'var(--color-primary)' }}>
             + New Template

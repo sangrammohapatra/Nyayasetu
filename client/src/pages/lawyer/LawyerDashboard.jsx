@@ -8,7 +8,7 @@ import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -29,7 +29,9 @@ import Slider from '@mui/material/Slider';
 
 import { applyAsLawyer, updateLawyerProfile, selectMyLawyerProfile } from '../../store/slices/lawyerSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
-import { RADIUS, SHADOWS } from '../../theme/tokens';
+import GradientHeading from '../../components/ui/GradientHeading';
+import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
+import { useTheme } from '@mui/material/styles';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -66,9 +68,9 @@ function StepBarCouncil({ control, errors }) {
   const { t } = useTranslation();
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-      <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
+      <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
         {t('lawyer_setup.s1_title', 'Bar Council Details')}
-      </Typography>
+      </GradientHeading>
       <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mt: -1.5 }}>
         {t('lawyer_setup.s1_desc', 'Your enrollment details are used for verification.')}
       </Typography>
@@ -100,9 +102,9 @@ function StepSpecialisations({ specialisations, onToggle, error }) {
   const { t } = useTranslation();
   return (
     <Box>
-      <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.5 }}>
+      <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 0.5 }}>
         {t('lawyer_setup.s2_title', 'Areas of Practice')}
-      </Typography>
+      </GradientHeading>
       <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 2.5 }}>
         {t('lawyer_setup.s2_desc', 'Select all areas you practise in. This helps clients find you.')}
       </Typography>
@@ -142,9 +144,9 @@ function StepPracticeDetails({ control, errors, practicingStates, setPracticingS
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-      <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
+      <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
         {t('lawyer_setup.s3_title', 'Practice Details')}
-      </Typography>
+      </GradientHeading>
 
       <Box>
         <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--color-text)', mb: 1.25 }}>
@@ -184,9 +186,9 @@ function StepAvailability({ control, modes, setModes }) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-      <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
+      <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
         {t('lawyer_setup.s4_title', 'Availability & Fees')}
-      </Typography>
+      </GradientHeading>
 
       <Controller name="consultationFee" control={control} render={({ field }) => (
         <Box>
@@ -237,9 +239,9 @@ function StepDocuments({ file, setFile, error }) {
 
   return (
     <Box>
-      <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.5 }}>
+      <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 0.5 }}>
         {t('lawyer_setup.s5_title', 'Upload Documents')}
-      </Typography>
+      </GradientHeading>
       <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 2.5 }}>
         {t('lawyer_setup.s5_desc', 'Upload your Bar Council enrollment certificate for verification. PDF, JPEG or PNG, max 5MB.')}
       </Typography>
@@ -299,9 +301,9 @@ function UnderReview() {
         <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 1.2, repeat: Infinity, repeatDelay: 3 }}>
           <Typography sx={{ fontSize: 64, mb: 2 }}>⚖️</Typography>
         </motion.div>
-        <Typography variant="h5" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 1 }}>
+        <GradientHeading variant="h5" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 1 }}>
           {t('lawyer_setup.under_review', 'Application Under Review')}
-        </Typography>
+        </GradientHeading>
         <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 4, maxWidth: 340, mx: 'auto' }}>
           {t('lawyer_setup.under_review_desc', 'Our team is reviewing your application. We will notify you within 2–3 business days.')}
         </Typography>
@@ -350,6 +352,8 @@ function LawyerDashboard() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const existingProfile = useSelector(selectMyLawyerProfile);
+  const muiTheme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
 
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
@@ -428,9 +432,9 @@ function LawyerDashboard() {
     <AnimatedPage>
       <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 640, mx: 'auto', pb: { xs: 10, md: 6 } }}>
         <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
-          <Typography variant="h4" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.5 }}>
+          <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 0.5 }}>
             ⚖️ {t('lawyer_setup.title', 'Set Up Your Lawyer Profile')}
-          </Typography>
+          </GradientHeading>
           <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3 }}>
             {t('lawyer_setup.subtitle', 'Complete your profile to start accepting consultations on NyayaSetu.')}
           </Typography>
@@ -460,9 +464,9 @@ function LawyerDashboard() {
               <motion.div
                 key={step}
                 custom={direction}
-                initial={{ opacity: 0, x: direction > 0 ? 40 : -40 }}
+                initial={prefersReducedMotion ? false : { opacity: 0, x: direction > 0 ? 40 : -40 }}
                 animate={{ opacity: 1, x: 0, transition: { duration: 0.32, ease: 'easeOut' } }}
-                exit={{ opacity: 0, x: direction > 0 ? -40 : 40, transition: { duration: 0.22 } }}
+                exit={prefersReducedMotion ? undefined : { opacity: 0, x: direction > 0 ? -40 : 40, transition: { duration: 0.22 } }}
               >
                 {stepComponents[step]}
               </motion.div>
@@ -481,12 +485,12 @@ function LawyerDashboard() {
             )}
             {step < STEP_COUNT - 1 ? (
               <Button variant="contained" onClick={goNext}
-                sx={{ flex: 2, borderRadius: `${RADIUS.md}px`, fontWeight: 700, background: 'var(--color-primary)' }}>
+                sx={{ flex: 2, borderRadius: `${RADIUS.full}px`, fontWeight: 700, background: muiTheme.custom?.gradientBrand || 'var(--color-primary)', boxShadow: muiTheme.custom?.glowPrimary || 'none' }}>
                 {t('common.continue', 'Continue')} →
               </Button>
             ) : (
               <Button variant="contained" onClick={handleSubmit(onFinalSubmit)} disabled={submitting}
-                sx={{ flex: 2, borderRadius: `${RADIUS.md}px`, fontWeight: 700, background: 'var(--color-primary)', py: 1.25 }}>
+                sx={{ flex: 2, borderRadius: `${RADIUS.full}px`, fontWeight: 700, background: muiTheme.custom?.gradientBrand || 'var(--color-primary)', boxShadow: muiTheme.custom?.glowPrimary || 'none', py: 1.25 }}>
                 {submitting ? <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><CircularProgress size={18} sx={{ color: '#fff' }} />{t('lawyer_setup.submitting', 'Submitting…')}</Box>
                   : t('lawyer_setup.submit', 'Submit Application')}
               </Button>

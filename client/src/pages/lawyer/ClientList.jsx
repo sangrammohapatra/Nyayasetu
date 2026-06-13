@@ -6,7 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -20,7 +20,8 @@ import Divider from '@mui/material/Divider';
 
 import { fetchMyClients, selectClients, selectLawyerLoading } from '../../store/slices/lawyerSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
-import { RADIUS, SHADOWS } from '../../theme/tokens';
+import GradientHeading from '../../components/ui/GradientHeading';
+import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
 
 function ClientRowSkeleton() {
   return (
@@ -38,6 +39,7 @@ function ClientRowSkeleton() {
 function ClientRow({ client, delay }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const prefersReducedMotion = useReducedMotion();
   const u = client.user || {};
   const initials = u.name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || '?';
   const casesCount = client.sharedCases?.length || 0;
@@ -54,7 +56,7 @@ function ClientRow({ client, delay }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.32 }}
     >
@@ -118,6 +120,7 @@ function ClientRow({ client, delay }) {
 function ClientList() {
   const { t } = useTranslation();
   const dispatch = useDispatch();
+  const prefersReducedMotion = useReducedMotion();
   const clients = useSelector(selectClients);
   const loading = useSelector(selectLawyerLoading);
   const [search, setSearch] = useState('');
@@ -134,12 +137,12 @@ function ClientList() {
   return (
     <AnimatedPage>
       <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 900, mx: 'auto', pb: { xs: 10, md: 4 } }}>
-        <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
             <Box>
-              <Typography variant="h4" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
+              <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
                 {t('clients.title', 'My Clients')}
-              </Typography>
+              </GradientHeading>
               <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mt: 0.25 }}>
                 {filtered.length} {t('clients.total', 'clients')}
               </Typography>
@@ -147,7 +150,7 @@ function ClientList() {
           </Box>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
           <TextField
             fullWidth
             placeholder={t('clients.search', 'Search by name or phone…')}
@@ -171,9 +174,9 @@ function ClientList() {
           ) : filtered.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 7 }}>
               <Typography sx={{ fontSize: 48, mb: 1.5 }}>👥</Typography>
-              <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 1 }}>
+              <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 1 }}>
                 {search ? t('clients.no_match', 'No clients match your search') : t('clients.empty', 'No clients yet')}
-              </Typography>
+              </GradientHeading>
               <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
                 {t('clients.empty_desc', 'Clients will appear here once they share cases or book consultations.')}
               </Typography>

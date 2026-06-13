@@ -12,6 +12,7 @@ import {
   useTransform,
   animate,
   AnimatePresence,
+  useReducedMotion,
 } from 'framer-motion';
 
 import Box from '@mui/material/Box';
@@ -37,7 +38,8 @@ import {
 } from '../../store/slices/lawyerSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GlassCard from '../../components/ui/GlassCard';
-import { RADIUS, SHADOWS } from '../../theme/tokens';
+import GradientHeading from '../../components/ui/GradientHeading';
+import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
 import api from '../../services/api';
 
 // ─── Animated counter ─────────────────────────────────────────────────────────
@@ -55,9 +57,10 @@ function AnimatedCounter({ target, prefix = '', suffix = '', duration = 1.6 }) {
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
 function StatCard({ icon, label, value, prefix = '', suffix = '', color, delay = 0 }) {
+  const prefersReducedMotion = useReducedMotion();
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.4 }}
     >
@@ -75,9 +78,9 @@ function StatCard({ icon, label, value, prefix = '', suffix = '', color, delay =
         }}>
           {icon}
         </Box>
-        <Typography variant="h4" sx={{ fontWeight: 800, color: 'var(--color-text)', lineHeight: 1.1, mb: 0.25 }}>
+        <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 800, lineHeight: 1.1, mb: 0.25 }}>
           <AnimatedCounter target={value} prefix={prefix} suffix={suffix} />
-        </Typography>
+        </GradientHeading>
         <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>{label}</Typography>
       </Box>
     </motion.div>
@@ -87,9 +90,10 @@ function StatCard({ icon, label, value, prefix = '', suffix = '', color, delay =
 // ─── Activity feed item ───────────────────────────────────────────────────────
 function ActivityItem({ item, delay }) {
   const ICONS = { document: '📄', hearing: '⚖️', consultation: '📅', case: '📋' };
+  const prefersReducedMotion = useReducedMotion();
   return (
     <motion.div
-      initial={{ opacity: 0, x: -12 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, x: -12 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay, duration: 0.32 }}
     >
@@ -122,6 +126,7 @@ function ActivityItem({ item, delay }) {
 // ─── Pending consultation card ────────────────────────────────────────────────
 function PendingConsultationCard({ consultation, onAccept, onReject }) {
   const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
   const [busy, setBusy] = useState('');
 
   const act = async (action) => {
@@ -139,9 +144,9 @@ function PendingConsultationCard({ consultation, onAccept, onReject }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.97 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.97 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
+      exit={prefersReducedMotion ? undefined : { opacity: 0, scale: 0.95 }}
     >
       <Box sx={{
         p: 2, borderRadius: `${RADIUS.lg}px`,
@@ -184,6 +189,7 @@ function PendingConsultationCard({ consultation, onAccept, onReject }) {
 function LawyerHome() {
   const { t } = useTranslation();
   const dispatch = useDispatch();
+  const prefersReducedMotion = useReducedMotion();
   const navigate = useNavigate();
   const user = useSelector(selectUser);
   const consultations = useSelector(selectConsultations);
@@ -257,12 +263,12 @@ function LawyerHome() {
     <AnimatedPage>
       <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 1100, mx: 'auto', pb: { xs: 10, md: 4 } }}>
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
           <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
             <Box>
-              <Typography variant="h4" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)' }}>
+              <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
                 ⚖️ {t('lawyer.welcome', `Welcome, Adv. ${firstName}`, { name: firstName })}
-              </Typography>
+              </GradientHeading>
               <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mt: 0.25 }}>
                 {new Date().toLocaleDateString('en-IN', { dateStyle: 'full' })}
               </Typography>
@@ -316,10 +322,10 @@ function LawyerHome() {
               transition={{ duration: 0.3 }}
             >
               <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 1.5 }}>
+                <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 1.5 }}>
                   🔔 {t('lawyer.pending_title', 'Consultations Awaiting Your Response')}
                   <Chip label={pending.length} size="small" sx={{ ml: 1, background: 'var(--color-warning)', color: '#fff', fontWeight: 800, height: 20, fontSize: '0.7rem' }} />
-                </Typography>
+                </GradientHeading>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                   {pending.slice(0, 5).map((c) => (
                     <PendingConsultationCard key={c._id} consultation={c} onAccept={handleAccept} onReject={handleReject} />
@@ -336,9 +342,9 @@ function LawyerHome() {
           <Grid item xs={12} md={4}>
             <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
               <Box sx={{ p: 2.5, borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)', boxShadow: SHADOWS.sm }}>
-                <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 2 }}>
+                <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 2 }}>
                   {t('lawyer.quick_actions', 'Quick Actions')}
-                </Typography>
+                </GradientHeading>
                 {[
                   { icon: '👥', label: t('lawyer.view_clients', 'View Clients'), path: '/lawyer/clients', color: 'var(--color-primary-alpha)' },
                   { icon: '📅', label: t('lawyer.consultations', 'Consultations'), path: '/lawyer/consultations', color: 'rgba(230,81,0,0.1)' },
@@ -367,9 +373,9 @@ function LawyerHome() {
           <Grid item xs={12} md={8}>
             <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}>
               <Box sx={{ p: 2.5, borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)', boxShadow: SHADOWS.sm }}>
-                <Typography variant="h6" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 2 }}>
+                <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 2 }}>
                   {t('lawyer.recent_activity', 'Recent Activity')}
-                </Typography>
+                </GradientHeading>
                 {activities.length === 0 ? (
                   <Box sx={{ textAlign: 'center', py: 4 }}>
                     <Typography sx={{ fontSize: 36, mb: 1 }}>📋</Typography>
