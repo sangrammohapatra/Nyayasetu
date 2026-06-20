@@ -359,6 +359,26 @@ documentSchema.virtual('hasPdf').get(function () {
   return !!this.pdfStorageKey;
 });
 
+// ─── Query Hooks ──────────────────────────────────────────────────────────────
+
+// Automatically exclude soft-deleted documents from every find-family query.
+// Callers that need deleted documents (e.g. admin recovery, audit) must
+// include `isDeleted` explicitly in their filter to bypass this gate.
+[
+  'find',
+  'findOne',
+  'findOneAndUpdate',
+  'findOneAndDelete',
+  'countDocuments',
+  'count',
+].forEach((hook) => {
+  documentSchema.pre(hook, function () {
+    if (this.getFilter().isDeleted === undefined) {
+      this.where({ isDeleted: false });
+    }
+  });
+});
+
 // ─── Pre-save Hooks ────────────────────────────────────────────────────────────
 
 documentSchema.pre('save', function (next) {
