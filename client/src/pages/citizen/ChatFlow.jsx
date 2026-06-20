@@ -638,7 +638,11 @@ function ChatFlow() {
             />
 
             {/* Voice input */}
-            <VoiceInput onTranscript={handleVoiceTranscript} disabled={isStreaming || dataComplete} />
+            <VoiceInput
+              onTranscript={handleVoiceTranscript}
+              disabled={isStreaming || dataComplete}
+              sessionId={session?._id}
+            />
 
             {/* Send button */}
             <motion.div whileHover={prefersReducedMotion ? undefined : { scale: 1.06 }} whileTap={prefersReducedMotion ? undefined : { scale: 0.94 }}>
