@@ -95,6 +95,7 @@ const AdminTemplates = lazy(() => import('./pages/admin/AdminTemplates'));
 const AdminAuditLog  = lazy(() => import('./pages/admin/AdminAuditLog'));
 const LawSearch           = lazy(() => import('./pages/shared/LawSearch'));
 const EmergencyHelpline   = lazy(() => import('./pages/citizen/EmergencyHelpline'));
+const LandingPage         = lazy(() => import('./pages/public/LandingPage'));
 
 // ─── Page loading fallback ────────────────────────────────────────────────────
 
@@ -225,8 +226,18 @@ function NotFound() {
 // ─── Router definition ────────────────────────────────────────────────────────
 
 const router = createBrowserRouter([
-  // Root redirect
-  { path: "/", element: <RootRedirect /> },
+  // Public landing page — shown to everyone
+  {
+    path: "/",
+    element: (
+      <Suspense fallback={<PageLoader />}>
+        <LandingPage />
+      </Suspense>
+    ),
+  },
+
+  // /app — dashboard redirect for authenticated users (for bookmarks / deep links)
+  { path: "/app", element: <RootRedirect /> },
 
   // /settings → /<persona>/settings (handles bookmarks and direct URL access)
   { path: "/settings", element: <SettingsRedirect /> },

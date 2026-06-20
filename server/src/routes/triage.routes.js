@@ -1,12 +1,26 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const { verifyToken } = require('../middleware/auth.middleware');
-const { analyzeSituation, getTriageQuota } = require('../controllers/triage.controller');
+const { analyzeSituation, getTriageQuota, publicAnalyzeSituation } = require('../controllers/triage.controller');
 
-// GET /v1/triage/quota  — check remaining daily uses
+// Stricter rate limit for the public (unauthenticated) endpoint
+const publicTriageLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 min
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'TOO_MANY_REQUESTS',
+    message: 'Too many triage requests from this IP. Please wait 15 minutes.',
+  },
+});
+
+// Public (guest) endpoint — no auth, email-gated
+router.post('/public', publicTriageLimiter, publicAnalyzeSituation);
+
+// Authenticated endpoints
 router.get('/quota', verifyToken, getTriageQuota);
-
-// POST /v1/triage  — submit emergency description
 router.post('/', verifyToken, analyzeSituation);
 
 module.exports = router;

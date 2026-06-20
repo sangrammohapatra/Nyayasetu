@@ -1,6 +1,7 @@
 const asyncHandler = require('../utils/asyncHandler');
 const aiTriageService = require('../services/ai/aiTriageService');
 const User = require('../models/User.model');
+const PublicTriage = require('../models/PublicTriage.model');
 const { createError } = require('../middleware/error.middleware');
 const logger = require('../utils/logger');
 
@@ -138,4 +139,81 @@ const getTriageQuota = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { analyzeSituation, getTriageQuota };
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const GUEST_DAILY_LIMIT = 1;
+
+function getISTDateKey() {
+  // Returns 'YYYY-MM-DD' in IST (UTC+5:30)
+  const now = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+  return now.toISOString().slice(0, 10);
+}
+
+/**
+ * POST /v1/triage/public
+ * Body: { email, description, stateCode?, language? }
+ *
+ * Guest (unauthenticated) triage — 1 free use per email per day.
+ * On second attempt the same day, returns 403 with sign-up prompt.
+ */
+const publicAnalyzeSituation = asyncHandler(async (req, res) => {
+  const { email, description, stateCode, language } = req.body;
+
+  if (!email || !EMAIL_RE.test(email)) {
+    return res.status(400).json({ error: 'INVALID_EMAIL', message: 'A valid email address is required.' });
+  }
+
+  if (!description || description.trim().length < 10) {
+    return res.status(400).json({ error: 'INVALID_INPUT', message: 'Please describe your situation in at least 10 characters.' });
+  }
+
+  if (description.length > 2000) {
+    return res.status(400).json({ error: 'INPUT_TOO_LONG', message: 'Please keep your description under 2000 characters.' });
+  }
+
+  const dateKey = getISTDateKey();
+  const normalEmail = email.toLowerCase().trim();
+
+  // ── Check if same email already used triage today ──────────────────────────
+  const existing = await PublicTriage.findOne({ email: normalEmail, dateKey });
+
+  if (existing && existing.count >= GUEST_DAILY_LIMIT) {
+    return res.status(403).json({
+      error: 'GUEST_QUOTA_EXCEEDED',
+      message: 'You\'ve used your 1 free emergency triage for today.',
+      used:       existing.count,
+      limit:      GUEST_DAILY_LIMIT,
+      signupUrl:  '/register',
+      pricingUrl: '/pricing',
+    });
+  }
+
+  // ── Run AI triage ──────────────────────────────────────────────────────────
+  logger.info(`[Triage/public] email=${normalEmail} state=${stateCode || 'n/a'}`);
+
+  const result = await aiTriageService.analyze({
+    description: description.trim(),
+    stateCode:   stateCode || null,
+    language:    language  || 'en',
+  });
+
+  // ── Increment counter ──────────────────────────────────────────────────────
+  await PublicTriage.findOneAndUpdate(
+    { email: normalEmail, dateKey },
+    { $inc: { count: 1 } },
+    { upsert: true, new: true }
+  );
+
+  res.json({
+    success: true,
+    triage:  result,
+    usage: {
+      used:      (existing?.count || 0) + 1,
+      limit:     GUEST_DAILY_LIMIT,
+      remaining: Math.max(0, GUEST_DAILY_LIMIT - (existing?.count || 0) - 1),
+    },
+  });
+});
+
+module.exports = { analyzeSituation, getTriageQuota, publicAnalyzeSituation };
