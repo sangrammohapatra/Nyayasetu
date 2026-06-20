@@ -12,6 +12,10 @@ const {
   deleteDocument,
   linkCase,
   regenerate,
+  updateApprovalStatus,
+  addAnnotation,
+  lawyerEditDocument,
+  getLinkedConsultation,
 } = require('../controllers/document.controller');
 
 const { verifyToken, optionalAuth }    = require('../middleware/auth.middleware');
@@ -162,6 +166,60 @@ router.delete(
   '/:id',
   validate([param('id').isMongoId().withMessage('Invalid document ID')]),
   deleteDocument
+);
+
+/**
+ * PATCH /v1/documents/:id/approval-status
+ * Advance the document through the approval workflow.
+ */
+router.patch(
+  '/:id/approval-status',
+  validate([
+    param('id').isMongoId().withMessage('Invalid document ID'),
+    body('status')
+      .notEmpty().withMessage('status is required')
+      .isIn(['shared_with_lawyer', 'under_review', 'lawyer_reviewed', 'finalized'])
+      .withMessage('Invalid status'),
+  ]),
+  updateApprovalStatus
+);
+
+/**
+ * POST /v1/documents/:id/annotations
+ * Lawyer adds an inline annotation to a document.
+ */
+router.post(
+  '/:id/annotations',
+  validate([
+    param('id').isMongoId().withMessage('Invalid document ID'),
+    body('note').notEmpty().withMessage('note is required').isLength({ max: 2000 }),
+    body('clauseIndex').optional().isInt({ min: 0 }),
+    body('clauseText').optional().isLength({ max: 500 }),
+  ]),
+  addAnnotation
+);
+
+/**
+ * PATCH /v1/documents/:id/lawyer-edit
+ * Lawyer submits an edited version of the document.
+ */
+router.patch(
+  '/:id/lawyer-edit',
+  validate([
+    param('id').isMongoId().withMessage('Invalid document ID'),
+    body('content').notEmpty().withMessage('content is required'),
+  ]),
+  lawyerEditDocument
+);
+
+/**
+ * GET /v1/documents/:id/consultation
+ * Citizen fetches the consultation linked to this document (for the chat button).
+ */
+router.get(
+  '/:id/consultation',
+  validate([param('id').isMongoId().withMessage('Invalid document ID')]),
+  getLinkedConsultation
 );
 
 module.exports = router;

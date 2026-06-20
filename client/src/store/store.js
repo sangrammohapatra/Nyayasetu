@@ -28,6 +28,7 @@ import notificationReducer from "./slices/notificationSlice";
 import lawyerReducer from "./slices/lawyerSlice";
 import errorReducer from "./slices/errorSlice";
 import nyayabotReducer from './slices/nyayabotSlice';
+import consultationChatReducer from './slices/consultationChatSlice';
 // ─── Persist configs ─────────────────────────────────────────────────────────
 
 const authPersistConfig = {
@@ -55,6 +56,7 @@ const rootReducer = combineReducers({
   subscription: subscriptionReducer,
   notification: notificationReducer,
   lawyer: lawyerReducer,
+  consultationChat: consultationChatReducer,
 });
 
 // ─── Store ───────────────────────────────────────────────────────────────────

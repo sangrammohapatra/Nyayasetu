@@ -28,6 +28,7 @@ import {
   selectConsultations,
   selectLawyerLoading,
 } from '../../store/slices/lawyerSlice';
+import ConsultationChat from '../../components/consultation/ConsultationChat';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GradientHeading from '../../components/ui/GradientHeading';
 import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
@@ -71,7 +72,7 @@ function ConsultationRowSkeleton() {
 
 // ─── Row ──────────────────────────────────────────────────────────────────────
 
-function ConsultationRow({ consultation, delay, onAccept, onReject, actionLoading }) {
+function ConsultationRow({ consultation, delay, onAccept, onReject, onChat, actionLoading }) {
   const { t } = useTranslation();
   const muiTheme = useTheme();
   const prefersReducedMotion = useReducedMotion();
@@ -194,6 +195,22 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, actionLoadin
             </Button>
           </Box>
         )}
+
+        {/* Chat button for accepted/completed consultations */}
+        {(consultation.status === 'accepted' || consultation.status === 'completed') && (
+          <Button
+            size="small" variant="outlined" disabled={actionLoading}
+            onClick={() => onChat(consultation)}
+            sx={{
+              fontSize: '0.72rem', fontWeight: 600,
+              borderRadius: `${RADIUS.md}px`, py: 0.4, flexShrink: 0,
+              borderColor: 'var(--color-primary)', color: 'var(--color-primary)',
+              '&:hover': { background: 'var(--color-primary-alpha)' },
+            }}
+          >
+            💬 Chat
+          </Button>
+        )}
       </Box>
     </motion.div>
   );
@@ -214,6 +231,9 @@ function ConsultationsPage() {
   // Reject dialog state
   const [rejectDialog, setRejectDialog] = useState({ open: false, id: null });
   const [rejectReason, setRejectReason] = useState('');
+
+  // Chat drawer state
+  const [chatConsultation, setChatConsultation] = useState(null);
 
   useEffect(() => {
     const params = activeTab !== 'all' ? { status: activeTab } : {};
@@ -321,6 +341,7 @@ function ConsultationsPage() {
                   delay={i * 0.04}
                   onAccept={handleAccept}
                   onReject={openRejectDialog}
+                  onChat={(c) => setChatConsultation(c)}
                   actionLoading={actionLoading}
                 />
               ))}
@@ -328,6 +349,16 @@ function ConsultationsPage() {
           )}
         </Box>
       </Box>
+
+      {/* Real-time chat drawer */}
+      {chatConsultation && (
+        <ConsultationChat
+          consultationId={chatConsultation._id}
+          open={!!chatConsultation}
+          onClose={() => setChatConsultation(null)}
+          otherPartyName={chatConsultation.citizen?.name || 'Client'}
+        />
+      )}
 
       {/* Reject dialog */}
       <Dialog

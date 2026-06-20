@@ -209,6 +209,45 @@ const documentSchema = new Schema(
     },
     lawyerReviewNotes: { type: String, trim: true },
 
+    // ── Approval Workflow ─────────────────────────────────────────────────────
+    approvalStatus: {
+      type: String,
+      enum: ['draft', 'shared_with_lawyer', 'under_review', 'lawyer_reviewed', 'finalized'],
+      default: 'draft',
+      index: true,
+    },
+
+    // ── Lawyer Annotations ────────────────────────────────────────────────────
+    lawyerAnnotations: {
+      type: [
+        new Schema(
+          {
+            lawyer:      { type: Schema.Types.ObjectId, ref: 'User', required: true },
+            lawyerName:  { type: String, trim: true },
+            clauseIndex: { type: Number, default: null },
+            clauseText:  { type: String, trim: true, maxlength: 500 },
+            note:        { type: String, required: true, trim: true, maxlength: 2000 },
+            createdAt:   { type: Date, default: Date.now },
+          },
+          { _id: true }
+        ),
+      ],
+      default: [],
+    },
+
+    // ── Lawyer-edited version ─────────────────────────────────────────────────
+    lawyerEditedContent: { type: String, default: null },
+    lawyerEditedAt:      { type: Date,   default: null },
+    lawyerEditedBy:      { type: Schema.Types.ObjectId, ref: 'User', default: null },
+
+    // ── Linked consultation (set when citizen attaches doc to a booking) ──────
+    linkedConsultation: {
+      type: Schema.Types.ObjectId,
+      ref: 'Consultation',
+      default: null,
+      index: true,
+    },
+
     // ── Versioning ────────────────────────────────────────────────────────────
     version: {
       type: Number,

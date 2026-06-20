@@ -5,6 +5,7 @@ const ChatSession      = require('../models/ChatSession.model');
 const DocumentTemplate = require('../models/DocumentTemplate.model');
 const JurisdictionRule = require('../models/JurisdictionRule.model');
 const User             = require('../models/User.model');
+const LawyerProfile    = require('../models/LawyerProfile.model');
 const AuditLog         = require('../models/AuditLog.model');
 const Notification     = require('../models/Notification.model');
 const { getSignedPdfUrl } = require('../services/storage/storageProvider');
@@ -536,6 +537,248 @@ const regenerate = asyncHandler(async (req, res) => {
   });
 });
 
+// ─── updateApprovalStatus ──────────────────────────────────────────────────────
+
+/**
+ * PATCH /v1/documents/:id/approval-status
+ *
+ * Citizen can move draft → shared_with_lawyer or finalized.
+ * Lawyer can move shared_with_lawyer → under_review → lawyer_reviewed.
+ */
+const updateApprovalStatus = asyncHandler(async (req, res) => {
+  const { id: documentId } = req.params;
+  const { userId, persona } = req.user;
+  const { status } = req.body;
+
+  const ALLOWED_TRANSITIONS = {
+    citizen: {
+      draft:           ['shared_with_lawyer'],
+      lawyer_reviewed: ['finalized'],
+    },
+    lawyer: {
+      shared_with_lawyer: ['under_review'],
+      under_review:       ['lawyer_reviewed'],
+    },
+  };
+
+  const document = await DocumentModel.findById(documentId);
+  if (!document || document.isDeleted) throw createError(404, 'DOCUMENT_NOT_FOUND', 'Document not found');
+
+  const isCitizen = document.user.equals(userId) && persona === 'citizen';
+  const isLawyer  = persona === 'lawyer' || persona === 'paralegal';
+
+  if (!isCitizen && !isLawyer) throw createError(403, 'FORBIDDEN', 'Access denied');
+
+  // Lawyer access: must be linked via consultation
+  if (isLawyer) {
+    const lawyerProf = await LawyerProfile.findOne({ user: userId }).select('_id').lean();
+    if (!lawyerProf) throw createError(403, 'FORBIDDEN', 'Lawyer profile not found');
+    const ConsultModel = require('../models/Consultation.model');
+    const linked = await ConsultModel.findOne({
+      $or: [
+        { sharedDocument: documentId },
+        { _id: document.linkedConsultation },
+      ],
+      lawyer: lawyerProf._id,
+    }).select('_id').lean();
+    if (!linked) throw createError(403, 'FORBIDDEN', 'You are not the reviewing lawyer for this document');
+  }
+
+  const roleKey = isCitizen ? 'citizen' : 'lawyer';
+  const allowed = ALLOWED_TRANSITIONS[roleKey]?.[document.approvalStatus] || [];
+
+  if (!allowed.includes(status)) {
+    throw createError(400, 'INVALID_TRANSITION',
+      `Cannot move from "${document.approvalStatus}" to "${status}" as ${roleKey}`);
+  }
+
+  document.approvalStatus = status;
+  if (isLawyer && !document.reviewedByLawyer) document.reviewedByLawyer = userId;
+  await document.save();
+
+  // Notify document owner via socket
+  const io = req.app.get('io');
+  if (io) {
+    io.to(`user:${document.user.toString()}`).emit('document:status_changed', {
+      documentId,
+      approvalStatus: status,
+    });
+  }
+
+  await AuditLog.log(req, 'document.approval_status.updated', 'Document', document._id, { status });
+
+  res.json({ documentId, approvalStatus: status });
+});
+
+// ─── addAnnotation ────────────────────────────────────────────────────────────
+
+/**
+ * POST /v1/documents/:id/annotations
+ * Lawyer only. Adds an inline note to the document.
+ */
+const addAnnotation = asyncHandler(async (req, res) => {
+  const { id: documentId } = req.params;
+  const { userId, persona } = req.user;
+  const { note, clauseIndex, clauseText } = req.body;
+
+  if (!note?.trim()) throw createError(400, 'NOTE_REQUIRED', 'Annotation note is required');
+  if (persona !== 'lawyer' && persona !== 'paralegal')
+    throw createError(403, 'FORBIDDEN', 'Only lawyers can annotate documents');
+
+  const document = await DocumentModel.findById(documentId);
+  if (!document || document.isDeleted) throw createError(404, 'DOCUMENT_NOT_FOUND', 'Document not found');
+
+  const lawyerProf = await LawyerProfile.findOne({ user: userId }).select('_id').lean();
+  if (!lawyerProf) throw createError(403, 'FORBIDDEN', 'Lawyer profile not found');
+  const ConsultModel = require('../models/Consultation.model');
+  const linked = await ConsultModel.findOne({
+    $or: [
+      { sharedDocument: documentId },
+      { _id: document.linkedConsultation },
+    ],
+    lawyer: lawyerProf._id,
+  }).select('_id').lean();
+  if (!linked) throw createError(403, 'FORBIDDEN', 'You are not the reviewing lawyer for this document');
+
+  const user = await User.findById(userId).select('name').lean();
+
+  document.lawyerAnnotations.push({
+    lawyer:      userId,
+    lawyerName:  user?.name || 'Lawyer',
+    clauseIndex: clauseIndex ?? null,
+    clauseText:  clauseText?.slice(0, 500) || null,
+    note:        note.trim(),
+  });
+
+  if (document.approvalStatus === 'shared_with_lawyer') {
+    document.approvalStatus = 'under_review';
+  }
+  if (!document.reviewedByLawyer) document.reviewedByLawyer = userId;
+  await document.save();
+
+  await AuditLog.log(req, 'document.annotation.added', 'Document', document._id, { clauseIndex });
+
+  res.status(201).json({
+    annotation: document.lawyerAnnotations[document.lawyerAnnotations.length - 1],
+    approvalStatus: document.approvalStatus,
+  });
+});
+
+// ─── lawyerEditDocument ───────────────────────────────────────────────────────
+
+/**
+ * PATCH /v1/documents/:id/lawyer-edit
+ * Lawyer submits an edited version of the document content.
+ */
+const lawyerEditDocument = asyncHandler(async (req, res) => {
+  const { id: documentId } = req.params;
+  const { userId, persona } = req.user;
+  const { content } = req.body;
+
+  if (!content?.trim()) throw createError(400, 'CONTENT_REQUIRED', 'Edited content is required');
+  if (persona !== 'lawyer' && persona !== 'paralegal')
+    throw createError(403, 'FORBIDDEN', 'Only lawyers can edit documents');
+
+  const document = await DocumentModel.findById(documentId);
+  if (!document || document.isDeleted) throw createError(404, 'DOCUMENT_NOT_FOUND', 'Document not found');
+
+  const lawyerProf = await LawyerProfile.findOne({ user: userId }).select('_id').lean();
+  if (!lawyerProf) throw createError(403, 'FORBIDDEN', 'Lawyer profile not found');
+  const ConsultModel = require('../models/Consultation.model');
+  const linked = await ConsultModel.findOne({
+    $or: [
+      { sharedDocument: documentId },
+      { _id: document.linkedConsultation },
+    ],
+    lawyer: lawyerProf._id,
+  }).select('_id').lean();
+  if (!linked) throw createError(403, 'FORBIDDEN', 'You are not the reviewing lawyer for this document');
+
+  document.lawyerEditedContent = content.trim();
+  document.lawyerEditedAt      = new Date();
+  document.lawyerEditedBy      = userId;
+  if (!document.reviewedByLawyer) document.reviewedByLawyer = userId;
+  if (document.approvalStatus === 'shared_with_lawyer') document.approvalStatus = 'under_review';
+  await document.save();
+
+  await AuditLog.log(req, 'document.lawyer_edit.saved', 'Document', document._id);
+
+  // Notify document owner
+  const io = req.app.get('io');
+  if (io) {
+    io.to(`user:${document.user.toString()}`).emit('document:lawyer_edited', { documentId });
+  }
+
+  res.json({ documentId, lawyerEditedAt: document.lawyerEditedAt });
+});
+
+// ─── getLinkedConsultation ────────────────────────────────────────────────────
+
+/**
+ * GET /v1/documents/:id/consultation
+ * Returns the consultation (if any) where this document is shared,
+ * so citizen can open the chat or check review status.
+ */
+const getLinkedConsultation = asyncHandler(async (req, res) => {
+  const { id: documentId } = req.params;
+  const { userId }         = req.user;
+
+  const document = await DocumentModel.findById(documentId).select('user linkedConsultation isDeleted');
+  if (!document || document.isDeleted) throw createError(404, 'DOCUMENT_NOT_FOUND', 'Document not found');
+  if (!document.user.equals(userId)) throw createError(403, 'FORBIDDEN', 'Access denied');
+
+  const ConsultModel = require('../models/Consultation.model');
+  const consultation = await ConsultModel.findOne({
+    $or: [
+      { sharedDocument: documentId },
+      { _id: document.linkedConsultation },
+    ],
+    citizen: userId,
+  })
+    .populate('lawyer', 'name avatar')
+    .select('_id status mode scheduledAt lawyer sharedDocument')
+    .lean();
+
+  res.json({ consultation: consultation || null });
+});
+
+// ─── getDocumentForLawyer ─────────────────────────────────────────────────────
+
+/**
+ * GET /v1/consultations/:consultationId/document
+ * Lawyer fetches the sharedDocument on a consultation they're party to.
+ * Mounted separately in consultationChat.routes.js.
+ */
+const getDocumentForLawyer = asyncHandler(async (req, res) => {
+  const { consultationId } = req.params;
+  const { userId, persona } = req.user;
+
+  if (persona !== 'lawyer' && persona !== 'paralegal')
+    throw createError(403, 'FORBIDDEN', 'Lawyers only');
+
+  const lawyerProf = await LawyerProfile.findOne({ user: userId }).select('_id').lean();
+  if (!lawyerProf) throw createError(403, 'FORBIDDEN', 'Lawyer profile not found');
+  const ConsultModel = require('../models/Consultation.model');
+  const consultation = await ConsultModel.findOne({ _id: consultationId, lawyer: lawyerProf._id })
+    .select('sharedDocument citizen')
+    .lean();
+
+  if (!consultation) throw createError(404, 'NOT_FOUND', 'Consultation not found or access denied');
+  if (!consultation.sharedDocument) return res.json({ document: null });
+
+  const document = await DocumentModel.findById(consultation.sharedDocument)
+    .populate('template', 'name slug category icon')
+    .lean();
+
+  if (!document || document.isDeleted) return res.json({ document: null });
+
+  // Remove pdfStorageKey
+  delete document.pdfStorageKey;
+  delete document.pdfUrl;
+
+  res.json({ document });
+});
+
 module.exports = {
   generateDocument,
   getDocument,
@@ -547,4 +790,9 @@ module.exports = {
   deleteDocument,
   linkCase,
   regenerate,
+  updateApprovalStatus,
+  addAnnotation,
+  lawyerEditDocument,
+  getLinkedConsultation,
+  getDocumentForLawyer,
 };

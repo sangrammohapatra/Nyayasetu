@@ -39,6 +39,11 @@ import NyayaBotWidget from "./components/nyayabot/NyayaBotWidget";
 import ScrollProgressBar from "./components/ui/ScrollProgressBar";
 import ErrorBoundaryWithDispatch from "./components/ui/ErrorBoundary";
 import { ErrorNotificationSnackbar } from "./hooks/useErrorHandling";
+import socketService from "./services/socket";
+import {
+  receiveMessage,
+  incrementUnread,
+} from "./store/slices/consultationChatSlice";
 
 import {
   selectIsAuthenticated,
@@ -215,12 +220,6 @@ function NotFound() {
     </AnimatedPage>
   );
 }
-
-// ─── Shared document view (no auth required) ──────────────────────────────────
-
-const SharedDocumentView = lazy(
-  () => import("./pages/citizen/DocumentPreview"),
-);
 
 // ─── Router definition ────────────────────────────────────────────────────────
 
@@ -450,6 +449,7 @@ function GlobalSnackbars() {
 function AppBootstrap() {
   const dispatch = useDispatch();
   const language = useSelector(selectLanguage);
+  const isAuthenticated = useSelector(selectIsAuthenticated);
 
   // Fetch user profile on load if token exists
   useEffect(() => {
@@ -458,6 +458,35 @@ function AppBootstrap() {
       dispatch(getMe());
     }
   }, [dispatch]);
+
+  // Connect / disconnect socket based on auth state
+  useEffect(() => {
+    const token = localStorage.getItem("nyayasetu_token");
+    if (isAuthenticated && token) {
+      socketService.connect(token);
+
+      // Forward consultation messages to Redux
+      const handleMessage = (msg) => {
+        if (msg?.consultation) {
+          dispatch(receiveMessage({ consultationId: msg.consultation, message: msg }));
+        }
+      };
+      const handleNewMessage = ({ consultationId }) => {
+        dispatch(incrementUnread({ consultationId }));
+      };
+
+      socketService.on("consultation:message", handleMessage);
+      socketService.on("consultation:new_message", handleNewMessage);
+
+      return () => {
+        socketService.off("consultation:message", handleMessage);
+        socketService.off("consultation:new_message", handleNewMessage);
+        socketService.disconnect();
+      };
+    } else {
+      socketService.disconnect();
+    }
+  }, [isAuthenticated, dispatch]);
 
   // Set document direction for RTL languages
   useEffect(() => {

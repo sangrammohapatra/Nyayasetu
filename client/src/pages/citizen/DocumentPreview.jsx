@@ -39,10 +39,21 @@ import ClauseExplainer from '../../components/document/ClauseExplainer';
 import FeatureGate from '../../components/ui/FeatureGate';
 import GlassCard from '../../components/ui/GlassCard';
 import GradientHeading from '../../components/ui/GradientHeading';
+import ConsultationChat from '../../components/consultation/ConsultationChat';
 import { TYPOGRAPHY } from '../../theme/tokens';
 import { openCheckout } from '../../services/razorpay';
 import { RADIUS, SHADOWS } from '../../theme/tokens';
 import api from '../../services/api';
+
+// ─── Approval status meta ─────────────────────────────────────────────────────
+
+const APPROVAL_META = {
+  draft:              { label: 'Draft',            bg: 'rgba(117,117,117,0.12)', color: '#757575' },
+  shared_with_lawyer: { label: 'Shared w/ Lawyer', bg: 'rgba(237,108,2,0.12)',   color: '#ed6c02' },
+  under_review:       { label: 'Under Review',     bg: 'rgba(2,136,209,0.12)',   color: '#0288d1' },
+  lawyer_reviewed:    { label: 'Lawyer Reviewed',  bg: 'rgba(46,125,50,0.12)',   color: '#2e7d32' },
+  finalized:          { label: 'Finalized',        bg: 'rgba(46,125,50,0.18)',   color: '#1b5e20' },
+};
 
 /* ---------------------------------------------------------------------------
  * Pulse skeleton — shown while document is still generating
@@ -156,12 +167,88 @@ function DocumentText({ content, onClauseClick, activeClauseIndex = null }) {
 /* ---------------------------------------------------------------------------
  * Right panel — Citations + Next Steps + Actions
  * ------------------------------------------------------------------------ */
-function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenerating, onConnectLawyer, plan }) {
+function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenerating, onConnectLawyer, onOpenChat, linkedConsultation, plan }) {
   const { t } = useTranslation();
   const isPaid = doc?.isPaid || plan === 'basic' || plan === 'pro';
+  const approvalMeta = APPROVAL_META[doc?.approvalStatus] || APPROVAL_META.draft;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* Approval status */}
+      {doc?.approvalStatus && doc.approvalStatus !== 'draft' && (
+        <Box sx={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          p: 1.5, borderRadius: `${RADIUS.lg}px`,
+          background: approvalMeta.bg, border: `1px solid ${approvalMeta.color}22`,
+        }}>
+          <Typography variant="caption" sx={{ fontWeight: 700, color: approvalMeta.color }}>
+            {approvalMeta.label}
+          </Typography>
+          {doc.approvalStatus === 'lawyer_reviewed' && (
+            <Chip label="Lawyer reviewed ✓" size="small"
+              sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700, background: 'rgba(46,125,50,0.15)', color: '#2e7d32' }} />
+          )}
+        </Box>
+      )}
+
+      {/* Lawyer annotations summary */}
+      {doc?.lawyerAnnotations?.length > 0 && (
+        <GlassCard sx={{ p: 2 }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 1 }}>
+            📝 Lawyer Notes ({doc.lawyerAnnotations.length})
+          </Typography>
+          {doc.lawyerAnnotations.slice(0, 2).map((ann, i) => (
+            <Box key={i} sx={{
+              p: 1.25, mb: 0.75, borderRadius: `${RADIUS.md}px`,
+              background: 'rgba(237,108,2,0.05)', borderLeft: '3px solid #ed6c02',
+            }}>
+              <Typography variant="caption" sx={{ color: 'var(--color-text)', lineHeight: 1.5, display: 'block' }}>
+                {ann.note.slice(0, 120)}{ann.note.length > 120 ? '…' : ''}
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
+                — {ann.lawyerName}
+              </Typography>
+            </Box>
+          ))}
+          {doc.lawyerAnnotations.length > 2 && (
+            <Typography variant="caption" sx={{ color: 'var(--color-primary)', fontWeight: 600 }}>
+              +{doc.lawyerAnnotations.length - 2} more notes
+            </Typography>
+          )}
+        </GlassCard>
+      )}
+
+      {/* Lawyer's edited version notice */}
+      {doc?.lawyerEditedContent && (
+        <Box sx={{
+          p: 1.5, borderRadius: `${RADIUS.lg}px`,
+          background: 'rgba(2,136,209,0.08)', border: '1px solid rgba(2,136,209,0.25)',
+        }}>
+          <Typography variant="caption" sx={{ fontWeight: 700, color: '#0288d1', display: 'block', mb: 0.5 }}>
+            ✏️ Lawyer edited this document
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
+            A revised version is available from your lawyer.
+          </Typography>
+          {doc.approvalStatus === 'lawyer_reviewed' && (
+            <Button
+              size="small" variant="outlined" fullWidth
+              onClick={async () => {
+                await api.patch(`/documents/${doc._id}/approval-status`, { status: 'finalized' });
+                window.location.reload();
+              }}
+              sx={{
+                mt: 1, borderRadius: `${RADIUS.md}px`, fontWeight: 700, fontSize: '0.78rem',
+                borderColor: '#2e7d32', color: '#2e7d32',
+                '&:hover': { background: 'rgba(46,125,50,0.08)' },
+              }}
+            >
+              ✓ Finalize Document
+            </Button>
+          )}
+        </Box>
+      )}
+
       {/* Actions */}
       <GlassCard sx={{ p: 2 }}>
         <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 1.5 }}>
@@ -361,22 +448,42 @@ function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenera
         </Box>
       )}
 
-      {/* Lawyer CTA */}
+      {/* Lawyer CTA / Chat */}
       <GlassCard sx={{ p: 2, border: '1.5px solid var(--color-primary) !important' }}>
         <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 0.75 }}>
-          👨‍⚖️ {t('myDocs.lawyer_cta', 'Get Expert Review')}
+          👨‍⚖️ {linkedConsultation ? 'Lawyer Consultation' : t('myDocs.lawyer_cta', 'Get Expert Review')}
         </Typography>
-        <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', display: 'block', mb: 1.5, lineHeight: 1.55 }}>
-          {t('myDocs.lawyer_desc', 'A verified advocate can review this document for just ₹499.')}
-        </Typography>
-        <Button fullWidth variant="outlined" onClick={onConnectLawyer} size="small"
-          sx={{
-            borderRadius: `${RADIUS.md}px`, fontWeight: 600, fontSize: '0.8rem',
-            borderColor: 'var(--color-primary)', color: 'var(--color-primary)',
-            '&:hover': { background: 'var(--color-primary-alpha)' },
-          }}>
-          {t('myDocs.find_lawyer', 'Connect with a Lawyer')}
-        </Button>
+        {linkedConsultation ? (
+          <>
+            <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', display: 'block', mb: 1.5, lineHeight: 1.55 }}>
+              You have an active consultation with{' '}
+              <strong>{linkedConsultation.lawyer?.name || 'your lawyer'}</strong>.
+              Chat directly about this document.
+            </Typography>
+            <Button fullWidth variant="contained" onClick={onOpenChat} size="small"
+              sx={{
+                mb: 1, borderRadius: `${RADIUS.md}px`, fontWeight: 700, fontSize: '0.8rem',
+                background: 'var(--color-primary)',
+                '&:hover': { background: 'var(--color-primary)' },
+              }}>
+              💬 Open Chat
+            </Button>
+          </>
+        ) : (
+          <>
+            <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', display: 'block', mb: 1.5, lineHeight: 1.55 }}>
+              {t('myDocs.lawyer_desc', 'A verified advocate can review this document for just ₹499.')}
+            </Typography>
+            <Button fullWidth variant="outlined" onClick={onConnectLawyer} size="small"
+              sx={{
+                borderRadius: `${RADIUS.md}px`, fontWeight: 600, fontSize: '0.8rem',
+                borderColor: 'var(--color-primary)', color: 'var(--color-primary)',
+                '&:hover': { background: 'var(--color-primary-alpha)' },
+              }}>
+              {t('myDocs.find_lawyer', 'Connect with a Lawyer')}
+            </Button>
+          </>
+        )}
       </GlassCard>
     </Box>
   );
@@ -404,6 +511,8 @@ function DocumentPreview() {
   const [activeClauseText, setActiveClauseText] = useState('');
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
   const [regenerating, setRegenerating] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [linkedConsultation, setLinkedConsultation] = useState(null);
   const pollRef = useRef(null);
 
   // Document has no status field — completion is tracked via session.status and content
@@ -419,6 +528,14 @@ function DocumentPreview() {
 
     return () => clearInterval(pollRef.current);
   }, [documentId, dispatch]);
+
+  // Fetch linked consultation (for chat button)
+  useEffect(() => {
+    if (!documentId) return;
+    api.get(`/documents/${documentId}/consultation`)
+      .then(({ data }) => setLinkedConsultation(data.consultation))
+      .catch(() => setLinkedConsultation(null));
+  }, [documentId]);
 
   // Stop polling once the AI has filled in the content
   useEffect(() => {
@@ -587,7 +704,10 @@ function DocumentPreview() {
             {mobileTab === 2 && (
               <RightPanel document={doc} onDownload={handleDownload} onShare={handleShare}
                 onRegenerate={handleRegenerate} regenerating={regenerating}
-                onConnectLawyer={() => navigate('/citizen/lawyers')} plan={plan} />
+                onConnectLawyer={() => navigate('/citizen/lawyers')}
+                onOpenChat={() => setChatOpen(true)}
+                linkedConsultation={linkedConsultation}
+                plan={plan} />
             )}
             {mobileTab === 3 && doc?.previousVersions?.length > 0 && (
               <Box sx={{ p: 1 }}>
@@ -620,7 +740,11 @@ function DocumentPreview() {
             <Grid item md={4}>
               <Box sx={{ position: 'sticky', top: 80 }}>
                 <RightPanel document={doc} onDownload={handleDownload} onShare={handleShare}
-                  onConnectLawyer={() => navigate('/citizen/lawyers')} plan={plan} />
+                  onRegenerate={handleRegenerate} regenerating={regenerating}
+                  onConnectLawyer={() => navigate('/citizen/lawyers')}
+                  onOpenChat={() => setChatOpen(true)}
+                  linkedConsultation={linkedConsultation}
+                  plan={plan} />
               </Box>
             </Grid>
           </Grid>
@@ -644,6 +768,16 @@ function DocumentPreview() {
           </Alert>
         </Snackbar>
       </Box>
+
+      {/* Real-time chat panel */}
+      {linkedConsultation && (
+        <ConsultationChat
+          consultationId={linkedConsultation._id}
+          open={chatOpen}
+          onClose={() => setChatOpen(false)}
+          otherPartyName={linkedConsultation.lawyer?.name || 'Your Lawyer'}
+        />
+      )}
     </AnimatedPage>
   );
 }

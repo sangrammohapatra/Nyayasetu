@@ -23,6 +23,8 @@ async function startServer() {
 
     // ── Attach Socket.IO ───────────────────────────────────────────────────
     const { Server } = require('socket.io');
+    const { initSocket } = require('./services/socket');
+
     const io = new Server(server, {
       cors: {
         origin: process.env.CLIENT_URL || 'http://localhost:5173',
@@ -35,18 +37,8 @@ async function startServer() {
     // Make io accessible in request handlers via app.get('io')
     app.set('io', io);
 
-    io.on('connection', (socket) => {
-      logger.info(`Socket connected: ${socket.id}`);
-
-      socket.on('join-room', (userId) => {
-        socket.join(`user:${userId}`);
-        logger.debug(`Socket ${socket.id} joined room user:${userId}`);
-      });
-
-      socket.on('disconnect', (reason) => {
-        logger.debug(`Socket ${socket.id} disconnected: ${reason}`);
-      });
-    });
+    // Register all socket handlers (auth + consultation chat events)
+    initSocket(io);
 
     // ── Start listening ────────────────────────────────────────────────────
     server.listen(PORT, () => {

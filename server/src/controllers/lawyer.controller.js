@@ -355,7 +355,8 @@ const getMyClients = asyncHandler(async (req, res) => {
   try {
     const [consultations, sharedCases] = await Promise.all([
       Consultation.find({ lawyer: profile._id })
-        .select('citizen status scheduledAt mode fee createdAt')
+        .select('citizen status scheduledAt mode fee sharedDocument createdAt')
+        .populate('sharedDocument', 'title templateSlug approvalStatus lawyerAnnotations lawyerEditedContent lawyerEditedAt')
         .sort({ createdAt: -1 })
         .lean(),
       CaseTracker.find({ sharedWithLawyer: profile._id })

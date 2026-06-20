@@ -2,7 +2,7 @@
  * client/src/pages/lawyer/ClientDetail.jsx
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -15,11 +15,16 @@ import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Skeleton from '@mui/material/Skeleton';
+import Collapse from '@mui/material/Collapse';
+import CircularProgress from '@mui/material/CircularProgress';
 
 import { fetchMyClients, selectClients, selectLawyerLoading } from '../../store/slices/lawyerSlice';
+import ConsultationChat from '../../components/consultation/ConsultationChat';
+import LawyerAnnotationPanel from '../../components/document/LawyerAnnotationPanel';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GradientHeading from '../../components/ui/GradientHeading';
 import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
+import api from '../../services/api';
 
 const MODE_ICON = { chat: '💬', video: '📹', phone: '📞', in_person: '🤝' };
 
@@ -116,6 +121,15 @@ function CaseCard({ c, i }) {
   );
 }
 
+// ─── Approval status colours ──────────────────────────────────────────────────
+const APPROVAL_META = {
+  draft:              { label: 'Draft',            color: '#757575' },
+  shared_with_lawyer: { label: 'Shared w/ You',    color: '#ed6c02' },
+  under_review:       { label: 'Under Review',     color: '#0288d1' },
+  lawyer_reviewed:    { label: 'Reviewed',         color: '#2e7d32' },
+  finalized:          { label: 'Finalized',        color: '#1b5e20' },
+};
+
 function ClientDetail() {
   const { t } = useTranslation();
   const { userId } = useParams();
@@ -125,6 +139,12 @@ function ClientDetail() {
   const clients = useSelector(selectClients);
   const loading = useSelector(selectLawyerLoading);
 
+  // Chat & document review state
+  const [chatConsultation, setChatConsultation] = useState(null);
+  const [sharedDocument, setSharedDocument] = useState(null);
+  const [docLoading, setDocLoading] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+
   useEffect(() => {
     if (clients.length === 0) dispatch(fetchMyClients());
   }, [dispatch, clients.length]);
@@ -133,6 +153,27 @@ function ClientDetail() {
     const id = c.user?.id || c.user?._id;
     return String(id) === userId;
   });
+
+  // Find consultations that have a sharedDocument
+  const consultationsWithDoc = (client?.consultations || []).filter(
+    (c) => c.sharedDocument && (c.status === 'accepted' || c.status === 'completed')
+  );
+
+  const handleOpenChat = (consultation) => setChatConsultation(consultation);
+
+  const handleLoadDocument = async (consultation) => {
+    setDocLoading(true);
+    setReviewOpen(false);
+    try {
+      const { data } = await api.get(`/consultations/${consultation._id}/document`);
+      setSharedDocument(data.document);
+      setReviewOpen(true);
+    } catch {
+      setSharedDocument(null);
+    } finally {
+      setDocLoading(false);
+    }
+  };
 
   const u = client?.user || {};
   const consultations = client?.consultations || [];
@@ -227,7 +268,7 @@ function ClientDetail() {
 
         {/* Shared cases */}
         <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
-          <Box sx={{ borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)', boxShadow: SHADOWS.sm, overflow: 'hidden' }}>
+          <Box sx={{ borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)', boxShadow: SHADOWS.sm, overflow: 'hidden', mb: 3 }}>
             <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid var(--color-border)' }}>
               <SectionTitle>{t('case.cases', 'Cases shared with you')}</SectionTitle>
             </Box>
@@ -244,7 +285,87 @@ function ClientDetail() {
           </Box>
         </motion.div>
 
+        {/* Documents shared for review */}
+        {consultationsWithDoc.length > 0 && (
+          <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}>
+            <Box sx={{ borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)', boxShadow: SHADOWS.sm, overflow: 'hidden', mb: 3 }}>
+              <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid var(--color-border)' }}>
+                <SectionTitle>Documents Shared for Review</SectionTitle>
+              </Box>
+              {consultationsWithDoc.map((c, i) => {
+                const approvalMeta = APPROVAL_META[c.sharedDocument?.approvalStatus] || APPROVAL_META.shared_with_lawyer;
+                return (
+                  <Box key={c._id || i} sx={{
+                    display: 'flex', alignItems: 'center', gap: 2, py: 1.5, px: 2,
+                    borderBottom: '1px solid var(--color-border)',
+                    '&:last-child': { borderBottom: 'none' },
+                    flexWrap: 'wrap',
+                  }}>
+                    <Box sx={{ width: 34, height: 34, borderRadius: `${RADIUS.md}px`, background: 'rgba(2,136,209,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
+                      📄
+                    </Box>
+                    <Box sx={{ flex: 1, minWidth: 120 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--color-text)' }}>
+                        {c.sharedDocument?.title || 'Shared Document'}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
+                        Consultation · {c.mode?.replace('_', '-')}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      size="small"
+                      label={approvalMeta.label}
+                      sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700, background: `${approvalMeta.color}18`, color: approvalMeta.color, flexShrink: 0 }}
+                    />
+                    <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+                      <Button size="small" variant="outlined" onClick={() => handleOpenChat(c)}
+                        sx={{ fontSize: '0.72rem', fontWeight: 600, borderRadius: `${RADIUS.md}px`, py: 0.3, borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}>
+                        💬 Chat
+                      </Button>
+                      <Button size="small" variant="contained" onClick={() => handleLoadDocument(c)} disabled={docLoading}
+                        sx={{ fontSize: '0.72rem', fontWeight: 600, borderRadius: `${RADIUS.md}px`, py: 0.3, background: 'var(--color-primary)' }}>
+                        {docLoading ? <CircularProgress size={12} sx={{ color: '#fff' }} /> : '✏️ Review'}
+                      </Button>
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Box>
+          </motion.div>
+        )}
+
+        {/* Annotation / edit panel */}
+        {reviewOpen && sharedDocument && (
+          <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <Box sx={{ mb: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)' }}>
+                  📝 Reviewing: {sharedDocument.title}
+                </Typography>
+                <Button size="small" onClick={() => setReviewOpen(false)}
+                  sx={{ color: 'var(--color-text-secondary)', fontSize: '0.78rem' }}>
+                  Close ✕
+                </Button>
+              </Box>
+              <LawyerAnnotationPanel
+                document={sharedDocument}
+                onDocumentUpdated={(updated) => setSharedDocument(updated)}
+              />
+            </Box>
+          </motion.div>
+        )}
+
       </Box>
+
+      {/* Real-time chat drawer */}
+      {chatConsultation && (
+        <ConsultationChat
+          consultationId={chatConsultation._id}
+          open={!!chatConsultation}
+          onClose={() => setChatConsultation(null)}
+          otherPartyName={u.name || 'Client'}
+        />
+      )}
     </AnimatedPage>
   );
 }
