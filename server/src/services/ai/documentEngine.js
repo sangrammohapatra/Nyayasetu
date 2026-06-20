@@ -295,8 +295,166 @@ The response must be directly parseable by JSON.parse() with zero modifications.
   };
 }
 
+// ─── Pass 2: Self-review prompt ───────────────────────────────────────────────
+
+/**
+ * buildReviewPrompt — constructs the review prompt for Pass 2.
+ * The reviewer AI sees the generated document and checks it against the
+ * user's submitted data and jurisdiction context.
+ */
+function buildReviewPrompt(documentText, session, template, jurisdictionRule) {
+  const collectedData = session.toCollectedDataObject
+    ? session.toCollectedDataObject()
+    : (session.collectedData instanceof Map
+        ? Object.fromEntries(session.collectedData)
+        : session.collectedData || {});
+
+  const state = session.userState || 'India';
+
+  const filingAuthority = jurisdictionRule?.filingAuthority
+    ? `${jurisdictionRule.filingAuthority.name}${jurisdictionRule.filingAuthority.address ? `, ${jurisdictionRule.filingAuthority.address}` : ''}`
+    : `Appropriate authority in ${state}`;
+
+  const limitationText = jurisdictionRule?.limitationPeriod?.days
+    ? `${jurisdictionRule.limitationPeriod.days} days from ${jurisdictionRule.limitationPeriod.fromEvent || 'the incident'}`
+    : 'As per applicable law';
+
+  const dataContext = Object.entries(collectedData)
+    .map(([k, v]) => {
+      const question = (template.questionFlow || []).find((q) => q.key === k);
+      const label    = question?.label || k.replace(/_/g, ' ');
+      return `  ${label}: ${v}`;
+    })
+    .join('\n');
+
+  return `You are a senior Indian legal document reviewer. Review the AI-generated document below for quality issues. Do NOT rewrite or rephrase it — only identify problems.
+
+=== DOCUMENT TYPE ===
+${template.name} (${template.category})
+
+=== USER'S SUBMITTED DATA ===
+${dataContext || '(No data collected)'}
+
+=== JURISDICTION ===
+State/UT: ${state}
+Filing Authority: ${filingAuthority}
+Limitation Period: ${limitationText}
+
+=== GENERATED DOCUMENT ===
+${documentText}
+
+=== REVIEW CHECKLIST ===
+1. COMPLETENESS — Are all required sections present?
+   Parties (complainant + respondent with full details), statement of facts, legal grounds, specific relief/prayer, date, place, signature block.
+
+2. JURISDICTION ACCURACY — Is the document correct for ${state}?
+   Named filing authority matches this state and document type. Cited courts are appropriate. Limitation period is correctly applied. State-specific procedural rules followed.
+
+3. MISSING DETAILS — Are any fields still generic or unfilled?
+   Look for placeholder text like [NAME], [DATE], [AMOUNT], ___, "Insert here", "your name", or generic values that should have been replaced with the user's actual submitted data.
+
+4. UNCERTAIN LEGAL POSITIONS — Are there claims that:
+   May be contested or hard to prove, cite sections out of context, overstate the remedy, or a layperson might misread as a guaranteed outcome?
+
+Respond with ONLY a valid JSON object (no markdown, no explanation):
+{
+  "passed": true,
+  "overallConfidence": "high",
+  "summary": "One-sentence overall quality assessment",
+  "issues": [
+    {
+      "category": "completeness|jurisdiction|missing_details|uncertain",
+      "severity": "critical|warning|info",
+      "description": "Specific description — mention the exact section or phrase if possible",
+      "suggestion": "Actionable suggestion to fix this issue"
+    }
+  ]
+}
+
+RULES:
+- "passed": false only when critical issues are present (placeholder text, wrong jurisdiction, missing required section)
+- "critical" = document should not be filed as-is
+- "warning" = recommend review before filing
+- "info" = minor awareness note
+- Maximum 8 issues total — flag the most impactful ones only
+- If no issues found, return "passed": true, "issues": [], "overallConfidence": "high"`;
+}
+
+/**
+ * validateReviewJson — minimal validation of the review AI response.
+ */
+function validateReviewJson(parsed) {
+  if (typeof parsed.passed !== 'boolean') {
+    throw new Error('Review JSON missing "passed" boolean');
+  }
+  if (!['high', 'medium', 'low'].includes(parsed.overallConfidence)) {
+    throw new Error('Review JSON missing valid "overallConfidence"');
+  }
+  if (!Array.isArray(parsed.issues)) {
+    throw new Error('Review JSON missing "issues" array');
+  }
+}
+
+// ─── reviewDocument ────────────────────────────────────────────────────────────
+
+/**
+ * reviewDocument — Pass 2 of the generation pipeline.
+ *
+ * Makes a second AI call to self-review the generated document against the
+ * user's submitted data and jurisdiction context. Returns structured issues
+ * (completeness, jurisdiction, missing details, uncertain positions) or null
+ * if the review call itself fails (non-blocking).
+ *
+ * @param {string} documentText      — The Pass 1 generated document text
+ * @param {object} session           — ChatSession (collectedData, userState)
+ * @param {object} template          — DocumentTemplate
+ * @param {object} jurisdictionRule  — JurisdictionRule (may be null)
+ * @returns {Promise<object|null>}
+ */
+async function reviewDocument(documentText, session, template, jurisdictionRule) {
+  const prompt = buildReviewPrompt(documentText, session, template, jurisdictionRule);
+
+  logger.info(`[documentEngine] Pass 2 review: ${template.slug}, session: ${session._id}`);
+
+  try {
+    const parsed = await generate(prompt, true);
+    validateReviewJson(parsed);
+
+    const validCategories = ['completeness', 'jurisdiction', 'missing_details', 'uncertain'];
+    const validSeverities = ['critical', 'warning', 'info'];
+
+    const result = {
+      passed:            parsed.passed,
+      overallConfidence: parsed.overallConfidence,
+      summary:           String(parsed.summary || '').slice(0, 300),
+      issues: (parsed.issues || [])
+        .filter((issue) =>
+          validCategories.includes(issue.category) &&
+          validSeverities.includes(issue.severity)
+        )
+        .slice(0, 8)
+        .map((issue) => ({
+          category:    issue.category,
+          severity:    issue.severity,
+          description: String(issue.description || '').slice(0, 500),
+          suggestion:  String(issue.suggestion  || '').slice(0, 300),
+        })),
+      reviewedAt: new Date(),
+    };
+
+    logger.info(`[documentEngine] Review done: passed=${result.passed}, issues=${result.issues.length}, confidence=${result.overallConfidence}`);
+    return result;
+
+  } catch (err) {
+    // Review is a best-effort pass — failure must never block document delivery
+    logger.warn(`[documentEngine] Pass 2 review failed (non-blocking): ${err.message}`);
+    return null;
+  }
+}
+
 module.exports = {
   generateDocument,
+  reviewDocument,
   buildDocumentPrompt,
   buildKanoonUrl,
 };

@@ -51,7 +51,7 @@ module.exports = async function processGenerateDocument(job) {
   const User             = require('../../models/User.model');
   const Notification     = require('../../models/Notification.model');
 
-  const { generateDocument }      = require('../../services/ai/documentEngine');
+  const { generateDocument, reviewDocument } = require('../../services/ai/documentEngine');
   const { generateLegalDocument } = require('../../services/pdf/pdfGenerator');
   const { uploadPDF }             = require('../../services/storage/storageProvider');
   const { SESSION_STATUS }        = require('../../config/constants');
@@ -92,8 +92,12 @@ module.exports = async function processGenerateDocument(job) {
     const { documentText, legalCitations, clauseExplanations, nextSteps } =
       await generateDocument(session, template, jurisdictionRule, legalActSections);
 
+    await job.progress(50);
+    logger.info(`[job/generateDocument] Pass 1 complete: ${documentText.length} chars, ${legalCitations.length} citations`);
+
+    // ── 2b. Pass 2: AI self-review ────────────────────────────────────────────
+    const aiReview = await reviewDocument(documentText, session, template, jurisdictionRule);
     await job.progress(55);
-    logger.info(`[job/generateDocument] AI generation complete: ${documentText.length} chars, ${legalCitations.length} citations`);
 
     // ── 3. Update Document with AI content ────────────────────────────────────
     document.content            = documentText;
@@ -101,6 +105,7 @@ module.exports = async function processGenerateDocument(job) {
     document.legalCitations     = legalCitations;
     document.clauseExplanations = clauseExplanations;
     document.nextSteps          = nextSteps;
+    document.aiReview           = aiReview;
     document.jurisdiction       = {
       ...document.jurisdiction,
       applicableActs:  legalCitations.map((c) => c.act).filter(Boolean),

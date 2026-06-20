@@ -95,6 +95,105 @@ function GeneratingSkeleton() {
 }
 
 /* ---------------------------------------------------------------------------
+ * AI Review Banner — Pass 2 self-review results
+ * ------------------------------------------------------------------------ */
+const SEVERITY_COLOR = {
+  critical: '#d32f2f',
+  warning:  '#ed6c02',
+  info:     '#0288d1',
+};
+const SEVERITY_DOT = { critical: '🔴', warning: '🟡', info: '🔵' };
+
+function ReviewBanner({ aiReview, onDismiss }) {
+  const issues      = aiReview?.issues || [];
+  const hasCritical = issues.some((i) => i.severity === 'critical');
+  const headerColor = hasCritical ? '#d32f2f' : '#ed6c02';
+
+  if (issues.length === 0) {
+    return (
+      <Box sx={{
+        display: 'flex', alignItems: 'center', gap: 1.5,
+        px: 2, py: 1.25, mb: 2,
+        borderRadius: `${RADIUS.lg}px`,
+        background: 'rgba(46,125,50,0.07)',
+        border: '1px solid rgba(46,125,50,0.25)',
+      }}>
+        <Typography variant="caption" sx={{ color: '#2e7d32', fontWeight: 600, flex: 1 }}>
+          ✅ AI self-review passed — document looks complete and jurisdiction-accurate
+        </Typography>
+        <Box onClick={onDismiss} sx={{ cursor: 'pointer', color: 'var(--color-text-secondary)', fontSize: '1rem', lineHeight: 1, px: 0.5 }}>×</Box>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{
+      mb: 2.5,
+      borderRadius: `${RADIUS.lg}px`,
+      border: `1.5px solid ${headerColor}`,
+      overflow: 'hidden',
+      background: 'var(--color-surface)',
+    }}>
+      <Box sx={{
+        px: 2, py: 1.5,
+        background: hasCritical ? 'rgba(211,47,47,0.06)' : 'rgba(237,108,2,0.06)',
+        borderBottom: '1px solid var(--color-border)',
+        display: 'flex', alignItems: 'flex-start', gap: 1.5,
+      }}>
+        <Typography sx={{ fontSize: '1.15rem', lineHeight: 1, mt: '1px' }}>
+          {hasCritical ? '⚠️' : '📋'}
+        </Typography>
+        <Box sx={{ flex: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: headerColor, mb: 0.25 }}>
+            AI Self-Review: {hasCritical ? 'Action Required Before Filing' : 'Review Recommended'}
+          </Typography>
+          {aiReview?.summary && (
+            <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', lineHeight: 1.45 }}>
+              {aiReview.summary}
+            </Typography>
+          )}
+        </Box>
+        <Box onClick={onDismiss} sx={{ cursor: 'pointer', color: 'var(--color-text-secondary)', fontSize: '1.1rem', lineHeight: 1, px: 0.5, mt: '-2px' }}>×</Box>
+      </Box>
+
+      <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+        {issues.map((issue, i) => (
+          <Box key={i} sx={{
+            p: 1.25,
+            borderRadius: `${RADIUS.md}px`,
+            borderLeft: `3px solid ${SEVERITY_COLOR[issue.severity] || '#757575'}`,
+            background: issue.severity === 'critical'
+              ? 'rgba(211,47,47,0.04)'
+              : issue.severity === 'warning'
+              ? 'rgba(237,108,2,0.04)'
+              : 'rgba(2,136,209,0.04)',
+          }}>
+            <Typography variant="caption" sx={{
+              fontWeight: 700, display: 'block', mb: 0.25,
+              color: SEVERITY_COLOR[issue.severity] || '#757575',
+              textTransform: 'capitalize',
+            }}>
+              {SEVERITY_DOT[issue.severity]} {issue.category.replace('_', ' ')}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'var(--color-text)', display: 'block', lineHeight: 1.5 }}>
+              {issue.description}
+            </Typography>
+            {issue.suggestion && (
+              <Typography variant="caption" sx={{
+                color: 'var(--color-text-secondary)', display: 'block',
+                lineHeight: 1.5, mt: 0.25, fontStyle: 'italic',
+              }}>
+                → {issue.suggestion}
+              </Typography>
+            )}
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  );
+}
+
+/* ---------------------------------------------------------------------------
  * Document text renderer — makes clauses clickable
  * ------------------------------------------------------------------------ */
 function DocumentText({ content, onClauseClick, activeClauseIndex = null }) {
@@ -511,6 +610,7 @@ function DocumentPreview() {
   const [activeClauseText, setActiveClauseText] = useState('');
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
   const [regenerating, setRegenerating] = useState(false);
+  const [reviewDismissed, setReviewDismissed] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [linkedConsultation, setLinkedConsultation] = useState(null);
   const pollRef = useRef(null);
@@ -520,6 +620,7 @@ function DocumentPreview() {
 
   // Load document & poll while still generating (content is empty)
   useEffect(() => {
+    setReviewDismissed(false); // reset banner when navigating to a new document
     dispatch(getDocument(documentId));
 
     pollRef.current = setInterval(() => {
@@ -663,6 +764,14 @@ function DocumentPreview() {
             <Tab label={t('myDocs.tab_steps', '🗺️ Next Steps')} />
             {doc?.previousVersions?.length > 0 && <Tab label="📜 History" />}
           </Tabs>
+        )}
+
+        {/* AI self-review banner (Pass 2 results) */}
+        {!isGenerating && doc?.aiReview && !reviewDismissed && (
+          <ReviewBanner
+            aiReview={doc.aiReview}
+            onDismiss={() => setReviewDismissed(true)}
+          />
         )}
 
         {isGenerating ? (

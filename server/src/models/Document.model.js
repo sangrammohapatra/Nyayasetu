@@ -70,6 +70,27 @@ const nextStepSchema = new Schema(
   { _id: true }
 );
 
+const reviewIssueSchema = new Schema(
+  {
+    category:    { type: String, enum: ['completeness', 'jurisdiction', 'missing_details', 'uncertain'] },
+    severity:    { type: String, enum: ['critical', 'warning', 'info'] },
+    description: { type: String, trim: true },
+    suggestion:  { type: String, trim: true },
+  },
+  { _id: false }
+);
+
+const aiReviewSchema = new Schema(
+  {
+    passed:            { type: Boolean },
+    overallConfidence: { type: String, enum: ['high', 'medium', 'low'] },
+    summary:           { type: String, trim: true },
+    issues:            { type: [reviewIssueSchema], default: [] },
+    reviewedAt:        { type: Date },
+  },
+  { _id: false }
+);
+
 const versionSnapshotSchema = new Schema(
   {
     version: { type: Number, required: true },
@@ -257,6 +278,12 @@ const documentSchema = new Schema(
     previousVersions: {
       type: [versionSnapshotSchema],
       default: [],
+    },
+
+    // ── AI Self-Review (Pass 2) ───────────────────────────────────────────────
+    aiReview: {
+      type:    aiReviewSchema,
+      default: null,
     },
 
     // ── Status ────────────────────────────────────────────────────────────────
