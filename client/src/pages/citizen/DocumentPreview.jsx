@@ -299,6 +299,56 @@ function RightPanel({ document: doc, onDownload, onShare, onConnectLawyer, plan 
         </Box>
       )}
 
+      {/* Version history */}
+      {doc?.previousVersions?.length > 0 && (
+        <Box>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 1 }}>
+            📜 {t('myDocs.version_history', 'Version History')}
+          </Typography>
+          {[...doc.previousVersions].reverse().map((v, i) => (
+            <Accordion key={i} elevation={0} sx={{
+              mb: 0.75, borderRadius: `${RADIUS.md}px !important`,
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-surface)',
+              '&:before': { display: 'none' },
+              overflow: 'hidden',
+            }}>
+              <AccordionSummary
+                expandIcon={<Typography sx={{ fontSize: 14 }}>▾</Typography>}
+                sx={{ py: 0.5, minHeight: 44, '& .MuiAccordionSummary-content': { my: 0.75 } }}
+              >
+                <Box>
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--color-primary)', display: 'block' }}>
+                    Version {v.version}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
+                    {new Date(v.regeneratedAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
+                  </Typography>
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails sx={{ pt: 0, pb: 1.5 }}>
+                {v.regenerationReason && (
+                  <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', display: 'block', mb: 0.75 }}>
+                    {v.regenerationReason}
+                  </Typography>
+                )}
+                {v.content && (
+                  <Typography variant="caption" sx={{
+                    color: 'var(--color-text)', lineHeight: 1.55,
+                    display: 'block', fontFamily: 'monospace',
+                    whiteSpace: 'pre-wrap',
+                    maxHeight: 120, overflow: 'auto',
+                    background: 'var(--color-bg)', borderRadius: 1, p: 0.75,
+                  }}>
+                    {v.content.slice(0, 300)}{v.content.length > 300 ? '…' : ''}
+                  </Typography>
+                )}
+              </AccordionDetails>
+            </Accordion>
+          ))}
+        </Box>
+      )}
+
       {/* Lawyer CTA */}
       <GlassCard sx={{ p: 2, border: '1.5px solid var(--color-primary) !important' }}>
         <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 0.75 }}>
@@ -459,7 +509,7 @@ function DocumentPreview() {
         </motion.div>
 
         {/* Mobile tabs */}
-        {isMobile && doc?.status === 'completed' && (
+        {isMobile && doc?.content && (
           <Tabs value={mobileTab} onChange={(_, v) => setMobileTab(v)} sx={{
             mb: 2, borderBottom: '1px solid var(--color-border)',
             '& .MuiTab-root': { fontSize: '0.78rem', fontWeight: 600, textTransform: 'none', color: 'var(--color-text-secondary)', minWidth: 0, px: 1.5 },
@@ -469,6 +519,7 @@ function DocumentPreview() {
             <Tab label={t('myDocs.tab_document', '📄 Document')} />
             <Tab label={t('myDocs.tab_citations', '📚 Citations')} />
             <Tab label={t('myDocs.tab_steps', '🗺️ Next Steps')} />
+            {doc?.previousVersions?.length > 0 && <Tab label="📜 History" />}
           </Tabs>
         )}
 
@@ -505,6 +556,21 @@ function DocumentPreview() {
             {mobileTab === 2 && (
               <RightPanel document={doc} onDownload={handleDownload} onShare={handleShare}
                 onConnectLawyer={() => navigate('/citizen/lawyers')} plan={plan} />
+            )}
+            {mobileTab === 3 && doc?.previousVersions?.length > 0 && (
+              <Box sx={{ p: 1 }}>
+                {[...doc.previousVersions].reverse().map((v, i) => (
+                  <Box key={i} sx={{ p: 1.5, mb: 1.5, borderRadius: `${RADIUS.lg}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-primary)' }}>Version {v.version}</Typography>
+                    <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', display: 'block' }}>
+                      {new Date(v.regeneratedAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
+                    </Typography>
+                    {v.regenerationReason && (
+                      <Typography variant="caption" sx={{ color: 'var(--color-text)', display: 'block', mt: 0.5 }}>{v.regenerationReason}</Typography>
+                    )}
+                  </Box>
+                ))}
+              </Box>
             )}
           </Box>
         ) : (

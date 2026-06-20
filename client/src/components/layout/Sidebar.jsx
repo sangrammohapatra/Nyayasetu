@@ -84,6 +84,7 @@ function useNavItems(persona, t) {
       { icon: IC.users,     label: t('sidebar.users',     'Users'),      path: '/admin/users' },
       { icon: IC.templates, label: t('sidebar.templates', 'Templates'),  path: '/admin/templates' },
       { icon: IC.lawyers,   label: t('sidebar.lawyers',   'Lawyers'),    path: '/admin/lawyers' },
+      { icon: IC.myDocs,    label: t('sidebar.auditLog',  'Audit Log'),  path: '/admin/audit-logs' },
     ];
 
     return { citizen, lawyer, paralegal: lawyer, admin }[persona] || citizen;

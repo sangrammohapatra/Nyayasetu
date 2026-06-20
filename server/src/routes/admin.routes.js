@@ -44,6 +44,11 @@ router.get('/users/:id', adminController.getUser);
 router.post('/lawyers/:id/verify', adminController.verifyLawyer);
 
 /* ---------------------------------------------------------------------------
+ * Audit log
+ * ------------------------------------------------------------------------ */
+router.get('/audit-logs', adminController.getAuditLogs);
+
+/* ---------------------------------------------------------------------------
  * Document template management
  * ------------------------------------------------------------------------ */
 router.get('/templates', adminController.listTemplates);

@@ -2,6 +2,7 @@ const DocumentTemplate = require('../models/DocumentTemplate.model');
 const asyncHandler = require('../utils/asyncHandler');
 const { createError } = require('../middleware/error.middleware');
 const logger = require('../utils/logger');
+const { ALWAYS_FREE_TEMPLATES } = require('../config/constants');
 
 // ─── Plan hierarchy ───────────────────────────────────────────────────────────
 
@@ -19,7 +20,10 @@ const LAWYER_PLANS  = ['free', 'professional', 'firm'];
  * @returns {{ type: string, isAccessible: boolean, priceINR?: number, requiredPlan?: string }}
  */
 function resolveAccess(template, plan, persona) {
-  if (template.isAlwaysFree) return { type: 'free', isAccessible: true };
+  // Check both the DB field and the canonical constant list — seeds using
+  // insertMany bypass the pre-save hook that sets isAlwaysFree on the document.
+  const alwaysFree = template.isAlwaysFree || ALWAYS_FREE_TEMPLATES.includes(template.slug);
+  if (alwaysFree) return { type: 'free', isAccessible: true, alwaysFree: true };
 
   const p     = (persona || 'citizen').toLowerCase();
   const plans = p === 'lawyer' ? LAWYER_PLANS : CITIZEN_PLANS;

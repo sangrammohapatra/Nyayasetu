@@ -86,6 +86,7 @@ const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const AdminUsers     = lazy(() => import('./pages/admin/AdminUsers'));
 const AdminLawyers   = lazy(() => import('./pages/admin/AdminLawyers'));
 const AdminTemplates = lazy(() => import('./pages/admin/AdminTemplates'));
+const AdminAuditLog  = lazy(() => import('./pages/admin/AdminAuditLog'));
 const LawSearch      = lazy(() => import('./pages/shared/LawSearch'));
 
 // ─── Page loading fallback ────────────────────────────────────────────────────
@@ -365,7 +366,15 @@ const router = createBrowserRouter([
             <AdminTemplates />
           </Suspense>
         ),
-      }
+      },
+      {
+        path: "audit-logs",
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <AdminAuditLog />
+          </Suspense>
+        ),
+      },
     ],
   },
 

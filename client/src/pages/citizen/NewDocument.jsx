@@ -24,7 +24,6 @@ import GradientHeading from '../../components/ui/GradientHeading';
 import GlassCard from '../../components/ui/GlassCard';
 import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
 import { selectUserPlan, selectUserPersona } from '../../store/slices/authSlice';
-import { hasFeature } from '../../utils/featureFlags';
 import api from '../../services/api';
 
 // ─── Category config ──────────────────────────────────────────────────────────
@@ -81,9 +80,9 @@ function TemplateCard({ template, onSelect, delay = 0, isMostUsed = false }) {
   const persona = useSelector(selectUserPersona);
 
   const requiredPlan = getPlanRequired(template);
-  const isAlwaysFree = template.pricePayPerDoc === 0;
-  const canAccess = isAlwaysFree || hasFeature(persona, plan, 'pdf_download') ||
-    plan === requiredPlan || plan === 'pro';
+  // Prefer backend-computed access (respects isAlwaysFree even when seeded via insertMany)
+  const isAlwaysFree = template.isAlwaysFree === true || template.access?.alwaysFree === true;
+  const canAccess = isAlwaysFree || template.access?.isAccessible === true;
 
   const COMPLEXITY_STYLES = {
     simple:   { label: t('newDoc.complexity_simple',   'Simple'),   color: 'var(--color-success)', bg: 'rgba(46,125,50,0.1)'  },
@@ -249,7 +248,7 @@ function NewDocument() {
   }, [templates, activeCategory, search]);
 
   const featured = useMemo(() =>
-    templates.filter((t) => t.isFeatured || t.pricePayPerDoc === 0).slice(0, 4),
+    templates.filter((t) => t.isFeatured || t.isAlwaysFree || t.access?.alwaysFree).slice(0, 4),
   [templates]);
 
   return (

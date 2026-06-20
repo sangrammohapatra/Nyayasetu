@@ -13,6 +13,7 @@ const Payment = require('../models/Payment.model');
 const CaseTracker = require('../models/CaseTracker.model');
 const Notification = require('../models/Notification.model');
 const Subscription = require('../models/Subscription.model');
+const AuditLog = require('../models/AuditLog.model');
 
 const whatsappService = require('../services/notification/whatsappService');
 const emailService = require('../services/notification/emailService');
@@ -244,6 +245,55 @@ const getUser = asyncHandler(async (req, res) => {
 });
 
 /* ---------------------------------------------------------------------------
+ * getAuditLogs
+ * GET /v1/admin/audit-logs
+ * Query: action, entity, userId, success, page, limit
+ * ------------------------------------------------------------------------ */
+const getAuditLogs = asyncHandler(async (req, res) => {
+  const {
+    action,
+    entity,
+    userId,
+    success,
+    page  = 1,
+    limit = 50,
+  } = req.query;
+
+  const pageNum  = Math.max(1, parseInt(page, 10)  || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+  const skip     = (pageNum - 1) * limitNum;
+
+  const filter = {};
+  if (action)  filter.action = { $regex: action.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
+  if (entity)  filter.entity = entity;
+  if (userId && mongoose.Types.ObjectId.isValid(userId)) filter.user = userId;
+  if (success !== undefined) filter.success = success === 'true';
+
+  try {
+    const [logs, total] = await Promise.all([
+      AuditLog.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .populate('user', 'name phone email persona')
+        .lean(),
+      AuditLog.countDocuments(filter),
+    ]);
+
+    return res.json({
+      logs,
+      total,
+      page:       pageNum,
+      limit:      limitNum,
+      totalPages: Math.max(1, Math.ceil(total / limitNum)),
+    });
+  } catch (err) {
+    logger.error('[admin.controller] getAuditLogs failed', { error: err.message });
+    return res.status(500).json({ error: 'Failed to load audit logs' });
+  }
+});
+
+/* ---------------------------------------------------------------------------
  * listTemplates / createTemplate / updateTemplate
  * Basic CRUD exposed to admin so templates can be managed without a DB client.
  * ------------------------------------------------------------------------ */
@@ -293,6 +343,7 @@ module.exports = {
   getStats,
   listUsers,
   getUser,
+  getAuditLogs,
   listTemplates,
   createTemplate,
   updateTemplate,

@@ -188,6 +188,7 @@ export default function AdminDashboard() {
                       { icon: '👥', label: 'Manage Users',     path: '/admin/users' },
                       { icon: '👨‍⚖️', label: 'Verify Lawyers',  path: '/admin/lawyers' },
                       { icon: '📋', label: 'Edit Templates',   path: '/admin/templates' },
+                      { icon: '🔍', label: 'Audit Log',        path: '/admin/audit-logs' },
                     ].map((item) => (
                       <Box
                         key={item.path}
