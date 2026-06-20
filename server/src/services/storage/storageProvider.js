@@ -1,8 +1,8 @@
 const logger = require('../../utils/logger');
-const { UPLOAD } = require('../../config/constants');
 const cloudinaryService = require('./cloudinaryService');
+const s3Service = require('./s3Service');
 
-const PDF_URL_EXPIRY_SECONDS = UPLOAD?.PDF_URL_EXPIRY_SECONDS || 15 * 60;
+const PDF_URL_EXPIRY_SECONDS = require('../../config/constants').UPLOAD?.PDF_URL_EXPIRY_SECONDS || 15 * 60;
 
 // ─── Provider: Cloudinary ──────────────────────────────────────────────────────
 
@@ -10,82 +10,15 @@ async function uploadToCloudinary(buffer, key, mimeType = 'application/pdf') {
   const result = await cloudinaryService.uploadPDF(buffer, key, {
     context: mimeType ? { mime_type: mimeType } : undefined,
   });
-
-  return {
-    storageKey: result.storageKey,
-    provider: result.provider,
-  };
+  return { storageKey: result.storageKey, provider: result.provider };
 }
 
 async function getCloudinarySignedUrl(storageKey) {
-  return cloudinaryService.getSignedPdfUrl(storageKey, {
-    expiresIn: PDF_URL_EXPIRY_SECONDS,
-  });
+  return cloudinaryService.getSignedPdfUrl(storageKey, { expiresIn: PDF_URL_EXPIRY_SECONDS });
 }
 
 async function deleteFromCloudinary(storageKey) {
   await cloudinaryService.deletePDF(storageKey);
-}
-
-// ─── Provider: AWS S3 ─────────────────────────────────────────────────────────
-
-async function uploadToS3(buffer, key, mimeType = 'application/pdf') {
-  const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-
-  const s3 = new S3Client({
-    region:      process.env.AWS_REGION || 'ap-south-1',
-    credentials: {
-      accessKeyId:     process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    },
-  });
-
-  const command = new PutObjectCommand({
-    Bucket:      process.env.AWS_S3_BUCKET,
-    Key:         `documents/${key}.pdf`,
-    Body:        buffer,
-    ContentType: mimeType,
-    ServerSideEncryption: 'AES256',
-    Metadata: { service: 'nyayasetu', type: 'legal-document' },
-  });
-
-  await s3.send(command);
-  const storageKey = `documents/${key}.pdf`;
-  logger.info(`[storage/s3] Uploaded: ${storageKey} (${buffer.length} bytes)`);
-  return { storageKey, provider: 's3' };
-}
-
-async function getS3SignedUrl(storageKey) {
-  const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
-  const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
-
-  const s3 = new S3Client({
-    region:      process.env.AWS_REGION || 'ap-south-1',
-    credentials: {
-      accessKeyId:     process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    },
-  });
-
-  const command = new GetObjectCommand({
-    Bucket:                     process.env.AWS_S3_BUCKET,
-    Key:                        storageKey,
-    ResponseContentDisposition: 'attachment',
-  });
-
-  return getSignedUrl(s3, command, { expiresIn: PDF_URL_EXPIRY_SECONDS });
-}
-
-async function deleteFromS3(storageKey) {
-  const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
-  const s3 = new S3Client({
-    region:      process.env.AWS_REGION || 'ap-south-1',
-    credentials: {
-      accessKeyId:     process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    },
-  });
-  await s3.send(new DeleteObjectCommand({ Bucket: process.env.AWS_S3_BUCKET, Key: storageKey }));
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -107,7 +40,7 @@ async function uploadPDF(buffer, key) {
   logger.debug(`[storage] Uploading PDF via ${provider}, key: ${key}`);
 
   switch (provider) {
-    case 's3':        return uploadToS3(buffer, key);
+    case 's3':        return s3Service.uploadPDF(buffer, key);
     case 'cloudinary':
     default:          return uploadToCloudinary(buffer, key);
   }
@@ -124,7 +57,7 @@ async function getSignedPdfUrl(storageKey) {
   const provider = getProvider();
 
   switch (provider) {
-    case 's3':        return getS3SignedUrl(storageKey);
+    case 's3':        return s3Service.getSignedPdfUrl(storageKey);
     case 'cloudinary':
     default:          return getCloudinarySignedUrl(storageKey);
   }
@@ -137,7 +70,7 @@ async function deletePDF(storageKey) {
   const provider = getProvider();
   try {
     switch (provider) {
-      case 's3':        return await deleteFromS3(storageKey);
+      case 's3':        return await s3Service.deletePDF(storageKey);
       case 'cloudinary':
       default:          return await deleteFromCloudinary(storageKey);
     }

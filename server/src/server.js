@@ -18,6 +18,12 @@ async function startServer() {
     // ── Connect to Redis ───────────────────────────────────────────────────
     await connectRedis();
 
+    // ── Validate storage provider credentials ──────────────────────────────
+    if ((process.env.STORAGE_PROVIDER || 'cloudinary') === 's3') {
+      const { validateConfig } = require('./services/storage/s3Service');
+      await validateConfig();
+    }
+
     // ── Create HTTP server (needed for socket.io later) ────────────────────
     server = http.createServer(app);
 
