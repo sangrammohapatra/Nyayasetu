@@ -285,6 +285,7 @@ function ConsultationBooking({ open, onClose, lawyer }) {
         orderId: data.paymentOrder.orderId,
         amount: data.paymentOrder.amount,
         currency: 'INR',
+        key: data.paymentOrder.keyId,
         name: 'NyayaSetu',
         description: `Consultation with ${lawyer.name}`,
         prefill: { name: user?.name, contact: user?.phone, email: user?.email },

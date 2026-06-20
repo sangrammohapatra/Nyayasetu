@@ -83,6 +83,7 @@ export async function openCheckout({
   description = 'Legal document service',
   image,
   prefill = {},
+  key,        // optional: server-provided key_id (preferred over build-time env var)
   onSuccess,
   onDismiss,
 }) {
@@ -95,9 +96,10 @@ export async function openCheckout({
     throw err;
   }
 
-  const keyId = RAZORPAY_KEY_ID;
+  // Prefer key from server response so key rotation works without a redeploy.
+  const keyId = key || RAZORPAY_KEY_ID;
   if (!keyId) {
-    console.warn('[razorpay.js] VITE_RAZORPAY_KEY_ID is not set — checkout may fail');
+    console.warn('[razorpay.js] No Razorpay key available — checkout will fail. Set VITE_RAZORPAY_KEY_ID or pass key from server.');
   }
 
   // Read the primary theme colour from CSS custom properties so the modal

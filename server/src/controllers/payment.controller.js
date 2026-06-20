@@ -329,13 +329,14 @@ const verifySubscription = asyncHandler(async (req, res) => {
   const validUntil = getSubscriptionValidUntil(billingCycle);
   const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
 
-  // Upsert Subscription record (idempotent on orderId)
+  // Upsert Subscription record (idempotent on razorpayOrderId)
   const subscription = await Subscription.findOneAndUpdate(
     { razorpayOrderId: orderId },
     {
       $setOnInsert: {
         user: userId,
         plan,
+        persona: effectivePersona,
         billingCycle,
         startDate: new Date(),
         endDate: validUntil,
@@ -343,10 +344,10 @@ const verifySubscription = asyncHandler(async (req, res) => {
         autoRenew: true,
         razorpayOrderId: orderId,
         razorpayPaymentId: paymentId,
-        amount,
+        amountPaid: amount,
       },
     },
-    { upsert: true, new: true }
+    { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
   );
 
   // Update User subscription + usage limits

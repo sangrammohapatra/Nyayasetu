@@ -55,6 +55,14 @@ const subscriptionSchema = new Schema(
     cancellationReason: { type: String, trim: true },
 
     // ── Razorpay ──────────────────────────────────────────────────────────────
+    // One-time order ID (used for pay-upfront monthly/annual subscriptions)
+    razorpayOrderId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+    },
+    // Recurring subscription ID (used when Razorpay Subscriptions API is wired)
     razorpaySubscriptionId: {
       type: String,
       unique: true,
@@ -101,6 +109,7 @@ const subscriptionSchema = new Schema(
 // ─── Indexes ───────────────────────────────────────────────────────────────────
 subscriptionSchema.index({ user: 1, isActive: 1 });
 subscriptionSchema.index({ user: 1, createdAt: -1 });
+subscriptionSchema.index({ razorpayOrderId: 1 }, { sparse: true });
 subscriptionSchema.index({ razorpaySubscriptionId: 1 }, { sparse: true });
 subscriptionSchema.index({ endDate: 1, isActive: 1 });  // For expiry checks
 

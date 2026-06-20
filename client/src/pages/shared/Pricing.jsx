@@ -16,7 +16,6 @@ import Chip from '@mui/material/Chip';
 import Switch from '@mui/material/Switch';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
-import Accordion from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import MuiAccordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -173,7 +172,7 @@ const FAQS = [
 
 // ─── Animated price number ────────────────────────────────────────────────────
 
-function AnimatedPrice({ value, annual }) {
+function AnimatedPrice({ value, annual, monthly }) {
   const motionVal = useMotionValue(value);
   const rounded = useTransform(motionVal, (v) => Math.round(v));
   const [display, setDisplay] = useState(value);
@@ -183,6 +182,11 @@ function AnimatedPrice({ value, annual }) {
     const unsub = rounded.on('change', setDisplay);
     return () => { controls.stop(); unsub(); };
   }, [value]);
+
+  // Savings vs paying monthly for 12 months
+  const annualSavings = (annual && value > 0 && monthly > 0) ? (monthly * 12 - value) : 0;
+  // Per-month equivalent when billed annually
+  const perMonth = (annual && value > 0) ? Math.round(value / 12) : 0;
 
   return (
     <Box sx={{ textAlign: 'center', my: 2 }}>
@@ -202,9 +206,16 @@ function AnimatedPrice({ value, annual }) {
             /{annual ? 'year' : 'month'}
           </Typography>
           {annual && value > 0 && (
-            <Typography variant="caption" sx={{ display: 'block', color: 'var(--color-success)', fontWeight: 600 }}>
-              Save ₹{(Math.round(value / 10) * 2).toLocaleString('en-IN')}
-            </Typography>
+            <>
+              <Typography variant="caption" sx={{ display: 'block', color: 'var(--color-text-secondary)', mt: 0.25 }}>
+                ≈ ₹{perMonth.toLocaleString('en-IN')}/mo
+              </Typography>
+              {annualSavings > 0 && (
+                <Typography variant="caption" sx={{ display: 'block', color: 'var(--color-success)', fontWeight: 700, mt: 0.25 }}>
+                  Save ₹{annualSavings.toLocaleString('en-IN')} vs monthly
+                </Typography>
+              )}
+            </>
           )}
         </Box>
       )}
@@ -266,7 +277,7 @@ function PlanCard({ plan, annual, currentPlan, onSelect, loading, persona }) {
         </Box>
 
         {/* Price */}
-        <AnimatedPrice value={price} annual={annual} />
+        <AnimatedPrice value={price} annual={annual} monthly={plan.monthly} />
 
         {/* Current plan badge */}
         {isCurrentPlan && (
@@ -371,6 +382,7 @@ function Pricing() {
         orderId: orderData.orderId,
         amount: orderData.amount,
         currency: 'INR',
+        key: orderData.razorpayKeyId,
         name: 'NyayaSetu',
         description: `${planId.charAt(0).toUpperCase() + planId.slice(1)} Plan — ${annual ? 'Annual' : 'Monthly'}`,
         prefill: { name: user.name, contact: user.phone, email: user.email },
