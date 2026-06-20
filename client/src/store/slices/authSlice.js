@@ -112,14 +112,23 @@ export const setPassword = createAsyncThunk(
 
 export const logout = createAsyncThunk(
   'auth/logout',
-  async (_, { rejectWithValue }) => {
+  async (allDevices = false, { getState }) => {
+    const body = {};
+    if (!allDevices) {
+      const refreshToken =
+        getState().auth.refreshToken ||
+        localStorage.getItem('nyayasetu_refresh_token');
+      if (refreshToken) body.refreshToken = refreshToken;
+    }
     try {
-      await api.post('/auth/logout');
-    } catch (_err) {
+      await api.post('/auth/logout', body);
+    } catch {
       // Always clear local state even if server call fails
     } finally {
       localStorage.removeItem('nyayasetu_token');
       localStorage.removeItem('nyayasetu_refresh_token');
+      // Clear the redux-persist snapshot so stale session isn't rehydrated on reload
+      localStorage.removeItem('nyayasetu_auth');
     }
     return null;
   }
@@ -132,6 +141,7 @@ export const deactivateAccount = createAsyncThunk(
       await api.delete('/profile/account');
       localStorage.removeItem('nyayasetu_token');
       localStorage.removeItem('nyayasetu_refresh_token');
+      localStorage.removeItem('nyayasetu_auth');
       return null;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to deactivate account');

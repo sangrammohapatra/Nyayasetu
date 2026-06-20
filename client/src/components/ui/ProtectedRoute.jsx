@@ -23,10 +23,17 @@ function ProtectedRoute({ children, allowedPersonas }) {
   const persona = useSelector(selectUserPersona);
   const loading = useSelector(selectAuthLoading);
 
+  // Guard against stale redux-persist rehydration: if the access token was cleared
+  // from localStorage (e.g. on logout) but the Redux snapshot still carries the old
+  // token + user, treat the session as expired immediately without waiting for an
+  // effect to run.
+  const hasLiveToken = !!localStorage.getItem('nyayasetu_token');
+  const effectiveAuth = isAuthenticated && hasLiveToken;
+
   // Block ONLY on the initial auth check: token exists but user hasn't loaded yet.
   // Do NOT block on subsequent getMe refreshes (loading=true with user already present)
   // — that would unmount children, triggering another getMe call and looping forever.
-  const initializing = loading && !isAuthenticated;
+  const initializing = loading && !effectiveAuth;
 
   if (initializing) {
     return (
@@ -85,7 +92,7 @@ function ProtectedRoute({ children, allowedPersonas }) {
   }
 
   // Not logged in → /login, preserving the attempted URL as returnUrl
-  if (!isAuthenticated) {
+  if (!effectiveAuth) {
     const returnUrl = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?returnUrl=${returnUrl}`} replace />;
   }

@@ -1450,7 +1450,7 @@ function SecuritySection({ showSnack }) {
         t("settings.confirmLogoutAll", "Log out from all devices?"),
       )
     ) {
-      await dispatch(logout());
+      await dispatch(logout(true));
       navigate("/login", { replace: true });
     }
   };

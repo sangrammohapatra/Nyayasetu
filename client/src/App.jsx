@@ -50,6 +50,7 @@ import {
   selectUserPersona,
   selectAuthLoading,
   getMe,
+  forceLogout,
 } from "./store/slices/authSlice";
 import {
   selectSnackbars,
@@ -120,9 +121,10 @@ function RootRedirect() {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const persona = useSelector(selectUserPersona)?.toLowerCase();
   const loading = useSelector(selectAuthLoading);
+  const hasLiveToken = !!localStorage.getItem('nyayasetu_token');
 
-  if (loading) return <PageLoader />;
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (loading && hasLiveToken) return <PageLoader />;
+  if (!isAuthenticated || !hasLiveToken) return <Navigate to="/login" replace />;
   const home = persona === 'admin' ? '/admin/dashboard' : `/${persona}/home`;
   return <Navigate to={home} replace />;
 }
@@ -133,9 +135,10 @@ function SettingsRedirect() {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const persona = useSelector(selectUserPersona);
   const loading = useSelector(selectAuthLoading);
+  const hasLiveToken = !!localStorage.getItem('nyayasetu_token');
 
-  if (loading) return <PageLoader />;
-  if (!isAuthenticated) {
+  if (loading && hasLiveToken) return <PageLoader />;
+  if (!isAuthenticated || !hasLiveToken) {
     const returnUrl = encodeURIComponent('/settings');
     return <Navigate to={`/login?returnUrl=${returnUrl}`} replace />;
   }
@@ -464,11 +467,15 @@ function AppBootstrap() {
   const language = useSelector(selectLanguage);
   const isAuthenticated = useSelector(selectIsAuthenticated);
 
-  // Fetch user profile on load if token exists
+  // Fetch user profile on load if token exists; otherwise purge any stale
+  // redux-persist rehydration so protected routes immediately redirect to login.
   useEffect(() => {
     const token = localStorage.getItem("nyayasetu_token");
     if (token) {
       dispatch(getMe());
+    } else {
+      dispatch(forceLogout());
+      localStorage.removeItem('nyayasetu_auth');
     }
   }, [dispatch]);
 
