@@ -49,6 +49,9 @@ const freeUsageSchema = new Schema(
       default: DEFAULT_FREE_LIMITS.aiChatsLimit,
     },
     resetDate: { type: Date, default: null },
+    // Legal Helpline triage — daily reset (not monthly)
+    triageUsed:      { type: Number, default: 0, min: 0 },
+    triageResetDate: { type: Date,   default: null },
   },
   { _id: false },
 );

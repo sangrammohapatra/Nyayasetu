@@ -645,6 +645,95 @@ function CitizenHome() {
           </Box>
         </motion.div>
 
+        {/* Emergency Legal Helpline CTA */}
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.18, duration: 0.4 }}
+          whileHover={prefersReducedMotion ? undefined : { y: -2 }}
+          whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
+        >
+          <Box
+            onClick={() => navigate("/citizen/helpline")}
+            sx={{
+              mb: 3,
+              p: { xs: 2, sm: 2.5 },
+              borderRadius: `${RADIUS.lg}px`,
+              background: "linear-gradient(135deg, rgba(255,23,68,0.12) 0%, rgba(183,28,28,0.08) 100%)",
+              border: "2px solid rgba(255,23,68,0.3)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              transition: "border-color 0.2s, box-shadow 0.2s",
+              "&:hover": {
+                borderColor: "#FF1744",
+                boxShadow: "0 4px 20px rgba(255,23,68,0.2)",
+              },
+            }}
+          >
+            <Box
+              sx={{
+                width: 48,
+                height: 48,
+                borderRadius: "50%",
+                background: "rgba(255,23,68,0.12)",
+                border: "1.5px solid rgba(255,23,68,0.3)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 24,
+                flexShrink: 0,
+                position: "relative",
+              }}
+            >
+              🆘
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: 0,
+                  right: 0,
+                  width: 10,
+                  height: 10,
+                  borderRadius: "50%",
+                  background: "#FF1744",
+                  border: "2px solid var(--color-surface)",
+                  animation: "pulse-dot 1.4s ease-in-out infinite",
+                  "@keyframes pulse-dot": {
+                    "0%,100%": { transform: "scale(1)", opacity: 1 },
+                    "50%": { transform: "scale(1.5)", opacity: 0.5 },
+                  },
+                }}
+              />
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.25 }}>
+                <Typography sx={{ fontWeight: 800, fontSize: "0.95rem", color: "#FF1744" }}>
+                  Legal Emergency Helpline
+                </Typography>
+                <Box
+                  sx={{
+                    px: 1,
+                    py: 0.2,
+                    borderRadius: "4px",
+                    background: "#FF1744",
+                    fontSize: "0.62rem",
+                    fontWeight: 700,
+                    color: "#fff",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  FREE
+                </Box>
+              </Box>
+              <Typography sx={{ fontSize: "0.8rem", color: "var(--color-text-secondary)", lineHeight: 1.4 }}>
+                Describe what happened — get instant law, steps & nearest legal aid in seconds. Works in Hindi, Tamil, Bengali & more.
+              </Typography>
+            </Box>
+            <Typography sx={{ color: "#FF1744", fontWeight: 700, fontSize: "1.1rem", flexShrink: 0 }}>→</Typography>
+          </Box>
+        </motion.div>
+
         {/* Usage meter — free tier only */}
         <UsageMeter freeUsage={freeUsage} plan={plan} />
 

@@ -20,6 +20,7 @@ const templateRoutes = require('./routes/template.routes');
 const nyayabotRoutes = require('./routes/nyayabotRoutes');
 const profileRoutes = require('./routes/profile.routes');
 const consultationChatRoutes = require('./routes/consultationChat.routes');
+const triageRoutes = require('./routes/triage.routes');
 // Error handler middleware
 const { errorHandler } = require('./middleware/error.middleware');
 
@@ -164,6 +165,7 @@ app.use('/v1/admin', adminRoutes);
 app.use('/v1/profile', profileRoutes);
 app.use('/v1/nyayabot', nyayabotRoutes);
 app.use('/v1/consultations', consultationChatRoutes);
+app.use('/v1/triage', triageRoutes);
 
 // ─── 404 Handler ──────────────────────────────────────────────────────────────
 app.use((req, res) => {

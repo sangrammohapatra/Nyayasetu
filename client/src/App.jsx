@@ -93,7 +93,8 @@ const AdminUsers     = lazy(() => import('./pages/admin/AdminUsers'));
 const AdminLawyers   = lazy(() => import('./pages/admin/AdminLawyers'));
 const AdminTemplates = lazy(() => import('./pages/admin/AdminTemplates'));
 const AdminAuditLog  = lazy(() => import('./pages/admin/AdminAuditLog'));
-const LawSearch      = lazy(() => import('./pages/shared/LawSearch'));
+const LawSearch           = lazy(() => import('./pages/shared/LawSearch'));
+const EmergencyHelpline   = lazy(() => import('./pages/citizen/EmergencyHelpline'));
 
 // ─── Page loading fallback ────────────────────────────────────────────────────
 
@@ -294,6 +295,7 @@ const router = createBrowserRouter([
       { path: "lawyers/:lawyerId", element: <LawyerProfile /> },
       { path: "profile", element: <Navigate to="/citizen/settings" replace /> },
       { path: "settings", element: <Settings /> },
+      { path: "helpline", element: <EmergencyHelpline /> },
     ],
   },
 
