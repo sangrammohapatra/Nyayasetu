@@ -50,6 +50,7 @@ const IC = {
   users:         'https://cdn.lordicon.com/oqjlkyvy.json',
   templates:     'https://cdn.lordicon.com/wloilxuq.json',
   lawyers:       'https://cdn.lordicon.com/mxxgldoo.json',
+  calendar:      'https://cdn.lordicon.com/abvsilmk.json',
 };
 
 // ─── Nav definitions per persona — grouped by section ────────────────────────
@@ -64,6 +65,7 @@ function useNavItems(persona, t) {
       { section: t('sidebar.section_legal', 'Legal') },
       { icon: IC.caseTracker, label: t('sidebar.caseTracker', 'Case Tracker'),  path: '/citizen/cases' },
       { icon: IC.findLawyer,  label: t('sidebar.findLawyer',  'Find Lawyer'),   path: '/citizen/lawyers' },
+      { icon: IC.calendar,    label: t('sidebar.calendar',    'Calendar'),      path: '/citizen/calendar' },
       { section: t('sidebar.section_account', 'Account') },
       { icon: IC.pricing,     label: t('sidebar.pricing',     'Pricing'),       path: '/pricing' },
     ];
@@ -73,6 +75,7 @@ function useNavItems(persona, t) {
       { icon: IC.home,          label: t('sidebar.home',          'Home'),          path: '/lawyer/home' },
       { icon: IC.clients,       label: t('sidebar.clients',       'My Clients'),    path: '/lawyer/clients' },
       { icon: IC.cases,         label: t('sidebar.cases',         'Cases'),         path: '/lawyer/cases' },
+      { icon: IC.calendar,      label: t('sidebar.calendar',      'Calendar'),      path: '/lawyer/calendar' },
       { section: t('sidebar.section_business', 'Business') },
       { icon: IC.consultations, label: t('sidebar.consultations', 'Consultations'), path: '/lawyer/consultations' },
       { icon: IC.earnings,      label: t('sidebar.earnings',      'Earnings'),      path: '/lawyer/earnings' },
@@ -91,6 +94,7 @@ function useNavItems(persona, t) {
       { section: 'Notary' },
       { icon: IC.home,          label: 'Home',           path: '/notary/home' },
       { icon: IC.consultations, label: 'Requests',       path: '/notary/requests' },
+      { icon: IC.calendar,      label: 'Calendar',       path: '/notary/calendar' },
       { icon: IC.dashboard,     label: 'My Profile',     path: '/notary/profile' },
     ];
 

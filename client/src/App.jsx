@@ -85,6 +85,7 @@ const EarningsPanel = lazy(() => import("./pages/lawyer/EarningsPanel"));
 const Pricing = lazy(() => import("./pages/shared/Pricing"));
 const Settings = lazy(() => import("./pages/shared/Settings"));
 const SharedDocumentView = lazy(() => import("./pages/shared/SharedDocumentView"));
+const CalendarPage = lazy(() => import("./pages/shared/CalendarPage"));
 
 // Layout 
 const ThemeSwitcher = lazy(() => import("./components/layout/ThemeSwitcher"));
@@ -316,6 +317,7 @@ const router = createBrowserRouter([
       { path: "profile", element: <Navigate to="/citizen/settings" replace /> },
       { path: "settings", element: <Settings /> },
       { path: "helpline", element: <EmergencyHelpline /> },
+      { path: "calendar", element: <CalendarPage /> },
     ],
   },
 
@@ -344,6 +346,7 @@ const router = createBrowserRouter([
       },
       { path: "earnings", element: <EarningsPanel /> },
       { path: "settings", element: <Settings /> },
+      { path: "calendar", element: <CalendarPage /> },
     ],
   },
 
@@ -435,6 +438,7 @@ const router = createBrowserRouter([
         ),
       },
       { path: "settings", element: <Settings /> },
+      { path: "calendar", element: <CalendarPage /> },
     ],
   },
 
