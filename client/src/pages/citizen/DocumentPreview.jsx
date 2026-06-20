@@ -46,6 +46,7 @@ import GlassCard from '../../components/ui/GlassCard';
 import GradientHeading from '../../components/ui/GradientHeading';
 import ConsultationChat from '../../components/consultation/ConsultationChat';
 import NotarizationBooking from '../../components/notary/NotarizationBooking';
+import StampDutyCalculator from '../../components/document/StampDutyCalculator';
 import { TYPOGRAPHY } from '../../theme/tokens';
 import { openCheckout } from '../../services/razorpay';
 import { RADIUS, SHADOWS } from '../../theme/tokens';
@@ -705,6 +706,9 @@ function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenera
           </>
         )}
       </GlassCard>
+
+      {/* Stamp Duty Calculator */}
+      <StampDutyCalculator doc={doc} />
 
       {/* Lawyer CTA / Chat */}
       <GlassCard sx={{ p: 2, border: '1.5px solid var(--color-primary) !important' }}>
