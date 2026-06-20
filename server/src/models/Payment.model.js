@@ -134,14 +134,6 @@ paymentSchema.virtual('isPaid').get(function () {
 // ─── Pre-save Hooks ────────────────────────────────────────────────────────────
 
 paymentSchema.pre('save', function (next) {
-  // Compute platform/lawyer earnings split for consultation payments
-  if (this.isModified('status') && this.status === 'paid' && this.type === 'consultation') {
-    // Default: 10% platform, 90% lawyer — actual split set by controller
-    if (this.lawyerEarnings === 0 && this.platformEarnings === 0) {
-      this.platformEarnings = Math.round(this.amount * 0.1);
-      this.lawyerEarnings = this.amount - this.platformEarnings;
-    }
-  }
   next();
 });
 

@@ -18,6 +18,8 @@ const Document = require('../models/Document.model');
 const DocumentTemplate = require('../models/DocumentTemplate.model');
 const Payment = require('../models/Payment.model');
 const Subscription = require('../models/Subscription.model');
+const Consultation = require('../models/Consultation.model');
+const LawyerProfile = require('../models/LawyerProfile.model');
 
 const razorpayService = require('../services/payment/razorpayService');
 const emailService = require('../services/notification/emailService');
@@ -610,6 +612,21 @@ async function handlePaymentCaptured(payload) {
   payment.status = 'paid';
   payment.razorpayPaymentId = razorpayPaymentId;
   payment.paidAt = new Date();
+
+  if (payment.type === 'consultation' && payment.relatedEntity) {
+    const consultation = await Consultation.findById(payment.relatedEntity)
+      .select('lawyer')
+      .lean();
+    if (consultation) {
+      const profile = await LawyerProfile.findById(consultation.lawyer)
+        .select('referralFeePercent')
+        .lean();
+      const referralFeePercent = profile?.referralFeePercent ?? 10;
+      payment.platformEarnings = Math.round(payment.amount * referralFeePercent / 100);
+      payment.lawyerEarnings   = payment.amount - payment.platformEarnings;
+    }
+  }
+
   await payment.save();
 
   if (payment.type === 'pay_per_doc' && payment.relatedEntity) {
