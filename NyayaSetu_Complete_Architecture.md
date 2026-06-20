@@ -1,1522 +1,968 @@
-# NyayaSetu — Complete Updated Technical Architecture & Step-by-Step Code Generation Prompts
-**Version 2.0 | Development-First (Free Tier) → Production-Ready**
+# NyayaSetu — Complete Technical Architecture
+**Version 3.0 | As-Built (June 2026) — Actual Implementation State**
+
+> This document reflects the **actual codebase** as it exists today, not the aspirational design.
+> Gaps between planned and implemented are called out explicitly.
 
 ---
 
 ## TABLE OF CONTENTS
-1. [Architecture Decisions & Free-Tier Strategy](#1-architecture-decisions--free-tier-strategy)
-2. [Updated System Overview](#2-updated-system-overview)
-3. [Updated Folder Structure](#3-updated-folder-structure)
-4. [Complete MongoDB Schema (v2)](#4-complete-mongodb-schema-v2)
-5. [Complete API Design (v2)](#5-complete-api-design-v2)
-6. [AI Pipeline (Gemini 2.5 Flash → Claude in Production)](#6-ai-pipeline)
-7. [WhatsApp ↔ Web Account Sync](#7-whatsapp--web-account-sync)
-8. [Multi-Persona & Subscription System](#8-multi-persona--subscription-system)
-9. [Theme, Language & UI Architecture](#9-theme-language--ui-architecture)
-10. [Real-Time APIs: eCourts & Indian Kanoon](#10-real-time-apis-ecourts--indian-kanoon)
-11. [Payment Architecture (Razorpay Free → Paid)](#11-payment-architecture)
-12. [Environment Variables (Full)](#12-environment-variables)
+1. [Tech Stack & Free-Tier Strategy](#1-tech-stack--free-tier-strategy)
+2. [System Overview](#2-system-overview)
+3. [Actual Folder Structure](#3-actual-folder-structure)
+4. [MongoDB Schemas (As Implemented)](#4-mongodb-schemas-as-implemented)
+5. [API Routes (As Mounted)](#5-api-routes-as-mounted)
+6. [AI Pipeline](#6-ai-pipeline)
+7. [WhatsApp Integration](#7-whatsapp-integration)
+8. [Personas, Plans & Feature Gates](#8-personas-plans--feature-gates)
+9. [Theme & Language System](#9-theme--language-system)
+10. [External API Integrations](#10-external-api-integrations)
+11. [Payment Architecture](#11-payment-architecture)
+12. [Socket.IO & Real-Time](#12-socketio--real-time)
+13. [Background Worker](#13-background-worker)
+14. [Authentication & Security](#14-authentication--security)
+15. [Frontend Architecture](#15-frontend-architecture)
+16. [Environment Variables](#16-environment-variables)
+17. [Deployment](#17-deployment)
+18. [Known Gaps & TODOs](#18-known-gaps--todos)
 
 ---
 
-## 1. Architecture Decisions & Free-Tier Strategy
+## 1. Tech Stack & Free-Tier Strategy
 
-### AI Engine: Gemini 2.5 Flash (Dev) → Claude Sonnet (Production)
-- **Claude API has NO free tier.** New accounts get a tiny starter credit only.
-- **Gemini 2.5 Flash via Google AI Studio** has a genuine recurring free tier: 15 RPM, ~500–1,500 RPD depending on region/account. Sufficient for development.
-- **Strategy:** Build an `AIProvider` abstraction layer. In dev, use `gemini-2.5-flash`. In production, swap to `claude-sonnet-4-20250514` by changing one env variable. No code changes needed.
+### Core Stack
 
-### PDF Storage: Cloudinary Free (Dev) → AWS S3 (Production)
-- Cloudinary free tier: 25 GB storage, 25 GB bandwidth/month — enough for dev/staging.
+| Layer | Technology | Version | Notes |
+|-------|-----------|---------|-------|
+| Frontend | React (Vite) | 18.x | PWA-ready |
+| UI Library | MUI v6 | 6.x | Custom theme system |
+| State | Redux Toolkit + redux-persist | latest | 12 slices |
+| Animations | Framer Motion | latest | Page transitions, stagger |
+| Backend | Node.js + Express | 18+ / 4.x | CommonJS |
+| Database | MongoDB + Mongoose | Atlas M0 | 16 models |
+| Cache/Queue | Redis (ioredis) | Upstash free | With in-memory fallback |
+| Real-time | Socket.IO | 4.x | Consultation chat + notifications |
+| Monorepo | npm workspaces | — | client / server / worker |
 
-### Queue/Cache: Upstash Redis Free (Dev) → Upstash Redis paid or Redis Cloud (Production)
-- Upstash free: 10,000 commands/day, 256MB — sufficient for dev.
-
-### OTP: Twilio Free Trial (Dev) → MSG91 (Production)
-- Twilio free trial gives $15.50 credit. MSG91 is cheapest for Indian numbers in production.
-
-### WhatsApp: Twilio Sandbox (Dev) → Twilio Business/Meta Cloud API (Production)
-- Twilio WhatsApp Sandbox is free for dev/testing.
-
-### Voice Transcription: Whisper via Hugging Face Inference API Free (Dev) → OpenAI Whisper (Production)
-- HF Inference API has a free tier for whisper-large-v3.
-
-### Deployment (Dev): All free
-- Frontend: Vercel free tier
-- Backend: Render free tier (or Railway $5 free credits)
-- MongoDB: Atlas M0 free cluster (512MB)
-
----
-
-## 2. Updated System Overview
+### AI Provider Strategy (Abstracted)
 
 ```
-Stack:
-  Frontend  → React (Vite) + MUI v6 + Redux Toolkit + Framer Motion
-  Backend   → Node.js + Express + MongoDB (Mongoose)
-  Worker    → Bull.js + Redis (Upstash)
-  AI Engine → Gemini 2.5 Flash (dev) / Claude Sonnet 4 (prod) — abstracted
-  Payments  → Razorpay (test keys in dev, live in prod)
-  WhatsApp  → Twilio Sandbox (dev) / Meta Cloud API (prod)
-  Storage   → Cloudinary (dev) / AWS S3 (prod)
-  OTP       → Twilio (dev) / MSG91 (prod)
-  Voice     → HuggingFace Whisper (dev) / OpenAI Whisper (prod)
-  Real Laws → Indian Kanoon API (free, scraped) + eCourts NJDG (free public API)
+AI_PROVIDER=gemini  →  gemini-2.5-flash  (dev — free tier)
+AI_PROVIDER=claude  →  claude-sonnet-4-20250514  (prod — paid)
+```
 
+Single env variable switch, zero code change needed.
+
+### Storage Strategy (Abstracted)
+
+```
+STORAGE_PROVIDER=cloudinary  →  Cloudinary free (dev)
+STORAGE_PROVIDER=s3          →  AWS S3 (prod)
+```
+
+### Other Free-Tier Services
+
+| Service | Dev (Free) | Production |
+|---------|-----------|------------|
+| OTP/SMS | Twilio trial | MSG91 |
+| WhatsApp | Twilio sandbox | Meta Cloud API |
+| Voice transcription | HuggingFace Whisper (free) | OpenAI Whisper |
+| Email | Gmail SMTP | — |
+| PDF hosting | Cloudinary | AWS S3 |
+| Deployment | Render free / Vercel | — |
+
+---
+
+## 2. System Overview
+
+```
 Personas:
-  - citizen      (normal user / applicant)
-  - lawyer       (verified advocate)
-  - paralegal    (assistant to lawyer)
-  - admin        (platform admin)
+  citizen    — normal user / applicant
+  lawyer     — verified advocate
+  paralegal  — assistant to lawyer (access via /lawyer/* routes)
+  admin      — platform admin
+  notary     — document notarization officer (NEW — added post-v2)
 
-Subscription Tiers per Persona:
-  citizen:   free | basic | pro
-  lawyer:    free | professional | firm
+Subscription Tiers:
+  citizen:   free | basic (₹99/mo) | pro (₹199/mo)
+  lawyer:    free | professional (₹499/mo) | firm (₹1499/mo)
   admin:     internal only
+  notary:    internal only (no billing)
+```
+
+### Request Flow
+
+```
+Browser → Vite Dev / Vercel CDN
+         → React Router v6 (createBrowserRouter)
+         → ProtectedRoute (persona-gated)
+         → AppLayout (Navbar + Sidebar + BottomNav)
+         → Lazy-loaded page component
+         → Axios api.js → Express /v1/* routes
+         → Auth middleware → Controller → MongoDB
+         → Optional: AI service, eCourts, Razorpay, etc.
 ```
 
 ---
 
-## 3. Updated Folder Structure
+## 3. Actual Folder Structure
 
 ```
-nyayasetu/
-├── client/                              # React PWA (Vite + MUI + Redux)
-│   ├── public/
-│   │   ├── manifest.json
-│   │   ├── locales/                     # i18next translation files
-│   │   │   ├── en/translation.json
-│   │   │   ├── hi/translation.json
-│   │   │   ├── bn/translation.json
-│   │   │   ├── mr/translation.json
-│   │   │   ├── ta/translation.json
-│   │   │   └── te/translation.json
-│   ├── src/
-│   │   ├── theme/
-│   │   │   ├── ThemeProvider.jsx        # MUI dynamic theme + user preference
-│   │   │   ├── themes/
-│   │   │   │   ├── default.js           # Blue/white justice theme
-│   │   │   │   ├── saffron.js           # Saffron/tricolor (India-inspired)
-│   │   │   │   ├── dark.js              # Dark mode
-│   │   │   │   ├── highContrast.js      # Accessibility theme
-│   │   │   │   └── emerald.js           # Green calm theme
-│   │   │   └── tokens.js               # Shared design tokens (spacing, radius, etc.)
-│   │   ├── i18n/
-│   │   │   └── i18n.js                 # i18next config
-│   │   ├── components/
-│   │   │   ├── ui/
-│   │   │   │   ├── AnimatedPage.jsx     # Framer Motion page transition wrapper
-│   │   │   │   ├── GlassCard.jsx        # Glassmorphism card
-│   │   │   │   ├── StatusBadge.jsx
-│   │   │   │   ├── FeatureGate.jsx      # Show/hide based on subscription tier
-│   │   │   │   ├── PlanBadge.jsx        # "PRO", "FREE" badge
-│   │   │   │   └── UpgradeCTA.jsx       # Upgrade prompt component
-│   │   │   ├── chat/
-│   │   │   │   ├── ChatWindow.jsx       # Main chat container
-│   │   │   │   ├── MessageBubble.jsx    # Animated message bubble
-│   │   │   │   ├── TypingIndicator.jsx  # Animated dots
-│   │   │   │   ├── VoiceInput.jsx       # Hold-to-record button
-│   │   │   │   └── ProgressBar.jsx      # % questions answered
-│   │   │   ├── document/
-│   │   │   │   ├── DocumentViewer.jsx   # Render document with clause highlights
-│   │   │   │   ├── DocumentCard.jsx     # Card in "My Documents" list
-│   │   │   │   ├── ClauseExplainer.jsx  # Tap clause → plain language popup
-│   │   │   │   └── NextStepsPanel.jsx   # Accordion of action steps
-│   │   │   ├── case/
-│   │   │   │   ├── CaseCard.jsx
-│   │   │   │   ├── HearingTimeline.jsx  # Visual vertical timeline
-│   │   │   │   └── CNRInput.jsx         # CNR number input with validation
-│   │   │   ├── lawyer/
-│   │   │   │   ├── LawyerCard.jsx
-│   │   │   │   ├── LawyerSearch.jsx
-│   │   │   │   ├── ConsultationBooking.jsx
-│   │   │   │   └── LawyerDashboard.jsx  # Lawyer-specific dashboard
-│   │   │   ├── pricing/
-│   │   │   │   ├── PricingTable.jsx     # Animated comparison table
-│   │   │   │   └── FeatureList.jsx      # Tick/cross feature grid per tier
-│   │   │   ├── whatsapp/
-│   │   │   │   └── WhatsAppConnectBanner.jsx
-│   │   │   └── layout/
-│   │   │       ├── Navbar.jsx           # Persona-aware top nav
-│   │   │       ├── Sidebar.jsx          # Role-based sidebar
-│   │   │       ├── BottomNav.jsx        # Mobile bottom navigation
-│   │   │       └── ThemeSwitcher.jsx    # Floating theme palette widget
-│   │   ├── pages/
-│   │   │   ├── auth/
-│   │   │   │   ├── Login.jsx            # Phone OTP login
-│   │   │   │   ├── Register.jsx         # Profile completion
-│   │   │   │   └── WhatsAppEntry.jsx    # Deep link from WhatsApp
-│   │   │   ├── citizen/
-│   │   │   │   ├── Home.jsx             # Landing / dashboard
-│   │   │   │   ├── NewDocument.jsx      # Template picker
-│   │   │   │   ├── ChatFlow.jsx         # Conversational data collection
-│   │   │   │   ├── DocumentPreview.jsx  # Review + download
-│   │   │   │   ├── MyDocuments.jsx      # Document history
-│   │   │   │   └── CaseDashboard.jsx    # CNR tracking
-│   │   │   ├── lawyer/
-│   │   │   │   ├── LawyerHome.jsx
-│   │   │   │   ├── ClientList.jsx
-│   │   │   │   ├── CaseManagement.jsx
-│   │   │   │   ├── DocumentReview.jsx   # Review client-generated docs
-│   │   │   │   └── EarningsPanel.jsx
-│   │   │   ├── shared/
-│   │   │   │   ├── Pricing.jsx          # Pricing page for all personas
-│   │   │   │   ├── Settings.jsx         # Theme, language, notification prefs
-│   │   │   │   ├── Profile.jsx
-│   │   │   │   └── NotFound.jsx
-│   │   │   └── admin/
-│   │   │       ├── AdminDashboard.jsx
-│   │   │       ├── TemplateManager.jsx
-│   │   │       └── UserManager.jsx
-│   │   ├── store/                       # Redux Toolkit slices
-│   │   │   ├── store.js                 # Root store config
-│   │   │   ├── slices/
-│   │   │   │   ├── authSlice.js
-│   │   │   │   ├── chatSlice.js
-│   │   │   │   ├── documentSlice.js
-│   │   │   │   ├── caseSlice.js
-│   │   │   │   ├── uiSlice.js           # theme, language, sidebar state
-│   │   │   │   └── subscriptionSlice.js
-│   │   │   └── middleware/
-│   │   │       └── persistMiddleware.js # Persist theme/lang to localStorage
-│   │   ├── hooks/
-│   │   │   ├── useAuth.js
-│   │   │   ├── useVoiceInput.js         # Web Speech API / HuggingFace
-│   │   │   ├── useDocumentStream.js     # SSE streaming hook
-│   │   │   ├── useFeatureAccess.js      # Check if user tier has feature
-│   │   │   └── useCaseTracker.js
-│   │   ├── services/
-│   │   │   ├── api.js                   # Axios instance + auth interceptors
-│   │   │   ├── razorpay.js              # Razorpay checkout handler
-│   │   │   └── socket.js               # Socket.io for real-time lawyer chat
-│   │   └── utils/
-│   │       ├── featureFlags.js          # tier → features map
-│   │       ├── jurisdictionUtils.js
-│   │       └── dateUtils.js
-│
-├── server/                              # Node.js + Express REST API
-│   ├── src/
-│   │   ├── app.js
-│   │   ├── server.js
-│   │   ├── config/
-│   │   │   ├── db.js
-│   │   │   ├── redis.js
-│   │   │   ├── cloudinary.js            # Dev storage
-│   │   │   ├── s3.js                    # Prod storage
-│   │   │   └── constants.js
-│   │   ├── models/
-│   │   │   ├── User.js                  # Unified user (all personas)
-│   │   │   ├── LawyerProfile.js         # Extended profile for lawyers
-│   │   │   ├── ParalegalProfile.js
-│   │   │   ├── DocumentTemplate.js
-│   │   │   ├── ChatSession.js
-│   │   │   ├── Document.js
-│   │   │   ├── CaseTracker.js
-│   │   │   ├── JurisdictionRule.js
-│   │   │   ├── LegalAct.js
-│   │   │   ├── Subscription.js          # Subscription records
-│   │   │   ├── Payment.js
-│   │   │   ├── Consultation.js          # Lawyer-client consultations
-│   │   │   ├── Notification.js
-│   │   │   └── AuditLog.js
-│   │   ├── routes/
-│   │   │   ├── auth.routes.js
-│   │   │   ├── document.routes.js
-│   │   │   ├── chat.routes.js
-│   │   │   ├── case.routes.js
-│   │   │   ├── lawyer.routes.js
-│   │   │   ├── payment.routes.js
-│   │   │   ├── subscription.routes.js
-│   │   │   ├── whatsapp.routes.js       # Twilio webhook endpoint
-│   │   │   ├── jurisdiction.routes.js
-│   │   │   └── admin.routes.js
-│   │   ├── controllers/
-│   │   │   ├── auth.controller.js
-│   │   │   ├── document.controller.js
-│   │   │   ├── chat.controller.js
-│   │   │   ├── case.controller.js
-│   │   │   ├── lawyer.controller.js
-│   │   │   ├── payment.controller.js
-│   │   │   ├── subscription.controller.js
-│   │   │   ├── whatsapp.controller.js
-│   │   │   └── admin.controller.js
-│   │   ├── services/
-│   │   │   ├── ai/
-│   │   │   │   ├── aiProvider.js         # ABSTRACTION LAYER — switches Gemini↔Claude
-│   │   │   │   ├── geminiClient.js       # Gemini 2.5 Flash (dev)
-│   │   │   │   ├── claudeClient.js       # Claude Sonnet (prod)
-│   │   │   │   ├── documentEngine.js
-│   │   │   │   ├── questionEngine.js
-│   │   │   │   └── clauseExplainer.js
-│   │   │   ├── ecourts/
-│   │   │   │   ├── ecourtsClient.js      # NJDG REST API
-│   │   │   │   └── caseParser.js
-│   │   │   ├── indianKanoon/
-│   │   │   │   ├── kanoonClient.js       # Indian Kanoon API
-│   │   │   │   └── lawFetcher.js
-│   │   │   ├── pdf/
-│   │   │   │   ├── pdfGenerator.js       # PDFKit
-│   │   │   │   └── templates/
-│   │   │   ├── storage/
-│   │   │   │   ├── storageProvider.js    # ABSTRACTION — Cloudinary dev / S3 prod
-│   │   │   │   ├── cloudinaryService.js
-│   │   │   │   └── s3Service.js
-│   │   │   ├── notification/
-│   │   │   │   ├── whatsappService.js    # Twilio WhatsApp
-│   │   │   │   ├── emailService.js       # Nodemailer + Gmail SMTP (dev)
-│   │   │   │   └── smsService.js
-│   │   │   ├── payment/
-│   │   │   │   └── razorpayService.js
-│   │   │   └── voice/
-│   │   │       ├── whisperProvider.js    # ABSTRACTION
-│   │   │       ├── huggingfaceWhisper.js # Dev
-│   │   │       └── openaiWhisper.js      # Prod
-│   │   ├── middleware/
-│   │   │   ├── auth.middleware.js
-│   │   │   ├── persona.middleware.js     # requirePersona('lawyer')
-│   │   │   ├── subscription.middleware.js
-│   │   │   ├── rateLimit.middleware.js
-│   │   │   └── error.middleware.js
-│   │   └── utils/
-│   │       ├── logger.js
-│   │       ├── asyncHandler.js
-│   │       └── jurisdictionMapper.js
-│
-├── worker/
-│   ├── src/
-│   │   ├── worker.js
-│   │   ├── queues/
-│   │   │   ├── hearingAlertQueue.js
-│   │   │   ├── documentQueue.js
-│   │   │   ├── notificationQueue.js
-│   │   │   └── subscriptionQueue.js     # Monthly reset + renewal
-│   │   └── jobs/
-│   │       ├── checkHearingDates.js
-│   │       ├── sendHearingAlert.js
-│   │       ├── generateDocument.js
-│   │       ├── resetFreeQuota.js        # 1st of month: reset freeDocsUsed
-│   │       └── syncWhatsAppState.js     # Re-sync WA user → web account
-│
-├── scripts/
-│   ├── seedTemplates.js
-│   ├── seedJurisdictions.js
-│   └── seedLegalActs.js
-│
+nyayasetu/                               # npm workspace root
+├── package.json                         # root: concurrently dev script
 ├── docker-compose.yml
-├── .env.example
-└── package.json
+├── scripts/
+│   └── seed.js
+│
+├── client/                              # React PWA (Vite + MUI + Redux)
+│   ├── vite.config.js
+│   ├── public/
+│   │   ├── manifest.json               # PWA manifest
+│   │   └── locales/
+│   │       ├── en/translation.json
+│   │       └── hi/translation.json     # ⚠ Only EN + HI seeded; 9 other langs empty
+│   └── src/
+│       ├── main.jsx
+│       ├── App.jsx                      # Router + Provider + socket bootstrap
+│       ├── i18n/i18n.js                # i18next with lazy HTTP backend
+│       ├── theme/
+│       │   ├── ThemeProvider.jsx        # MUI createTheme + CSS vars
+│       │   ├── tokens.js               # RADIUS, SHADOWS, TYPOGRAPHY constants
+│       │   └── themes/
+│       │       ├── default.js
+│       │       ├── dark.js
+│       │       ├── saffron.js
+│       │       ├── emerald.js
+│       │       └── highContrast.js
+│       ├── store/
+│       │   ├── store.js                # Redux root + redux-persist config
+│       │   └── slices/
+│       │       ├── authSlice.js
+│       │       ├── chatSlice.js
+│       │       ├── chatBotSlice.js
+│       │       ├── nyayabotSlice.js
+│       │       ├── documentSlice.js
+│       │       ├── caseSlice.js
+│       │       ├── uiSlice.js          # theme, language, sidebar, snackbars
+│       │       ├── subscriptionSlice.js
+│       │       ├── notificationSlice.js
+│       │       ├── lawyerSlice.js
+│       │       ├── consultationChatSlice.js
+│       │       ├── notarySlice.js
+│       │       └── errorSlice.js
+│       ├── hooks/
+│       │   ├── useAuth.js
+│       │   ├── useChat.js
+│       │   ├── useNyayaBot.js
+│       │   ├── useCaseTracker.js
+│       │   ├── useDocumentStream.js    # SSE streaming hook
+│       │   ├── useFeatureAccess.js     # tier feature gate
+│       │   └── useErrorHandling.jsx
+│       ├── services/
+│       │   ├── api.js                  # Axios instance + auth interceptors
+│       │   ├── socket.js               # Socket.IO client singleton
+│       │   └── razorpay.js             # Razorpay checkout handler
+│       ├── utils/
+│       │   └── featureFlags.js         # tier → features map (must stay in sync with server)
+│       ├── components/
+│       │   ├── layout/
+│       │   │   ├── Navbar.jsx
+│       │   │   ├── Sidebar.jsx         # Persona-aware; lordicon icons via CDN
+│       │   │   ├── BottomNav.jsx
+│       │   │   └── ThemeSwitcher.jsx   # ⚠ Commented out in AppLayout
+│       │   ├── ui/
+│       │   │   ├── AnimatedPage.jsx
+│       │   │   ├── GlassCard.jsx
+│       │   │   ├── GradientHeading.jsx
+│       │   │   ├── SectionHeader.jsx
+│       │   │   ├── FeatureGate.jsx
+│       │   │   ├── UpgradeCTA.jsx
+│       │   │   ├── ProtectedRoute.jsx
+│       │   │   ├── ErrorBoundary.jsx
+│       │   │   ├── ScrollProgressBar.jsx
+│       │   │   ├── LordIcon.jsx
+│       │   │   └── LanguageSelector.jsx
+│       │   ├── chat/
+│       │   │   ├── ChatWindow.jsx
+│       │   │   ├── MessageBubble.jsx
+│       │   │   └── VoiceInput.jsx
+│       │   ├── case/
+│       │   │   ├── CaseCard.jsx
+│       │   │   ├── HearingTimeline.jsx
+│       │   │   └── CNRInput.jsx
+│       │   ├── document/
+│       │   │   ├── DocumentCard.jsx
+│       │   │   ├── ClauseExplainer.jsx
+│       │   │   ├── StampDutyCalculator.jsx
+│       │   │   └── LawyerAnnotationPanel.jsx
+│       │   ├── lawyer/
+│       │   │   ├── LawyerSearch.jsx
+│       │   │   └── ConsultationBooking.jsx
+│       │   ├── consultation/
+│       │   │   └── ConsultationChat.jsx
+│       │   ├── notary/
+│       │   │   ├── NotarySearch.jsx
+│       │   │   └── NotarizationBooking.jsx
+│       │   └── nyayabot/
+│       │       ├── NyayaBotWidget.jsx  # Floating chat button
+│       │       ├── NyayaBotWindow.jsx
+│       │       └── NyayaBotMessage.jsx
+│       └── pages/
+│           ├── auth/
+│           │   ├── Login.jsx           # Phone/Email OTP + password login
+│           │   ├── Register.jsx        # Persona + profile completion
+│           │   └── AuthShared.jsx      # Shared layout/styles
+│           ├── public/
+│           │   └── LandingPage.jsx
+│           ├── citizen/
+│           │   ├── CitizenHome.jsx
+│           │   ├── NewDocument.jsx     # Template picker
+│           │   ├── ChatFlow.jsx        # Conversational document creation
+│           │   ├── DocumentPreview.jsx
+│           │   ├── MyDocuments.jsx
+│           │   ├── CaseDashboard.jsx
+│           │   ├── CitizenProfile.jsx
+│           │   ├── LawyerProfile.jsx   # View a specific lawyer's profile
+│           │   └── EmergencyHelpline.jsx
+│           ├── lawyer/
+│           │   ├── LawyerHome.jsx
+│           │   ├── LawyerDashboard.jsx # Profile management
+│           │   ├── ClientList.jsx
+│           │   ├── ClientDetail.jsx
+│           │   ├── CaseManagement.jsx
+│           │   ├── ConsultationsPage.jsx
+│           │   └── EarningsPanel.jsx
+│           ├── notary/
+│           │   ├── NotaryHome.jsx
+│           │   ├── NotaryDashboard.jsx
+│           │   └── NotarizationRequests.jsx
+│           ├── admin/
+│           │   ├── AdminDashboard.jsx
+│           │   ├── AdminUsers.jsx
+│           │   ├── AdminLawyers.jsx
+│           │   ├── AdminTemplates.jsx
+│           │   └── AdminAuditLog.jsx
+│           ├── shared/
+│           │   ├── Pricing.jsx
+│           │   ├── Settings.jsx
+│           │   ├── SharedDocumentView.jsx
+│           │   ├── CalendarPage.jsx   # ⚠ File exists; hook/page newly added
+│           │   └── LawSearch.jsx
+│           └── NyayaBotPage.jsx
+│
+├── server/                              # Express REST API
+│   ├── package.json
+│   └── src/
+│       ├── app.js                       # Express setup, middleware, route mounting
+│       ├── server.js                    # HTTP server + Socket.IO + graceful shutdown
+│       ├── config/
+│       │   ├── db.js                    # Mongoose connection
+│       │   ├── redis.js                 # ioredis + in-memory fallback
+│       │   └── constants.js             # All shared constants (enums, limits, etc.)
+│       ├── models/
+│       │   ├── User.model.js            # Unified user — all personas
+│       │   ├── LawyerProfile.model.js
+│       │   ├── DocumentTemplate.model.js
+│       │   ├── ChatSession.model.js
+│       │   ├── Document.model.js
+│       │   ├── CaseTracker.model.js
+│       │   ├── Subscription.model.js
+│       │   ├── Payment.model.js
+│       │   ├── Consultation.model.js
+│       │   ├── ConsultationMessage.model.js
+│       │   ├── Notification.model.js
+│       │   ├── AuditLog.model.js
+│       │   ├── JurisdictionRule.model.js
+│       │   ├── LegalAct.model.js
+│       │   ├── NyayaBotSession.js       # AI triage chatbot session
+│       │   ├── PublicTriage.model.js    # Emergency triage log
+│       │   ├── NotaryProfile.model.js   # ⚠ NEW — Notary persona
+│       │   ├── NotarizationRequest.model.js # ⚠ NEW — Notary requests
+│       │   ├── Chat.js                  # ⚠ Legacy/parallel chat model
+│       │   └── index.js                 # Barrel export
+│       ├── routes/
+│       │   ├── auth.routes.js           → /v1/auth/*
+│       │   ├── template.routes.js       → /v1/templates/*
+│       │   ├── chat.routes.js           → /v1/chat/*
+│       │   ├── document.routes.js       → /v1/documents/*
+│       │   ├── case.routes.js           → /v1/cases/*
+│       │   ├── lawyer.routes.js         → /v1/lawyers/* & /v1/consultations/*
+│       │   ├── payment.routes.js        → /v1/payments/*
+│       │   ├── subscription.routes.js   → /v1/subscriptions/*
+│       │   ├── whatsapp.routes.js       → /v1/whatsapp/*
+│       │   ├── jurisdiction.routes.js   → /v1/jurisdiction/*
+│       │   ├── notification.routes.js   → /v1/notifications/*
+│       │   ├── admin.routes.js          → /v1/admin/*
+│       │   ├── profile.routes.js        → /v1/profile/*
+│       │   ├── consultationChat.routes.js → /v1/consultations/*
+│       │   ├── triage.routes.js         → /v1/triage/*
+│       │   ├── notary.routes.js         → /v1/* (inconsistently mounted)
+│       │   ├── nyayabotRoutes.js        → /v1/nyayabot/* (duplicate mount!)
+│       │   └── chatRoutes.js            # ⚠ STALE — duplicate of chat.routes.js
+│       ├── controllers/
+│       │   ├── auth.controller.js
+│       │   ├── template.controller.js
+│       │   ├── chat.controller.js
+│       │   ├── document.controller.js
+│       │   ├── case.controller.js
+│       │   ├── lawyer.controller.js
+│       │   ├── payment.controller.js
+│       │   ├── consultation.controller.js
+│       │   ├── consultationChat.controller.js
+│       │   ├── whatsapp.controller.js
+│       │   ├── notification.controller.js
+│       │   ├── triage.controller.js
+│       │   ├── admin.controller.js      # ⚠ Likely thin/stub
+│       │   ├── nyayabotController.js    # ⚠ Non-standard naming
+│       │   └── chatController.js        # ⚠ STALE — duplicate
+│       ├── services/
+│       │   ├── ai/
+│       │   │   ├── aiProvider.js        # Switch: gemini | claude
+│       │   │   ├── geminiClient.js
+│       │   │   ├── claudeClient.js
+│       │   │   ├── documentEngine.js    # Document generation prompts
+│       │   │   ├── questionEngine.js    # Conversational question prompts
+│       │   │   ├── clauseExplainer.js   # Clause plain-language prompts
+│       │   │   ├── aiChatService.js     # General chat orchestration
+│       │   │   ├── aiNyayaBotService.js # NyayaBot triage AI
+│       │   │   └── aiTriageService.js   # Public emergency triage AI
+│       │   ├── ecourts/
+│       │   │   ├── ecourtsClient.js     # HTTP client for NJDG API
+│       │   │   └── ecourtsService.js    # Business logic wrapper
+│       │   ├── indianKanoon/
+│       │   │   └── kanoonClient.js
+│       │   ├── pdf/
+│       │   │   ├── pdfGenerator.js      # PDFKit document generation
+│       │   │   └── notaryStamp.js       # Notarization stamp overlay
+│       │   ├── storage/
+│       │   │   ├── storageProvider.js   # Switch: cloudinary | s3
+│       │   │   ├── cloudinaryService.js
+│       │   │   └── s3Service.js
+│       │   ├── notification/
+│       │   │   ├── emailService.js      # Nodemailer / Gmail SMTP
+│       │   │   ├── whatsappService.js   # Twilio WhatsApp
+│       │   │   ├── smsService.js        # Twilio SMS
+│       │   │   └── documentQueueClient.js
+│       │   ├── payment/
+│       │   │   └── razorpayService.js
+│       │   ├── signature/
+│       │   │   ├── signatureProvider.js # Switch: self | signdesk
+│       │   │   ├── selfSigner.js        # In-house PDF signing
+│       │   │   └── signDeskProvider.js  # SignDesk integration
+│       │   ├── video/
+│       │   │   └── videoProvider.js     # ⚠ STUB — not implemented
+│       │   ├── voice/
+│       │   │   ├── whisperProvider.js   # Switch: huggingface | openai
+│       │   │   └── voiceService.js
+│       │   └── socket.js               # Socket.IO server init + handlers
+│       ├── middleware/
+│       │   ├── auth.middleware.js       # JWT verify → req.user
+│       │   ├── subscription.middleware.js # requireFeature()
+│       │   ├── chatMiddleware.js
+│       │   ├── verifyTwilioSignature.middleware.js
+│       │   └── error.middleware.js      # Global error handler
+│       ├── utils/
+│       │   ├── asyncHandler.js
+│       │   └── logger.js               # Winston logger
+│       ├── data/
+│       │   └── legalAidCenters.js      # Static legal aid center data
+│       └── worker/                     # ⚠ Worker code lives inside server/src!
+│           ├── worker.js
+│           └── jobs/
+│               ├── checkHearingDates.job.js
+│               ├── generateDocument.job.js
+│               ├── resetFreeQuota.js
+│               └── sendHearingAlert.job.js
+│
+└── worker/                              # ⚠ Separate workspace (near-empty)
+    ├── package.json
+    └── src/
+        └── worker.js                    # ⚠ References ../server jobs (wrong path)
 ```
 
 ---
 
-## 4. Complete MongoDB Schema (v2)
+## 4. MongoDB Schemas (As Implemented)
 
 ### 4.1 User (Unified — All Personas)
 
-```js
-// models/User.js
-{
-  _id: ObjectId,
-
-  // Identity
-  phone: { type: String, unique: true, sparse: true },
-  email: { type: String, unique: true, sparse: true, lowercase: true },
-  name: String,
-  avatar: String,  // Cloudinary/S3 URL
-
-  // Persona
-  persona: {
-    type: String,
-    enum: ['citizen', 'lawyer', 'paralegal', 'admin'],
-    default: 'citizen'
-  },
-
-  // Location (drives jurisdiction)
-  state: String,
-  district: String,
-  pincode: String,
-
-  // Preferences
-  preferredLanguage: {
-    type: String,
-    enum: ['en','hi','bn','mr','ta','te','gu','kn','ml','pa','ur'],
-    default: 'en'
-  },
-  preferredTheme: {
-    type: String,
-    enum: ['default','saffron','dark','highContrast','emerald'],
-    default: 'default'
-  },
-
-  // Subscription
-  subscription: {
-    plan: {
-      type: String,
-      enum: ['free','basic','pro','professional','firm'],
-      default: 'free'
-    },
-    validUntil: Date,
-    autoRenew: { type: Boolean, default: false },
-    razorpaySubscriptionId: String
-  },
-
-  // Free tier usage counters
-  freeUsage: {
-    docsGenerated: { type: Number, default: 0 },
-    docsLimit: { type: Number, default: 3 },       // 3 docs/month on free
-    casesTracked: { type: Number, default: 0 },
-    casesLimit: { type: Number, default: 1 },       // 1 case on free
-    aiChatsUsed: { type: Number, default: 0 },
-    aiChatsLimit: { type: Number, default: 5 },     // 5 AI chat sessions/month
-    resetDate: Date                                 // 1st of next month
-  },
-
-  // WhatsApp
-  whatsappOptIn: { type: Boolean, default: false },
-  whatsappNumber: String,                          // +91XXXXXXXXXX
-  whatsappVerified: { type: Boolean, default: false },
-  whatsappSessionData: { type: Object, default: {} }, // WA conversation state
-
-  // Auth
-  isEmailVerified: { type: Boolean, default: false },
-  isPhoneVerified: { type: Boolean, default: false },
-  lastOtpSentAt: Date,
-  refreshTokens: [String],                         // Array for multi-device
-
-  // Metadata
-  registrationSource: {
-    type: String,
-    enum: ['web', 'whatsapp', 'mobile_app'],
-    default: 'web'
-  },
-  isActive: { type: Boolean, default: true },
-  createdAt: { type: Date, default: Date.now },
-  lastActive: Date
-}
-
-// Indexes
-{ phone: 1 }
-{ email: 1 }
-{ 'subscription.plan': 1 }
-{ state: 1, district: 1 }
-{ whatsappNumber: 1 }
-```
-
-### 4.2 LawyerProfile
-
-```js
-// models/LawyerProfile.js
-{
-  _id: ObjectId,
-  user: { type: ObjectId, ref: 'User', required: true, unique: true },
-
-  // Bar Council
-  barCouncilNumber: { type: String, unique: true },
-  barCouncilState: String,
-  enrollmentYear: Number,
-  barCouncilVerified: { type: Boolean, default: false },
-  barCouncilDoc: String,  // URL to uploaded certificate
-
-  // Practice
-  specialisations: [{
-    type: String,
-    enum: ['consumer','property','family','criminal','civil','labour','rti','tax','ip','corporate']
-  }],
-  practicingStates: [String],
-  practicingDistricts: [String],
-  primaryCourt: String,   // "Delhi High Court", "Bombay High Court"
-  experience: Number,     // years
-  languages: [String],
-  bio: String,
-
-  // Subscription (lawyer-specific)
-  lawyerPlan: {
-    type: String,
-    enum: ['free','professional','firm'],
-    default: 'free'
-  },
-
-  // Availability
-  isAvailableForConsultation: { type: Boolean, default: false },
-  consultationFee: Number,   // in paise (e.g. 50000 = ₹500)
-  consultationModes: [{
-    type: String,
-    enum: ['chat','video','phone','in_person']
-  }],
-
-  // Ratings
-  ratings: [{
-    user: { type: ObjectId, ref: 'User' },
-    score: { type: Number, min: 1, max: 5 },
-    review: String,
-    createdAt: Date
-  }],
-  averageRating: { type: Number, default: 0 },
-  totalRatings: { type: Number, default: 0 },
-
-  // Revenue
-  referralFeePercent: { type: Number, default: 10 },
-  totalEarnings: { type: Number, default: 0 },
-
-  isVerified: { type: Boolean, default: false },
-  isActive: { type: Boolean, default: true },
-  createdAt: Date,
-  updatedAt: Date
-}
-
-// Indexes
-{ user: 1 }
-{ specialisations: 1, practicingStates: 1 }
-{ barCouncilNumber: 1 }
-{ averageRating: -1 }
-{ lawyerPlan: 1, isAvailableForConsultation: 1 }
-```
-
-### 4.3 DocumentTemplate
-
-```js
-// models/DocumentTemplate.js
-{
-  _id: ObjectId,
-  slug: { type: String, unique: true },
-  name: String,
-  nameHi: String, namebn: String, nameMr: String,
-
-  category: {
-    type: String,
-    enum: ['consumer','property','employment','family','criminal','rti','civil','financial','startup','labour']
-  },
-  description: String,
-  descriptionHi: String,
-  estimatedTime: String,   // "8 minutes"
-  complexity: { type: String, enum: ['simple','moderate','complex'], default: 'moderate' },
-
-  primaryActs: [{ type: ObjectId, ref: 'LegalAct' }],
-
-  questionFlow: [{
-    id: String,
-    question: String,
-    questionHi: String,
-    inputType: { type: String, enum: ['text','date','number','choice','address','phone','email','multiline'] },
-    required: Boolean,
-    options: [String],
-    optionsHi: [String],
-    dependsOn: { fieldId: String, value: String },
-    validation: { regex: String, message: String },
-    helpText: String
-  }],
-
-  systemPromptAddendum: String,
-
-  availableStates: [String],   // empty = nationwide
-
-  // Tiering: who can access this template
-  requiredPlan: {
-    citizen: { type: String, enum: ['free','basic','pro'], default: 'free' },
-    lawyer: { type: String, enum: ['free','professional','firm'], default: 'free' }
-  },
-  pricePayPerDoc: Number,      // in paise — for citizens on pay-per-doc
-
-  isActive: { type: Boolean, default: true },
-  isFeatured: { type: Boolean, default: false },
-  usageCount: { type: Number, default: 0 },
-  createdAt: Date,
-  updatedAt: Date
-}
-
-// Indexes
-{ slug: 1 }
-{ category: 1, isActive: 1 }
-{ isFeatured: 1 }
-```
-
-### 4.4 ChatSession
-
-```js
-// models/ChatSession.js
-{
-  _id: ObjectId,
-  user: { type: ObjectId, ref: 'User', required: true },
-  template: { type: ObjectId, ref: 'DocumentTemplate', required: true },
-  source: { type: String, enum: ['web', 'whatsapp', 'mobile'], default: 'web' },
-
-  messages: [{
-    role: { type: String, enum: ['user', 'assistant', 'system'] },
-    content: String,
-    timestamp: { type: Date, default: Date.now },
-    extractedField: String,
-    extractedValue: mongoose.Schema.Types.Mixed
-  }],
-
-  collectedData: { type: Map, of: mongoose.Schema.Types.Mixed },
-
-  status: {
-    type: String,
-    enum: ['active','data_complete','generating','completed','abandoned','paused'],
-    default: 'active'
-  },
-
-  document: { type: ObjectId, ref: 'Document' },
-  resolvedState: String,
-  resolvedDistrict: String,
-  language: { type: String, default: 'en' },
-  progressPercent: { type: Number, default: 0 },
-
-  // WhatsApp state continuation
-  whatsappPhase: String,   // Used for multi-step WA flow state
-
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: Date
-}
-
-// Indexes
-{ user: 1, createdAt: -1 }
-{ status: 1 }
-// TTL: abandon sessions older than 7 days with status 'active'
-{ createdAt: 1 }, { expireAfterSeconds: 604800, partialFilterExpression: { status: 'active' } }
-```
-
-### 4.5 Document
-
-```js
-// models/Document.js
-{
-  _id: ObjectId,
-  user: { type: ObjectId, ref: 'User', required: true },
-  session: { type: ObjectId, ref: 'ChatSession' },
-  template: { type: ObjectId, ref: 'DocumentTemplate' },
-  reviewedByLawyer: { type: ObjectId, ref: 'User', default: null },  // Lawyer who reviewed
-
-  title: String,
-  content: String,           // Full document text (Markdown)
-  contentHtml: String,
-
-  legalCitations: [{
-    act: String,
-    section: String,
-    description: String,
-    url: String              // Indian Kanoon link to section
-  }],
-
-  clauseExplanations: [{
-    clauseIndex: Number,
-    clauseText: String,
-    explanation: String,
-    explanationHi: String
-  }],
-
-  nextSteps: [{
-    step: Number,
-    instruction: String,
-    instructionHi: String,
-    authority: String,
-    fee: String,
-    timelineExpected: String,
-    onlineLink: String       // URL if filing can be done online
-  }],
-
-  pdfUrl: String,
-  pdfGeneratedAt: Date,
-  pdfSize: Number,           // bytes
-
-  collectedData: { type: Map, of: mongoose.Schema.Types.Mixed },
-  state: String,
-  language: String,
-
-  // Payment & access
-  isPaid: { type: Boolean, default: false },
-  accessType: {
-    type: String,
-    enum: ['free_tier','subscription','pay_per_doc','lawyer_generated'],
-    default: 'free_tier'
-  },
-  payment: { type: ObjectId, ref: 'Payment' },
-
-  // Versioning
-  version: { type: Number, default: 1 },
-  previousVersions: [{ content: String, pdfUrl: String, createdAt: Date }],
-
-  // Sharing
-  shareToken: { type: String, unique: true, sparse: true },  // For share-via-link
-  isShared: { type: Boolean, default: false },
-
-  isDeleted: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now }
-}
-
-// Indexes
-{ user: 1, createdAt: -1 }
-{ template: 1 }
-{ shareToken: 1 }
-{ isDeleted: 1 }
-```
-
-### 4.6 CaseTracker
-
-```js
-// models/CaseTracker.js
-{
-  _id: ObjectId,
-  user: { type: ObjectId, ref: 'User', required: true },
-  sharedWithLawyer: { type: ObjectId, ref: 'User', default: null },
-
-  cnrNumber: { type: String, required: true },
-  caseTitle: String,
-  caseType: String,
-  petitioner: String,
-  respondent: String,
-  court: String,
-  state: String,
-  district: String,
-  filingDate: Date,
-
-  hearings: [{
-    date: Date,
-    purpose: String,
-    result: String,
-    nextDate: Date,
-    judge: String,
-    fetchedAt: Date
-  }],
-
-  nextHearingDate: Date,
-  lastFetchedAt: Date,
-  caseStatus: { type: String, enum: ['active','disposed','transferred'], default: 'active' },
-
-  alertDaysBefore: { type: Number, default: 1 },
-  alertChannels: {
-    whatsapp: { type: Boolean, default: true },
-    email: { type: Boolean, default: false }
-  },
-  alertsSent: [{
-    hearingDate: Date,
-    channel: String,
-    sentAt: Date
-  }],
-
-  // Documents linked to this case
-  linkedDocuments: [{ type: ObjectId, ref: 'Document' }],
-
-  isActive: { type: Boolean, default: true },
-  createdAt: Date,
-  updatedAt: Date
-}
-
-// Indexes
-{ user: 1 }
-{ cnrNumber: 1 }
-{ nextHearingDate: 1, isActive: 1 }
-```
-
-### 4.7 Subscription
-
-```js
-// models/Subscription.js
-{
-  _id: ObjectId,
-  user: { type: ObjectId, ref: 'User', required: true },
-  plan: {
-    type: String,
-    enum: ['basic','pro','professional','firm'],
-    required: true
-  },
-  persona: { type: String, enum: ['citizen','lawyer','paralegal'] },
-  billingCycle: { type: String, enum: ['monthly','annual'] },
-
-  startDate: { type: Date, required: true },
-  endDate: { type: Date, required: true },
-  isActive: { type: Boolean, default: true },
-  autoRenew: { type: Boolean, default: true },
-
-  razorpayOrderId: String,
-  razorpayPaymentId: String,
-  razorpaySubscriptionId: String,
-
-  amount: Number,          // in paise
-  currency: { type: String, default: 'INR' },
-  discount: Number,        // paise
-
-  cancelledAt: Date,
-  cancelReason: String,
-
-  createdAt: { type: Date, default: Date.now }
-}
-
-// Indexes
-{ user: 1, isActive: 1 }
-{ endDate: 1 }
-```
-
-### 4.8 Payment
-
-```js
-// models/Payment.js
-{
-  _id: ObjectId,
-  user: { type: ObjectId, ref: 'User', required: true },
-  type: { type: String, enum: ['pay_per_doc','subscription','consultation'] },
-
-  // References
-  document: { type: ObjectId, ref: 'Document' },
-  subscription: { type: ObjectId, ref: 'Subscription' },
-  consultation: { type: ObjectId, ref: 'Consultation' },
-
-  // Razorpay
-  razorpayOrderId: String,
-  razorpayPaymentId: String,
-  razorpaySignature: String,
-
-  amount: Number,
-  currency: { type: String, default: 'INR' },
-  status: { type: String, enum: ['created','paid','failed','refunded'], default: 'created' },
-  description: String,
-
-  // Lawyer commission (if applicable)
-  lawyerEarnings: Number,
-  platformEarnings: Number,
-
-  createdAt: { type: Date, default: Date.now },
-  paidAt: Date
-}
-```
-
-### 4.9 Consultation
-
-```js
-// models/Consultation.js
-{
-  _id: ObjectId,
-  citizen: { type: ObjectId, ref: 'User', required: true },
-  lawyer: { type: ObjectId, ref: 'User', required: true },
-  document: { type: ObjectId, ref: 'Document' },  // Optional: doc being reviewed
-
-  mode: { type: String, enum: ['chat','video','phone','in_person'] },
-  scheduledAt: Date,
-  duration: Number,   // minutes
-  status: {
-    type: String,
-    enum: ['requested','accepted','rejected','completed','cancelled'],
-    default: 'requested'
-  },
-
-  notes: String,         // Lawyer's notes
-  citizenNotes: String,
-  rating: { type: Number, min: 1, max: 5 },
-  review: String,
-
-  fee: Number,           // in paise
-  payment: { type: ObjectId, ref: 'Payment' },
-
-  createdAt: Date,
-  updatedAt: Date
-}
-```
-
-### 4.10 JurisdictionRule & LegalAct
-*(Same as v1 — no changes needed)*
-
-### 4.11 Notification
-
-```js
-// models/Notification.js
-{
-  _id: ObjectId,
-  user: { type: ObjectId, ref: 'User', required: true },
-  type: {
-    type: String,
-    enum: [
-      'hearing_reminder', 'doc_ready', 'payment_success',
-      'lawyer_accepted', 'consultation_reminder', 'subscription_expiring',
-      'free_quota_warning', 'system'
-    ]
-  },
-  title: String,
-  body: String,
-  data: { type: Object },        // Extra data (caseId, docId, etc.)
-  isRead: { type: Boolean, default: false },
-  channel: { type: String, enum: ['web','whatsapp','email','sms'] },
-  createdAt: { type: Date, default: Date.now }
-}
-
-// Indexes
-{ user: 1, isRead: 1 }
-{ createdAt: 1 }  // TTL: delete notifications older than 90 days
-```
+Key fields (as in `User.model.js`):
+- **Identity:** `phone` (sparse, E.164), `email` (sparse, lowercase), `name`, `avatar`
+- **Persona:** `enum ['citizen','lawyer','paralegal','admin','notary']` (notary added)
+- **Location:** `state`, `district`, `pincode`
+- **Preferences:** `preferredLanguage`, `preferredTheme`
+- **Subscription:** embedded `subscriptionSchema` (plan, validUntil, autoRenew, billingCycle)
+- **Free usage counters:** `freeUsage` (docsGenerated, docsLimit, casesTracked, casesLimit, aiChatsUsed, aiChatsLimit, triageUsed, resetDate)
+- **WhatsApp:** `whatsappOptIn`, `whatsappNumber`, `whatsappVerified`, `whatsappSessionData`
+- **Auth:** `passwordHash` (select:false), `refreshTokens[]`, `isEmailVerified`, `isPhoneVerified`
+- **Metadata:** `registrationSource`, `isActive`, `lastActive`, timestamps
+
+**Virtuals:** `isSubscribed`, `displayName`
+
+**Instance methods:** `isWithinQuota(type)`, `incrementUsage(type)`, `addRefreshToken(token)`, `removeRefreshToken(token)`
+
+**Static methods:** `findByPhone(phone)`, `resetMonthlyQuotas()`
+
+**Indexes:** phone, email, subscription.plan, state+district, whatsappNumber, createdAt, lastActive
+
+### 4.2 Other Models Summary
+
+| Model | File | Key Notes |
+|-------|------|-----------|
+| LawyerProfile | `LawyerProfile.model.js` | barCouncilNumber, specialisations, consultationFee, ratings, verificationStatus |
+| DocumentTemplate | `DocumentTemplate.model.js` | questionFlow[], systemPromptAddendum, requiredPlan per persona |
+| ChatSession | `ChatSession.model.js` | messages[], collectedData Map, status, TTL on abandoned sessions |
+| Document | `Document.model.js` | content (Markdown), legalCitations[], nextSteps[], pdfUrl, shareToken, version |
+| CaseTracker | `CaseTracker.model.js` | cnrNumber, hearings[], nextHearingDate, alertChannels, linkedDocuments |
+| Subscription | `Subscription.model.js` | plan, billingCycle, razorpayOrderId, startDate, endDate |
+| Payment | `Payment.model.js` | type (pay_per_doc/subscription/consultation), razorpay IDs, lawyerEarnings |
+| Consultation | `Consultation.model.js` | citizen, lawyer, mode, scheduledAt, status, rating |
+| ConsultationMessage | `ConsultationMessage.model.js` | consultation ref, sender, content, Socket.IO messages |
+| Notification | `Notification.model.js` | type enum, isRead, channel, 90-day TTL |
+| AuditLog | `AuditLog.model.js` | action, resourceType, resourceId, userId, IP, success |
+| NyayaBotSession | `NyayaBotSession.js` | AI triage bot conversation state |
+| PublicTriage | `PublicTriage.model.js` | Anonymous emergency triage submissions |
+| NotaryProfile | `NotaryProfile.model.js` | ⚠ NEW persona — notary officer details |
+| NotarizationRequest | `NotarizationRequest.model.js` | ⚠ NEW — doc notarization workflow, ₹199 Video KYC |
 
 ---
 
-## 5. Complete API Design (v2)
+## 5. API Routes (As Mounted)
 
-**Base URL:** `https://api.nyayasetu.in/v1` (prod) | `http://localhost:5000/v1` (dev)
-**Auth:** JWT Bearer token in `Authorization: Bearer <token>`
-**Rate limits:** General: 100 req/15min | AI: 10 req/min | OTP: 3 req/15min
+**Base URL:** `/v1`
+**Auth:** `Authorization: Bearer <token>`
 
----
+### Authentication — `/v1/auth`
+| Method | Path | Auth | Handler |
+|--------|------|------|---------|
+| POST | `/send-otp` | Public | Send OTP (phone or email) |
+| POST | `/verify-otp` | Public | **⚠ OTP CHECK BYPASSED** — issues JWT without validating OTP |
+| POST | `/login` | Public | Password-based login |
+| POST | `/register` | Auth | Complete profile (name, state, persona) |
+| GET | `/me` | Auth | Get current user + lawyerProfile |
+| PATCH | `/me` | Auth | Update profile/preferences |
+| POST | `/refresh` | Public | Rotate refresh token |
+| POST | `/logout` | Auth | Revoke refresh token |
+| POST | `/whatsapp-entry` | Public | WA deep-link login |
+| POST | `/set-password` | Auth | Set/change password |
 
-### AUTH
+### Templates — `/v1/templates`
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/` | List with filters (category, state, plan) |
+| GET | `/categories` | Categories with counts |
+| GET | `/featured` | Featured templates |
+| GET | `/:slug` | Template detail + question flow |
 
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| POST | `/auth/send-otp` | Public | Send OTP via SMS |
-| POST | `/auth/verify-otp` | Public | Verify OTP → JWT |
-| POST | `/auth/register` | Auth | Complete profile (name, state, persona) |
-| GET | `/auth/me` | Auth | Get full current user |
-| PATCH | `/auth/me` | Auth | Update profile / preferences |
-| POST | `/auth/refresh` | Public | Refresh JWT |
-| POST | `/auth/logout` | Auth | Invalidate refresh token |
-| POST | `/auth/whatsapp-entry` | Public | Deep link from WhatsApp → create/link account |
+### Chat — `/v1/chat`
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/sessions` | Start new chat session |
+| POST | `/sessions/:id/message` | Send message (SSE stream) — AI rate limited |
+| GET | `/sessions/:id` | Get session state |
+| GET | `/sessions` | List user's sessions |
+| POST | `/sessions/:id/voice` | Audio upload → transcription (multer) |
+| POST | `/sessions/:id/abandon` | Mark session abandoned |
 
----
+### Documents — `/v1/documents`
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/generate` | Enqueue document generation (Bull) |
+| GET | `/` | List user's documents (paginated) |
+| GET | `/:id` | Document detail |
+| GET | `/:id/pdf` | PDF download URL |
+| POST | `/:id/explain-clause` | AI clause explanation (SSE) |
+| POST | `/:id/regenerate` | Re-generate with edits |
+| POST | `/:id/share` | Generate share token |
+| GET | `/shared/:shareToken` | Public shared document view |
+| PATCH | `/:id/link-case` | Link document to case |
+| DELETE | `/:id` | Soft delete |
 
-### TEMPLATES
+### Cases — `/v1/cases`
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/` | Add case by CNR (fetches eCourts) |
+| GET | `/` | List tracked cases |
+| GET | `/:id` | Case detail + hearings |
+| POST | `/:id/refresh` | Manual eCourts sync |
+| PATCH | `/:id/alerts` | Update alert preferences |
+| DELETE | `/:id` | Stop tracking |
 
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | `/templates` | Auth | List templates (filter: category, state, plan) |
-| GET | `/templates/categories` | Auth | Categories with doc counts |
-| GET | `/templates/featured` | Auth | Featured templates |
-| GET | `/templates/:slug` | Auth | Template detail + question flow |
+### Lawyers & Consultations — `/v1/lawyers`, `/v1/consultations`
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/lawyers` | Search lawyers (filter, paginate) |
+| GET | `/lawyers/:id` | Lawyer public profile |
+| POST | `/lawyers/apply` | Apply as lawyer |
+| PUT | `/lawyers/profile` | Update own profile |
+| GET | `/lawyers/me/clients` | Lawyer's client list |
+| POST | `/consultations` | Book consultation |
+| GET | `/consultations` | List consultations |
+| PATCH | `/consultations/:id/accept` | Lawyer accepts |
+| PATCH | `/consultations/:id/complete` | Mark complete |
 
----
+### Payments & Subscriptions
+| Route Prefix | Key Endpoints |
+|---|---|
+| `/v1/payments` | create-order, verify, history, webhook (raw body) |
+| `/v1/subscriptions` | create, verify, current, cancel |
 
-### CHAT
-
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| POST | `/chat/sessions` | Auth | Start new session |
-| POST | `/chat/sessions/:id/message` | Auth | Send message → SSE stream response |
-| GET | `/chat/sessions/:id` | Auth | Get session state |
-| GET | `/chat/sessions` | Auth | List user's sessions |
-| POST | `/chat/sessions/:id/voice` | Auth | Upload audio → transcription |
-| POST | `/chat/sessions/:id/abandon` | Auth | Mark session abandoned |
-
----
-
-### DOCUMENTS
-
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| POST | `/documents/generate` | Auth | Trigger async generation |
-| GET | `/documents` | Auth | List user's documents |
-| GET | `/documents/:id` | Auth | Document detail |
-| GET | `/documents/:id/pdf` | Auth | Get PDF download URL |
-| POST | `/documents/:id/explain-clause` | Auth | AI explain clause (SSE) |
-| POST | `/documents/:id/regenerate` | Auth | Regenerate with edits |
-| POST | `/documents/:id/share` | Auth | Generate share token |
-| GET | `/documents/shared/:shareToken` | Public | View shared document |
-| PATCH | `/documents/:id/link-case` | Auth | Link document to a case |
-| DELETE | `/documents/:id` | Auth | Soft delete |
-
----
-
-### CASE TRACKER
-
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| POST | `/cases` | Auth | Add case by CNR |
-| GET | `/cases` | Auth | List tracked cases |
-| GET | `/cases/:id` | Auth | Case detail + hearings |
-| POST | `/cases/:id/refresh` | Auth | Manual eCourts sync |
-| PATCH | `/cases/:id/alerts` | Auth | Update alert prefs |
-| POST | `/cases/:id/share-lawyer` | Auth | Share case with lawyer |
-| DELETE | `/cases/:id` | Auth | Stop tracking |
-
----
-
-### LAWYERS
-
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | `/lawyers` | Auth | Search lawyers |
-| GET | `/lawyers/:id` | Auth | Lawyer profile |
-| POST | `/lawyers/apply` | Auth(lawyer) | Submit lawyer application |
-| PUT | `/lawyers/profile` | Auth(lawyer) | Update own profile |
-| GET | `/lawyers/me/clients` | Auth(lawyer) | Lawyer's clients list |
-| GET | `/lawyers/me/cases` | Auth(lawyer) | Lawyer's assigned cases |
-| POST | `/consultations` | Auth | Book consultation |
-| GET | `/consultations` | Auth | List consultations |
-| PATCH | `/consultations/:id/accept` | Auth(lawyer) | Accept consultation |
-| PATCH | `/consultations/:id/complete` | Auth(lawyer) | Mark complete |
-
----
-
-### PAYMENTS & SUBSCRIPTIONS
-
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| POST | `/payments/create-order` | Auth | Create pay-per-doc order |
-| POST | `/payments/verify` | Auth | Verify + unlock |
-| GET | `/payments/history` | Auth | Payment history |
-| POST | `/subscriptions/create` | Auth | Create subscription order |
-| POST | `/subscriptions/verify` | Auth | Activate subscription |
-| GET | `/subscriptions/current` | Auth | Active subscription info |
-| POST | `/subscriptions/cancel` | Auth | Cancel subscription |
-| POST | `/payments/webhook` | Public | Razorpay webhook (HMAC verified) |
-
----
-
-### WHATSAPP WEBHOOK
-
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| POST | `/whatsapp/webhook` | Twilio-signed | Incoming WA message handler |
-| GET | `/whatsapp/webhook` | Twilio-signed | Twilio verification challenge |
-
----
-
-### JURISDICTION & LAWS
-
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | `/jurisdiction/states` | Public | List supported states |
-| GET | `/jurisdiction/:state/:docType` | Auth | Rules for state + doc type |
-| GET | `/acts` | Auth | List legal acts |
-| GET | `/acts/:id/sections` | Auth | Sections of an act |
-| GET | `/laws/search` | Auth | Search Indian Kanoon (proxy) |
-
----
-
-### NOTIFICATIONS
-
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | `/notifications` | Auth | User notifications |
-| PATCH | `/notifications/:id/read` | Auth | Mark read |
-| POST | `/notifications/read-all` | Auth | Mark all read |
-
----
-
-### ADMIN
-
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | `/admin/users` | Admin | List users with filters |
-| GET | `/admin/stats` | Admin | Platform stats |
-| POST | `/admin/lawyers/:id/verify` | Admin | Verify lawyer |
-| POST | `/admin/templates` | Admin | Create template |
-| PUT | `/admin/templates/:id` | Admin | Update template |
+### Other Routes
+| Prefix | Purpose |
+|--------|---------|
+| `/v1/whatsapp` | Twilio webhook (Twilio signature verified) |
+| `/v1/notifications` | List, mark-read, mark-all-read |
+| `/v1/jurisdiction` | States list, state+docType rules |
+| `/v1/admin` | Users list, stats, lawyer verify, template CRUD |
+| `/v1/profile` | Extended profile operations |
+| `/v1/triage` | Emergency AI triage (public + authenticated) |
+| `/v1/nyayabot` | NyayaBot AI chat (duplicate mount — app.js:138 + 174) |
+| `/v1/` + notary | Notarization endpoints (poorly scoped mount) |
+| `/v1/consultations` | Consultation chat messages (Socket.IO backed) |
 
 ---
 
 ## 6. AI Pipeline
 
-### 6.1 AIProvider Abstraction
+### Provider Abstraction
 
 ```js
-// services/ai/aiProvider.js
-// Set AI_PROVIDER=gemini in dev, AI_PROVIDER=claude in prod
-
+// server/src/services/ai/aiProvider.js
+// AI_PROVIDER=gemini → geminiClient
+// AI_PROVIDER=claude → claudeClient
 const provider = process.env.AI_PROVIDER || 'gemini';
-
-let client;
-if (provider === 'claude') {
-  client = require('./claudeClient');
-} else {
-  client = require('./geminiClient');
-}
-
-module.exports = {
-  chat: client.chat,       // (messages, systemPrompt, stream) => response
-  generate: client.generate // (prompt) => JSON response
-};
+module.exports = provider === 'claude' ? require('./claudeClient') : require('./geminiClient');
 ```
 
-### 6.2 Gemini Client (Dev)
+### Gemini Client (Dev — Free)
 
-```js
-// services/ai/geminiClient.js
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+- Model: `gemini-2.5-flash`
+- Supports streaming via `sendMessageStream()`
+- System instruction passed at `startChat()`
+- `chat(messages, systemPrompt, stream)` + `generate(prompt)`
 
-async function chat(messages, systemPrompt, stream = false) {
-  const history = messages.slice(0, -1).map(m => ({
-    role: m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: m.content }]
-  }));
-  const lastMsg = messages[messages.length - 1].content;
-  const chat = model.startChat({
-    history,
-    systemInstruction: systemPrompt
-  });
-  if (stream) {
-    return chat.sendMessageStream(lastMsg);
-  }
-  const result = await chat.sendMessage(lastMsg);
-  return result.response.text();
-}
+### Claude Client (Prod — Paid)
 
-async function generate(prompt) {
-  const result = await model.generateContent(prompt);
-  return result.response.text();
-}
+- Model: `claude-sonnet-4-20250514`
+- Streaming via `anthropic.messages.stream()`
+- `max_tokens`: 2048 (chat), 4096 (generate)
 
-module.exports = { chat, generate };
-```
+### AI Services
 
-### 6.3 Claude Client (Prod)
-
-```js
-// services/ai/claudeClient.js
-const Anthropic = require('@anthropic-ai/sdk');
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-async function chat(messages, systemPrompt, stream = false) {
-  const params = {
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 2048,
-    system: systemPrompt,
-    messages: messages.map(m => ({ role: m.role, content: m.content }))
-  };
-  if (stream) {
-    return anthropic.messages.stream(params);
-  }
-  const response = await anthropic.messages.create(params);
-  return response.content[0].text;
-}
-
-async function generate(prompt) {
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 4096,
-    messages: [{ role: 'user', content: prompt }]
-  });
-  return response.content[0].text;
-}
-
-module.exports = { chat, generate };
-```
+| Service | Purpose |
+|---------|---------|
+| `documentEngine.js` | Full document generation from collected form data |
+| `questionEngine.js` | Context-aware next-question selection |
+| `clauseExplainer.js` | Plain-language clause explanation |
+| `aiChatService.js` | General Q&A chat orchestration |
+| `aiNyayaBotService.js` | NyayaBot floating widget AI |
+| `aiTriageService.js` | Emergency helpline triage AI |
 
 ---
 
-## 7. WhatsApp ↔ Web Account Sync
+## 7. WhatsApp Integration
 
-### Flow
-
-```
-User sends WhatsApp message to NyayaSetu number
-→ Twilio webhook hits POST /whatsapp/webhook
-→ whatsapp.controller.js extracts phone number
-→ Look up User by whatsappNumber
-  → If found: load session, continue flow
-  → If not found: create User(registrationSource: 'whatsapp', whatsappNumber: phone)
-→ WhatsApp conversation managed via state machine (whatsappPhase in ChatSession)
-→ All documents/cases created via WhatsApp are stored in same MongoDB as web
-→ User can log in on web with same phone number → sees all their docs
-```
-
-### WhatsApp State Machine
+### Architecture
 
 ```
-Phases:
-  WELCOME          → Send greeting, ask language preference
-  SELECT_TEMPLATE  → Show numbered list of document types
-  CHAT_FLOW        → Mirror the web chat flow via text messages
-  REVIEW           → Send document summary, ask to download
-  DOWNLOAD         → Send PDF link via WhatsApp media message
-  CASE_TRACK_MENU  → List options: Add case / View cases / Back
-  CNR_INPUT        → Ask for CNR, validate, fetch from eCourts
+User WhatsApp message
+  → Twilio webhook POST /v1/whatsapp/webhook
+  → verifyTwilioSignature middleware
+  → whatsapp.controller.js
+  → State machine via whatsappPhase in ChatSession
+  → All data stored in same MongoDB as web users
+  → User can log in on web with same phone → sees all docs/cases
 ```
 
-### Key Implementation
+### Deep Link Entry (Web from WhatsApp)
 
-```js
-// whatsapp.controller.js
-const handleIncoming = async (req, res) => {
-  const { From, Body, MediaUrl0 } = req.body;
-  const phone = From.replace('whatsapp:', '');
-
-  let user = await User.findOne({ whatsappNumber: phone });
-  if (!user) {
-    user = await User.create({
-      whatsappNumber: phone,
-      whatsappOptIn: true,
-      whatsappVerified: true,
-      registrationSource: 'whatsapp',
-      phone: phone
-    });
-  }
-
-  const session = await getOrCreateWhatsAppSession(user._id);
-  const response = await processWhatsAppMessage(user, session, Body.trim());
-
-  // Reply via Twilio
-  const twiml = new MessagingResponse();
-  twiml.message(response);
-  res.type('text/xml').send(twiml.toString());
-};
 ```
+POST /v1/auth/whatsapp-entry?phone=+91...&wa_token=...
+→ Redis validates one-time wa_token (TTL: short)
+→ Creates/finds user → Issues JWT
+```
+
+### WhatsApp State Machine Phases
+
+`WELCOME → SELECT_TEMPLATE → CHAT_FLOW → REVIEW → DOWNLOAD → CASE_TRACK_MENU → CNR_INPUT`
 
 ---
 
-## 8. Multi-Persona & Subscription System
+## 8. Personas, Plans & Feature Gates
 
-### Personas and Plans
+### Plan Matrix
 
-#### CITIZEN Plans
+**Citizen**
 
-| Feature | Free | Basic (₹99/mo) | Pro (₹199/mo) |
-|---------|------|-----------------|----------------|
-| Documents/month | 3 | 15 | Unlimited |
-| Document types | 5 basic | All basic+standard | All including premium |
-| Case tracking | 1 case | 5 cases | Unlimited |
-| AI chat sessions | 5 | 30 | Unlimited |
-| PDF download | ✗ (preview only) | ✓ | ✓ |
+| Feature | Free | Basic ₹99/mo | Pro ₹199/mo |
+|---------|------|--------------|-------------|
+| Docs/month | 3 | 15 | Unlimited |
+| Cases tracked | 1 | 5 | Unlimited |
+| AI chat sessions/month | 5 | 30 | Unlimited |
+| PDF download | ✗ | ✓ | ✓ |
 | Voice input | ✗ | ✓ | ✓ |
 | Clause explainer | ✗ | ✓ | ✓ |
 | Document sharing | ✗ | ✓ | ✓ |
-| Hearing alerts | ✗ | WhatsApp only | WhatsApp + Email |
-| Lawyer connection | ✗ | View profiles | Book consultation |
-| Priority support | ✗ | ✗ | ✓ |
+| Hearing alerts | ✗ | WhatsApp | WA + Email |
+| Lawyer booking | ✗ | View only | Book |
+| Pay-per-doc (simple/standard/complex) | ₹49/₹99/₹199 | included | included |
 
-#### LAWYER Plans
+**Lawyer**
 
-| Feature | Free | Professional (₹499/mo) | Firm (₹1499/mo) |
-|---------|------|------------------------|-----------------|
-| Client docs reviewable | 0 | 20/month | Unlimited |
+| Feature | Free | Professional ₹499/mo | Firm ₹1499/mo |
+|---------|------|----------------------|----------------|
+| Client docs reviewable/mo | 0 | 20 | Unlimited |
 | Case management | ✗ | ✓ | ✓ |
-| Client portal access | ✗ | ✓ | ✓ |
-| Verified badge | ✗ | ✓ | ✓ Gold |
-| Consultation bookings | ✗ | ✓ | ✓ Priority |
+| Consultation bookings | ✗ | ✓ | ✓ (priority) |
 | Revenue share | ✗ | 90% | 92% |
-| Team members | 0 | 0 | 5 paralegals |
+| Team paralegals | 0 | 0 | 5 |
 | Analytics | ✗ | Basic | Advanced |
-| Custom branding | ✗ | ✗ | ✓ |
 
-### Feature Gate Component (Frontend)
+### Feature Gate Implementation
 
-```jsx
-// components/ui/FeatureGate.jsx
-import { useSelector } from 'react-redux';
-import { FEATURE_MAP } from '../../utils/featureFlags';
+**Backend:** `server/src/middleware/subscription.middleware.js` — `requireFeature(featureName)` middleware
 
-const FeatureGate = ({ feature, fallback = null, children }) => {
-  const { user } = useSelector(s => s.auth);
-  const plan = user?.subscription?.plan || 'free';
-  const persona = user?.persona || 'citizen';
+**Frontend:** `client/src/utils/featureFlags.js` + `client/src/components/ui/FeatureGate.jsx`
 
-  const allowed = FEATURE_MAP[persona]?.[plan]?.includes(feature);
-  if (allowed) return children;
-  return fallback || <UpgradeCTA feature={feature} currentPlan={plan} persona={persona} />;
-};
-```
+⚠ **Critical:** These two sources are not auto-synced. Any change to plan features must be updated in both places manually.
 
 ---
 
-## 9. Theme, Language & UI Architecture
+## 9. Theme & Language System
 
-### Theme System (MUI)
+### Themes
 
-All colours live EXCLUSIVELY in theme files. Zero hardcoded hex values anywhere in components.
+5 themes, each exports a MUI palette + sets CSS custom properties on `:root`:
+- `default` — Blue/white justice theme
+- `saffron` — Saffron/tricolor (India-inspired)
+- `dark` — Dark mode
+- `highContrast` — Accessibility
+- `emerald` — Green calm
 
-```js
-// theme/themes/default.js
-export const defaultTheme = {
-  palette: {
-    primary: { main: 'var(--color-primary)', contrastText: 'var(--color-on-primary)' },
-    secondary: { main: 'var(--color-secondary)' },
-    background: { default: 'var(--color-bg)', paper: 'var(--color-surface)' },
-    text: { primary: 'var(--color-text)', secondary: 'var(--color-text-secondary)' }
-  },
-  // CSS vars set on :root based on selected theme
-};
+All component colors use CSS vars (`var(--color-primary)`, etc.) — zero hardcoded hex values in components.
 
-// 5 themes: default, saffron, dark, highContrast, emerald
-// Each exports a palette + sets CSS custom properties
-```
+### i18n
 
-```js
-// theme/ThemeProvider.jsx
-import { createTheme, ThemeProvider as MuiThemeProvider } from '@mui/material';
-import { useSelector, useDispatch } from 'react-redux';
-import { setTheme } from '../store/slices/uiSlice';
+- `i18next` + `i18next-http-backend` + `i18next-browser-languagedetector`
+- Translations loaded lazily from `/locales/{{lng}}/translation.json`
+- Supported: `en, hi, bn, mr, ta, te, gu, kn, ml, pa, ur`
+- ⚠ Only `en` and `hi` translation files are populated. Other 9 locales fall back to English.
 
-const NyayaThemeProvider = ({ children }) => {
-  const { theme: themeName } = useSelector(s => s.ui);
-  const themeConfig = THEMES[themeName] || THEMES.default;
-  const muiTheme = createTheme(themeConfig);
-  return <MuiThemeProvider theme={muiTheme}>{children}</MuiThemeProvider>;
-};
-```
+### RTL
 
-### Language System (i18next)
-
-```js
-// i18n/i18n.js
-import i18n from 'i18next';
-import { initReactI18next } from 'react-i18next';
-import LanguageDetector from 'i18next-browser-languagedetector';
-import Backend from 'i18next-http-backend';
-
-i18n
-  .use(Backend)
-  .use(LanguageDetector)
-  .use(initReactI18next)
-  .init({
-    fallbackLng: 'en',
-    supportedLngs: ['en','hi','bn','mr','ta','te'],
-    backend: { loadPath: '/locales/{{lng}}/translation.json' },
-    interpolation: { escapeValue: false }
-  });
-```
-
-All static UI strings use `useTranslation()` hook:
-```jsx
-const { t, i18n } = useTranslation();
-<Button>{t('document.generate')}</Button>
-// On language change: i18n.changeLanguage('hi')
-```
-
-### Animations (Framer Motion)
-- Page transitions: `AnimatedPage` wrapper with `opacity` + `y` slide
-- List items: `staggerChildren` in parent `motion.div`
-- Message bubbles: scale + fade on appear
-- Theme switch: Circular reveal animation from ThemeSwitcher button position
-- Document generation: Progress pulse animation
-- Stat counters: `useMotionValue` + `useSpring` for number animation
+- Urdu (`ur`) triggers `document.documentElement.dir = 'rtl'`
+- ⚠ MUI RTL transform (`jss-rtl`/`stylis-plugin-rtl`) not yet configured
 
 ---
 
-## 10. Real-Time APIs: eCourts & Indian Kanoon
+## 10. External API Integrations
 
-### eCourts / NJDG API (Free Public API)
+### eCourts / NJDG
 
-```
-Base URL: https://services.ecourts.gov.in/ecourtindiaHC/
-NJDG REST: https://njdg.ecourts.gov.in/njdgnew/index.php
-Case status API (CNR lookup): https://services.ecourts.gov.in/ecourtindiaHC/cases/case_no
-```
+- **Base:** `https://services.ecourts.gov.in`
+- CNR lookup → case status, hearing history, next date
+- Falls back to NJDG scrape if REST fails
+- ⚠ Rate-limited/bot-blocked in production — proxy needed
 
-The eCourts API is the **National Judicial Data Grid (NJDG)** system. It is publicly accessible but undocumented. Key endpoints:
-- Case status by CNR number
-- Hearing history
-- Next hearing date
+### Indian Kanoon
 
-```js
-// services/ecourts/ecourtsClient.js
-const axios = require('axios');
+- **Base:** `https://api.indiankanoon.org`
+- `POST /search/` — keyword search
+- `GET /doc/{docId}/` — full text
+- Used for live law citations in generated documents
 
-const ECOURTS_BASE = process.env.ECOURTS_API_BASE || 'https://services.ecourts.gov.in';
+### Razorpay
 
-async function getCaseStatus(cnrNumber) {
-  try {
-    // CNR-based lookup — format: STATECOURT00CASENO/YEAR
-    const res = await axios.get(
-      `${ECOURTS_BASE}/ecourtindiaHC/cases/case_no`,
-      {
-        params: { cnr_no: cnrNumber },
-        headers: {
-          'User-Agent': 'NyayaSetu/1.0 (legal access tool)',
-          'Accept': 'application/json'
-        },
-        timeout: 10000
-      }
-    );
-    return parseCaseData(res.data);
-  } catch (err) {
-    // Fallback: scrape NJDG web interface
-    return await scrapeNJDG(cnrNumber);
-  }
-}
-```
+- Orders API for pay-per-doc + subscription creation
+- Webhook at `/v1/payments/webhook` (raw body captured, HMAC verified)
+- SignDesk webhook at `/v1/webhooks/signdesk` (raw body captured)
 
-**Note for dev:** eCourts sometimes blocks bots. Use a rotating proxy in production. In dev, use mock data for testing. The NJDG portal at https://njdg.ecourts.gov.in is the authoritative source.
+### Twilio
 
-### Indian Kanoon API (Free)
+- SMS OTP via `sendOTP(phone, otp)`
+- WhatsApp via TwiML MessagingResponse
+- Webhook signature verified via `verifyTwilioSignature` middleware
 
-Indian Kanoon provides a free API for searching and fetching Indian legal documents, judgments, and act sections.
+### SignDesk
 
-```
-Base URL: https://api.indiankanoon.org
-Auth: API key (register free at https://api.indiankanoon.org)
-Endpoints:
-  GET /search/?formInput={query}&pagenum=0  → Search judgments/laws
-  GET /doc/{docid}/                          → Full document text
-```
-
-```js
-// services/indianKanoon/kanoonClient.js
-const axios = require('axios');
-const KANOON_BASE = 'https://api.indiankanoon.org';
-const KANOON_KEY = process.env.INDIANKANOON_API_KEY;
-
-async function searchLaw(query, pagenum = 0) {
-  const res = await axios.post(
-    `${KANOON_BASE}/search/`,
-    { formInput: query, pagenum },
-    { headers: { Authorization: `Token ${KANOON_KEY}` } }
-  );
-  return res.data;
-}
-
-async function getDocument(docId) {
-  const res = await axios.get(
-    `${KANOON_BASE}/doc/${docId}/`,
-    { headers: { Authorization: `Token ${KANOON_KEY}` } }
-  );
-  return res.data;
-}
-
-// Used to populate LegalAct sections and provide live law search
-module.exports = { searchLaw, getDocument };
-```
+- Digital signature provider (production)
+- Self-signer fallback for dev/testing
 
 ---
 
 ## 11. Payment Architecture
 
-### Plans & Prices (INR)
+### Pay-Per-Doc Pricing
+
+| Document Type | Price |
+|--------------|-------|
+| Simple | ₹49 |
+| Standard | ₹99 |
+| Complex/Premium | ₹199 |
+
+### Subscription Annual Pricing
+
+| Plan | Monthly | Annual |
+|------|---------|--------|
+| Citizen Basic | ₹99 | ₹999 |
+| Citizen Pro | ₹199 | ₹1,999 |
+| Lawyer Professional | ₹499 | ₹4,999 |
+| Lawyer Firm | ₹1,499 | ₹14,999 |
+
+### Notarization
+
+- ₹199 flat fee for Video KYC notarization
+- Managed via `NotarizationRequest` model
+- PDF stamp via `notaryStamp.js`
+
+### Flow
 
 ```
-Citizen Basic:  ₹99/month  | ₹999/year
-Citizen Pro:    ₹199/month | ₹1,999/year
-Lawyer Professional: ₹499/month | ₹4,999/year
-Lawyer Firm:   ₹1,499/month | ₹14,999/year
-
-Pay-per-doc pricing:
-  Simple documents: ₹49
-  Standard documents: ₹99
-  Complex/premium documents: ₹199
-```
-
-### Razorpay Integration (Test Keys in Dev)
-
-```js
-// server: services/payment/razorpayService.js
-const Razorpay = require('razorpay');
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,      // rzp_test_... in dev
-  key_secret: process.env.RAZORPAY_KEY_SECRET
-});
-
-async function createOrder(amount, currency = 'INR', receipt) {
-  return await razorpay.orders.create({ amount, currency, receipt });
-}
-
-async function verifyPayment(orderId, paymentId, signature) {
-  const body = `${orderId}|${paymentId}`;
-  const expected = crypto
-    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-    .update(body).digest('hex');
-  return expected === signature;
-}
+Frontend: razorpay.js opens Razorpay checkout
+→ POST /v1/payments/create-order → Razorpay Orders API → orderId
+→ User pays → Razorpay fires POST /v1/payments/webhook (HMAC verified)
+→ payment.controller.js updates Document/Subscription status
+→ Notification sent to user
 ```
 
 ---
 
-## 12. Environment Variables (Full)
+## 12. Socket.IO & Real-Time
+
+**Setup:** `server/src/services/socket.js` → `initSocket(io)`
+
+**Events:**
+- `consultation:message` — new message in a consultation chat
+- `consultation:new_message` — unread count increment
+- `notification` — push real-time in-app notification
+
+**Auth:** JWT token sent on connection; server verifies before allowing events.
+
+**Frontend:** `client/src/services/socket.js` — singleton, connect/disconnect on auth state change.
+
+---
+
+## 13. Background Worker
+
+**Location:** `server/src/worker/` (inside server workspace — **not** the separate `worker/` workspace)
+
+**Jobs:**
+
+| Job | Trigger | Purpose |
+|-----|---------|---------|
+| `checkHearingDates.job.js` | Scheduled (Bull cron) | Poll eCourts for upcoming hearings |
+| `sendHearingAlert.job.js` | Triggered by above | Send WhatsApp/email hearing reminders |
+| `generateDocument.job.js` | Enqueued by document controller | Async PDF generation |
+| `resetFreeQuota.js` | 1st of month cron | Reset free-tier usage counters |
+
+**Queue:** Bull.js over Redis (Upstash)
+
+⚠ The root-level `worker/` workspace is a near-empty stub that references server paths incorrectly. All working job code is in `server/src/worker/`.
+
+---
+
+## 14. Authentication & Security
+
+### Auth Flow
+
+1. `POST /auth/send-otp` — generates OTP, stores in Redis (TTL 5m), sends via SMS/email
+2. `POST /auth/verify-otp` — validates OTP → issues JWT access (15m) + refresh (30d)
+3. ⚠ **OTP verification is currently BYPASSED** (commented out for dev). Any phone/email creates a session.
+4. `POST /auth/refresh` — rotating refresh tokens (reuse detection: revoke all on reuse)
+5. Multi-device: max `MAX_REFRESH_TOKENS` (defined in constants) active per user
+
+### Security Middleware
+
+- **helmet** — CSP, HSTS, X-Frame-Options, etc.
+- **cors** — allowlist: CLIENT_URL + localhost:5173/3000
+- **express-rate-limit** — global (100/15min), AI (10/min), OTP (5/15min)
+- **auth.middleware.js** — JWT verify → `req.user = { userId, persona, plan }`
+- **subscription.middleware.js** — `requireFeature(feature)` → 403 if plan lacks it
+- **verifyTwilioSignature** — validates X-Twilio-Signature header on WhatsApp webhook
+
+### In-Memory OTP Fallback
+
+When Redis is unavailable, OTPs are stored in a `Map` in process memory. ⚠ No TTL enforcement on entries — memory leak risk during extended Redis outages.
+
+---
+
+## 15. Frontend Architecture
+
+### Routing
+
+`createBrowserRouter` (React Router v6) with persona-gated route trees:
+- `/` → `LandingPage` (public)
+- `/login`, `/register` → auth pages (no layout)
+- `/citizen/*` → `ProtectedRoute(allowedPersonas=['citizen'])` → `AppLayout`
+- `/lawyer/*` → `ProtectedRoute(allowedPersonas=['lawyer','paralegal'])` → `AppLayout`
+- `/admin/*` → `ProtectedRoute(allowedPersonas=['admin'])` → `AppLayout`
+- `/notary/*` → `ProtectedRoute(allowedPersonas=['notary'])` → `AppLayout`
+- `/laws/search` → `ProtectedRoute` (any persona)
+- `/shared/:shareToken` → public document view
+- `/pricing` → public
+
+All pages are lazy-loaded with `Suspense` + `PageLoader` fallback.
+
+### State Management (Redux)
+
+| Slice | Persisted | Purpose |
+|-------|-----------|---------|
+| authSlice | ✓ | User, tokens, loading |
+| uiSlice | ✓ | Theme, language, sidebar, snackbars |
+| subscriptionSlice | ✓ | Active plan, free usage counters |
+| documentSlice | ✗ | Document list, current document |
+| caseSlice | ✗ | Case list |
+| chatSlice | ✗ | Active chat session |
+| nyayabotSlice | ✗ | NyayaBot widget state |
+| chatBotSlice | ✗ | (Likely legacy/duplicate of nyayabotSlice) |
+| lawyerSlice | ✗ | Lawyer search results |
+| notificationSlice | ✗ | In-app notifications |
+| consultationChatSlice | ✗ | Consultation chat messages + unread |
+| notarySlice | ✗ | Notary-specific state |
+| errorSlice | ✗ | Global error state |
+
+### AppBootstrap (App.jsx)
+
+On mount:
+1. If `nyayasetu_token` in localStorage → dispatch `getMe()` to hydrate user
+2. If authenticated → connect Socket.IO, register event handlers
+3. Set `document.dir` for RTL languages
+4. Register service worker (PROD only)
+
+---
+
+## 16. Environment Variables
 
 ```bash
-# ==================== CORE ====================
+# Core
 NODE_ENV=development
 PORT=5000
 CLIENT_URL=http://localhost:5173
-AI_PROVIDER=gemini              # 'gemini' in dev, 'claude' in prod
+AI_PROVIDER=gemini                 # 'claude' in prod
+STORAGE_PROVIDER=cloudinary        # 's3' in prod
 
-# ==================== DATABASE ====================
-MONGO_URI=mongodb+srv://...     # Atlas M0 free in dev
+# Database
+MONGO_URI=mongodb+srv://...
 
-# ==================== CACHE/QUEUE ====================
-REDIS_URL=redis://...           # Upstash free in dev
+# Cache / Queue
+REDIS_URL=redis://...
 
-# ==================== JWT ====================
-JWT_SECRET=your-super-secret-key
+# JWT
+JWT_SECRET=...
 JWT_EXPIRES_IN=15m
-JWT_REFRESH_SECRET=another-secret-key
+JWT_REFRESH_SECRET=...
 JWT_REFRESH_EXPIRES_IN=30d
 
-# ==================== AI ====================
-# Dev (Gemini — free tier)
-GEMINI_API_KEY=AIza...          # From Google AI Studio (FREE)
+# AI — Dev
+GEMINI_API_KEY=AIza...
 
-# Prod (Claude — paid)
-ANTHROPIC_API_KEY=sk-ant-...    # Only set in production
+# AI — Prod
+ANTHROPIC_API_KEY=sk-ant-...
 
-# ==================== VOICE ====================
-# Dev (HuggingFace — free tier)
-HF_API_KEY=hf_...               # From huggingface.co (FREE)
+# Voice — Dev
+HF_API_KEY=hf_...
 HF_WHISPER_MODEL=openai/whisper-large-v3
 
-# Prod (OpenAI Whisper)
-OPENAI_API_KEY=sk-...           # Only set in production
+# Voice — Prod
+OPENAI_API_KEY=sk-...
 
-# ==================== WHATSAPP / OTP ====================
-# Dev (Twilio — free trial)
+# WhatsApp / OTP
 TWILIO_ACCOUNT_SID=ACxxx
 TWILIO_AUTH_TOKEN=xxx
-TWILIO_WHATSAPP_FROM=whatsapp:+14155238886  # Twilio sandbox number
-TWILIO_SMS_FROM=+15005550006                # Twilio test number
+TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+TWILIO_SMS_FROM=+15005550006
 
-# Prod (MSG91 for OTP)
+# OTP — Prod
 MSG91_AUTH_KEY=...
 MSG91_TEMPLATE_ID=...
 
-# ==================== STORAGE ====================
-# Dev (Cloudinary — free tier)
+# Storage — Dev
 CLOUDINARY_CLOUD_NAME=...
 CLOUDINARY_API_KEY=...
 CLOUDINARY_API_SECRET=...
-STORAGE_PROVIDER=cloudinary     # 'cloudinary' in dev, 's3' in prod
 
-# Prod (AWS S3)
+# Storage — Prod
 AWS_ACCESS_KEY_ID=...
 AWS_SECRET_ACCESS_KEY=...
 AWS_REGION=ap-south-1
 AWS_S3_BUCKET=nyayasetu-documents
 
-# ==================== PAYMENTS ====================
-RAZORPAY_KEY_ID=rzp_test_...    # Test keys in dev
+# Payments
+RAZORPAY_KEY_ID=rzp_test_...
 RAZORPAY_KEY_SECRET=...
 RAZORPAY_WEBHOOK_SECRET=...
 
-# ==================== EXTERNAL APIs ====================
-ECOURTS_API_BASE=https://services.ecourts.gov.in
-INDIANKANOON_API_KEY=...        # Register free at api.indiankanoon.org
+# Signature
+SIGNDESK_API_KEY=...
+SIGNDESK_WEBHOOK_SECRET=...
 
-# ==================== EMAIL ====================
-# Dev (Gmail SMTP — free)
+# External APIs
+ECOURTS_API_BASE=https://services.ecourts.gov.in
+INDIANKANOON_API_KEY=...
+
+# Email
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
-EMAIL_USER=nyayasetu.dev@gmail.com
-EMAIL_PASS=app-specific-password
+EMAIL_USER=...
+EMAIL_PASS=...
 EMAIL_FROM="NyayaSetu <noreply@nyayasetu.in>"
 
-# ==================== SECURITY ====================
-FIELD_ENCRYPTION_KEY=32-char-hex-key
-SESSION_SECRET=...
+# Security
+FIELD_ENCRYPTION_KEY=32-char-hex
 
-# ==================== FEATURE FLAGS ====================
-ENABLE_LAWYER_PORTAL=true
-ENABLE_VOICE_INPUT=true
-ENABLE_WHATSAPP=true
+# Dev shortcuts
+DEV_PHONE=+919999999999
+DEV_OTP=123456
 ```
 
 ---
 
-## BONUS: New Features Added (Not in Original Architecture)
+## 17. Deployment
 
-Beyond the base architecture, the following features have been **added or improved**:
+| Component | Dev | Production |
+|-----------|-----|------------|
+| Frontend | `vite dev` | Vercel |
+| Backend | `nodemon` / Render free | Render / Railway |
+| MongoDB | Atlas M0 (free) | Atlas M10+ |
+| Redis | Upstash free | Upstash paid |
+| Worker | `node server/src/worker/worker.js` | Same server or separate process |
 
-| Feature | Details |
-|---------|---------|
-| **Document Sharing** | Share document via unique link token (public view, no PDF) |
-| **Lawyer Reviews from Consultation** | Rating collected after consultation, not just referral |
-| **Multi-device JWT** | RefreshToken array supports up to 5 devices |
-| **Paralegal Persona** | Third persona (assistant to lawyer) — profile stub ready |
-| **WhatsApp Account Creation** | Full account creation + document creation via WhatsApp |
-| **eCourts Auto-refresh** | Bull job automatically refreshes case data daily |
-| **Indian Kanoon Integration** | Live law search + citation URLs in generated documents |
-| **Document Versioning** | User can regenerate, old versions stored |
-| **Free Social Templates** | Domestic violence + police complaint always free (₹0) |
-| **Audit Log** | Every sensitive action logged to AuditLog collection |
-| **Notification Center** | In-app notification system with WhatsApp + email + web channels |
-| **Theme Switcher** | 5 themes, animated transition, persisted to DB + localStorage |
-| **11 Languages** | Support for en, hi, bn, mr, ta, te, gu, kn, ml, pa, ur |
-| **PWA Support** | Installable PWA with service worker + offline caching |
-| **High Contrast Theme** | Accessibility-first theme for visually impaired users |
-| **CNR Format Validator** | Client-side + server-side CNR format validation |
-| **Admin Dashboard** | Template management, lawyer verification, platform stats |
+Docker Compose: available for full local stack (MongoDB + Redis + server + client).
 
 ---
 
-*NyayaSetu Architecture v2.0 | Free-first, production-ready | Generated for code scaffolding*
+## 18. Known Gaps & TODOs
+
+> These are gaps between the designed architecture and the actual implementation.
+> See **AUDIT.md** for the full list of flaws, bugs, and improvement areas.
+
+### Critical (Blocks Production)
+
+- [ ] **OTP verification bypassed** — `auth.controller.js` lines 317–404 are commented out
+- [ ] **Feature flags not synced** — `featureFlags.js` (client) vs `subscription.middleware.js` (server) can diverge
+- [ ] **Lawyer auto-verified in dev** — `register()` sets `isVerified: process.env.NODE_ENV === 'development'`
+
+### Missing Implementations
+
+- [ ] Video consultation provider (`videoProvider.js` is a stub)
+- [ ] 9 language translation files (only EN + HI exist)
+- [ ] MUI RTL support for Urdu
+- [ ] ThemeSwitcher widget (commented out in AppLayout)
+- [ ] Admin controller (thin — most admin operations not fully implemented)
+- [ ] `worker/` workspace (outer) references wrong paths
+
+### Structural Issues
+
+- [ ] Duplicate files: `chatRoutes.js`, `chatController.js`, `emailService.js` (root)
+- [ ] `nyayabotRoutes` mounted twice in `app.js` (lines 138 + 174)
+- [ ] `notaryRoutes` mounted at `/v1` root instead of `/v1/notary`
+- [ ] Worker code split between `server/src/worker/` and `worker/` workspace
+
+### Not Yet Built (from v2 Architecture)
+
+- [ ] Pay-per-doc flow in frontend (UI exists, full payment gate missing)
+- [ ] Paralegal persona pages (routes exist but no dedicated pages)
+- [ ] Document versioning UI
+- [ ] WhatsApp state machine (backend stub, not fully wired)
+- [ ] Admin: lawyer approval workflow (frontend + backend)
+- [ ] Subscription renewal / cancellation flow in UI

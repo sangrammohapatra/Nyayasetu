@@ -28,16 +28,17 @@ const { errorHandler } = require('./middleware/error.middleware');
 const app = express();
 
 // ─── Security Headers ─────────────────────────────────────────────────────────
+// This is a JSON API server — it serves no HTML, stylesheets, or fonts.
+// styleSrc / fontSrc CSP rules belong on the static-file server (nginx/CDN)
+// that serves index.html. MUI nonce support must be configured there.
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     contentSecurityPolicy: {
       directives: {
-        defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-        fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-        imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+        defaultSrc: ["'none'"],
         scriptSrc: ["'self'"],
+        imgSrc:    ["'self'", 'data:', 'blob:'],
         connectSrc: ["'self'", process.env.CLIENT_URL || 'http://localhost:5173'],
       },
     },
@@ -133,8 +134,14 @@ const otpLimiter = rateLimit({
 });
 
 app.use('/v1', globalLimiter);
-app.use('/v1/chat/sessions/:id/message', aiLimiter);
 app.use('/v1/auth/send-otp', otpLimiter);
+
+// AI endpoints — all invoke the LLM/PDF pipeline; keep under the same budget
+app.use('/v1/chat/sessions/:id/message', aiLimiter);
+app.use('/v1/chat/sessions',             aiLimiter);
+app.use('/v1/documents/generate',        aiLimiter);
+app.use('/v1/triage',                    aiLimiter);
+app.use('/v1/nyayabot/message',          aiLimiter);
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
