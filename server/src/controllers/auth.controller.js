@@ -314,13 +314,13 @@ const verifyOTPHandler = asyncHandler(async (req, res) => {
   if (!rawPhone && !rawEmail) {
     throw createError(400, "IDENTIFIER_REQUIRED", "Phone number or email is required");
   }
-  // BYPASS: OTP field no longer required while verification is disabled
-  // if (!rawOtp) {
-  //   throw createError(400, "OTP_REQUIRED", "OTP is required");
-  // }
 
-  // const otp = String(rawOtp).trim();
-  // const isDev = process.env.NODE_ENV === "development";
+  if (!rawOtp) {
+    throw createError(400, "OTP_REQUIRED", "OTP is required");
+  }
+
+  const otp = String(rawOtp).trim();
+  const isDev = process.env.NODE_ENV === "development";
 
   // ── Email OTP verify ───────────────────────────────────────────────────────
   if (rawEmail) {
@@ -329,22 +329,21 @@ const verifyOTPHandler = asyncHandler(async (req, res) => {
       throw createError(400, "INVALID_EMAIL", "Invalid email address");
     }
 
-    // BYPASS: OTP verification commented out — re-enable when SMS/email is live
-    // await checkOTPAttempts(email);
-    // const storedOTP = await getOtpValue(email);
-    // if (!storedOTP) {
-    //   throw createError(400, "OTP_EXPIRED", "OTP has expired or was not requested. Please request a new OTP.");
-    // }
-    // const otpBuf = Buffer.from(otp.padEnd(10));
-    // const expectedBuf = Buffer.from(String(storedOTP).padEnd(10));
-    // const isMatch = otpBuf.length === expectedBuf.length && crypto.timingSafeEqual(otpBuf, expectedBuf);
-    // if (!isMatch) {
-    //   await incrementOtpAttemptsValue(email);
-    //   await AuditLog.log(req, "otp.failed", "User", null, { email }, false);
-    //   throw createError(400, "INVALID_OTP", "Incorrect OTP. Please try again.");
-    // }
-    // await deleteOtpValue(email);
-    // await clearOtpAttemptsValue(email);
+    await checkOTPAttempts(email);
+    const storedOTP = await getOtpValue(email);
+    if (!storedOTP) {
+      throw createError(400, "OTP_EXPIRED", "OTP has expired or was not requested. Please request a new OTP.");
+    }
+    const otpBuf = Buffer.from(otp.padEnd(10));
+    const expectedBuf = Buffer.from(String(storedOTP).padEnd(10));
+    const isMatch = otpBuf.length === expectedBuf.length && crypto.timingSafeEqual(otpBuf, expectedBuf);
+    if (!isMatch) {
+      await incrementOtpAttemptsValue(email);
+      await AuditLog.log(req, "otp.failed", "User", null, { email }, false);
+      throw createError(400, "INVALID_OTP", "Incorrect OTP. Please try again.");
+    }
+    await deleteOtpValue(email);
+    await clearOtpAttemptsValue(email);
 
     let user = await User.findOne({ email });
     const isNewUser = !user;
@@ -379,29 +378,26 @@ const verifyOTPHandler = asyncHandler(async (req, res) => {
     throw createError(400, "INVALID_PHONE", "Invalid phone number");
   }
 
-  // BYPASS: OTP verification commented out — re-enable when SMS/email is live
-  // const otp = String(rawOtp).trim();
-  // const isDev = process.env.NODE_ENV === "development";
-  // await checkOTPAttempts(phone);
-  // const isTestPhone = phone === DEV_PHONE;
-  // const storedOTP = await getOtpValue(phone);
-  // const isDevBypass = isDev && isTestPhone && otp === DEFAULT_DEV_OTP;
-  // if (!storedOTP && !isDevBypass) {
-  //   throw createError(400, "OTP_EXPIRED", "OTP has expired or was not requested. Please request a new OTP.");
-  // }
-  // const expectedOtp = storedOTP ? String(storedOTP) : DEFAULT_DEV_OTP;
-  // const otpBuf = Buffer.from(otp.padEnd(10));
-  // const expectedBuf = Buffer.from(expectedOtp.padEnd(10));
-  // const isMatch =
-  //   otpBuf.length === expectedBuf.length &&
-  //   crypto.timingSafeEqual(otpBuf, expectedBuf);
-  // if (!isMatch) {
-  //   await incrementOtpAttemptsValue(phone);
-  //   await AuditLog.log(req, "otp.failed", "User", null, { phone }, false);
-  //   throw createError(400, "INVALID_OTP", "Incorrect OTP. Please try again.");
-  // }
-  // await deleteOtpValue(phone);
-  // await clearOtpAttemptsValue(phone);
+  await checkOTPAttempts(phone);
+  const isTestPhone = phone === DEV_PHONE;
+  const storedOTP = await getOtpValue(phone);
+  const isDevBypass = isDev && isTestPhone && otp === DEFAULT_DEV_OTP;
+  if (!storedOTP && !isDevBypass) {
+    throw createError(400, "OTP_EXPIRED", "OTP has expired or was not requested. Please request a new OTP.");
+  }
+  const expectedOtp = storedOTP ? String(storedOTP) : DEFAULT_DEV_OTP;
+  const otpBuf = Buffer.from(otp.padEnd(10));
+  const expectedBuf = Buffer.from(expectedOtp.padEnd(10));
+  const isMatch =
+    otpBuf.length === expectedBuf.length &&
+    crypto.timingSafeEqual(otpBuf, expectedBuf);
+  if (!isMatch) {
+    await incrementOtpAttemptsValue(phone);
+    await AuditLog.log(req, "otp.failed", "User", null, { phone }, false);
+    throw createError(400, "INVALID_OTP", "Incorrect OTP. Please try again.");
+  }
+  await deleteOtpValue(phone);
+  await clearOtpAttemptsValue(phone);
 
   let user = await User.findOne({ phone });
   const isNewUser = !user;
