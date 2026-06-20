@@ -75,14 +75,14 @@ const verifyLawyer = asyncHandler(async (req, res) => {
 
   // In-app notification
   try {
-    await Notification.create({
-      user: lawyerUser._id,
+    await Notification.createForUser({
+      userId: lawyerUser._id,
       type: 'lawyer_verified',
       title: 'Your profile is verified',
       body: 'Congratulations! Your lawyer profile has been verified. You are now visible to citizens on NyayaSetu.',
       data: { lawyerProfileId: profile._id },
-      channel: 'web',
-      isRead: false,
+      actionUrl: '/lawyer/dashboard',
+      io: req.app.get('io'),
     });
   } catch (_) {}
 

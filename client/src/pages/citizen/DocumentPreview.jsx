@@ -34,12 +34,18 @@ import {
   selectCurrentDocument, selectDocumentError, clearDocumentError,
 } from '../../store/slices/documentSlice';
 import { selectUserPlan } from '../../store/slices/authSlice';
+import {
+  getDocumentNotarizationStatus,
+  verifyNotarizationPayment,
+  selectDocumentNotarizationStatus,
+} from '../../store/slices/notarySlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import ClauseExplainer from '../../components/document/ClauseExplainer';
 import FeatureGate from '../../components/ui/FeatureGate';
 import GlassCard from '../../components/ui/GlassCard';
 import GradientHeading from '../../components/ui/GradientHeading';
 import ConsultationChat from '../../components/consultation/ConsultationChat';
+import NotarizationBooking from '../../components/notary/NotarizationBooking';
 import { TYPOGRAPHY } from '../../theme/tokens';
 import { openCheckout } from '../../services/razorpay';
 import { RADIUS, SHADOWS } from '../../theme/tokens';
@@ -266,7 +272,24 @@ function DocumentText({ content, onClauseClick, activeClauseIndex = null }) {
 /* ---------------------------------------------------------------------------
  * Right panel — Citations + Next Steps + Actions
  * ------------------------------------------------------------------------ */
-function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenerating, onSign, signing, onDownloadSigned, onConnectLawyer, onOpenChat, linkedConsultation, plan }) {
+// Derives a display label from both request status AND payment status
+function notarizationStatusLabel(req) {
+  if (!req) return null;
+  if (req.status === 'accepted' && req.payment?.status !== 'paid') {
+    return { label: 'Notary Accepted — Pay ₹199 to Confirm', color: '#ff6d00', bg: 'rgba(255,109,0,0.1)' };
+  }
+  const map = {
+    pending:       { label: 'Awaiting Notary Acceptance', color: '#ed6c02', bg: 'rgba(237,108,2,0.1)' },
+    accepted:      { label: 'Paid — KYC Being Scheduled',  color: '#0288d1', bg: 'rgba(2,136,209,0.1)' },
+    kyc_scheduled: { label: 'Video KYC Scheduled',         color: '#7b1fa2', bg: 'rgba(123,31,162,0.1)' },
+    kyc_completed: { label: 'KYC Done — Stamping Soon',    color: '#00897b', bg: 'rgba(0,137,123,0.1)' },
+    stamped:       { label: 'Notarized ✓',                 color: '#2e7d32', bg: 'rgba(46,125,50,0.1)' },
+    dispatched:    { label: 'Notarized + Dispatched ✓',    color: '#1b5e20', bg: 'rgba(27,94,32,0.1)' },
+  };
+  return map[req.status] || { label: req.status, color: '#757575', bg: 'rgba(0,0,0,0.05)' };
+}
+
+function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenerating, onSign, signing, onDownloadSigned, onConnectLawyer, onOpenChat, linkedConsultation, plan, onNotarize, onPayNotarization, notarizationRequest }) {
   const { t } = useTranslation();
   const isPaid = doc?.isPaid || plan === 'basic' || plan === 'pro';
   const approvalMeta = APPROVAL_META[doc?.approvalStatus] || APPROVAL_META.draft;
@@ -594,6 +617,95 @@ function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenera
         </Box>
       )}
 
+      {/* Notarization */}
+      <GlassCard sx={{ p: 2 }}>
+        <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 0.75 }}>
+          🔏 Online Notarization
+        </Typography>
+        {notarizationRequest ? (() => {
+          const meta = notarizationStatusLabel(notarizationRequest);
+          const needsPayment = notarizationRequest.status === 'accepted' && notarizationRequest.payment?.status !== 'paid';
+          return (
+            <>
+              {/* Status badge */}
+              <Box sx={{
+                px: 1.5, py: 1, mb: 1.25, borderRadius: `${RADIUS.md}px`,
+                background: meta.bg,
+                border: `1px solid ${meta.color}33`,
+              }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', color: meta.color }}>
+                  {meta.label}
+                </Typography>
+                {notarizationRequest.notary?.name && (
+                  <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
+                    Notary: {notarizationRequest.notary.name}
+                  </Typography>
+                )}
+                {notarizationRequest.scheduledAt && notarizationRequest.status === 'kyc_scheduled' && (
+                  <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', display: 'block' }}>
+                    KYC: {new Date(notarizationRequest.scheduledAt).toLocaleString('en-IN')}
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Pay button — shown when notary accepted but citizen hasn't paid yet */}
+              {needsPayment && (
+                <Button
+                  fullWidth variant="contained" size="small"
+                  onClick={onPayNotarization}
+                  sx={{
+                    mb: 1, borderRadius: `${RADIUS.md}px`, fontWeight: 700,
+                    background: 'linear-gradient(135deg, #1A237E 0%, #283593 100%)',
+                    '&:hover': { background: 'linear-gradient(135deg, #0d1b6e 0%, #1a237e 100%)' },
+                  }}
+                >
+                  💳 Pay ₹199 to Confirm
+                </Button>
+              )}
+
+              {/* Video KYC join link */}
+              {notarizationRequest.videoLink && notarizationRequest.status === 'kyc_scheduled' && (
+                <Button
+                  fullWidth variant="outlined" size="small"
+                  href={notarizationRequest.videoLink} target="_blank" rel="noopener noreferrer"
+                  sx={{ mb: 1, borderRadius: `${RADIUS.md}px`, fontWeight: 700, borderColor: '#7b1fa2', color: '#7b1fa2' }}
+                >
+                  📹 Join Video KYC
+                </Button>
+              )}
+
+              {/* Notarized PDF download */}
+              {notarizationRequest.notarizedPdfUrl && (
+                <Button
+                  fullWidth variant="outlined" size="small"
+                  href={notarizationRequest.notarizedPdfUrl} target="_blank" rel="noopener noreferrer"
+                  sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 700, borderColor: '#2e7d32', color: '#2e7d32' }}
+                >
+                  📥 Download Notarized PDF
+                </Button>
+              )}
+            </>
+          );
+        })() : (
+          <>
+            <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', display: 'block', mb: 1.5, lineHeight: 1.55 }}>
+              Get this document legally notarized online via Video KYC for just <strong>₹199</strong>. No physical visit needed.
+            </Typography>
+            <Button
+              fullWidth variant="contained" size="small"
+              onClick={onNotarize}
+              sx={{
+                borderRadius: `${RADIUS.md}px`, fontWeight: 700, fontSize: '0.8rem',
+                background: 'linear-gradient(135deg, #1A237E 0%, #283593 100%)',
+                '&:hover': { background: 'linear-gradient(135deg, #0d1b6e 0%, #1a237e 100%)' },
+              }}
+            >
+              🔏 I Need This Notarized
+            </Button>
+          </>
+        )}
+      </GlassCard>
+
       {/* Lawyer CTA / Chat */}
       <GlassCard sx={{ p: 2, border: '1.5px solid var(--color-primary) !important' }}>
         <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 0.75 }}>
@@ -650,6 +762,7 @@ function DocumentPreview() {
   const doc = useSelector(selectCurrentDocument);
   const plan = useSelector(selectUserPlan);
   const docError = useSelector(selectDocumentError);
+  const notarizationRequest = useSelector(selectDocumentNotarizationStatus);
 
   const [mobileTab, setMobileTab] = useState(0);
   const [clauseAnchor, setClauseAnchor] = useState(null);
@@ -662,6 +775,7 @@ function DocumentPreview() {
   const [reviewDismissed, setReviewDismissed] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [linkedConsultation, setLinkedConsultation] = useState(null);
+  const [notarizeOpen, setNotarizeOpen] = useState(false);
   const pollRef = useRef(null);
 
   // Document has no status field — completion is tracked via session.status and content
@@ -686,6 +800,11 @@ function DocumentPreview() {
       .then(({ data }) => setLinkedConsultation(data.consultation))
       .catch(() => setLinkedConsultation(null));
   }, [documentId]);
+
+  // Fetch notarization status for this document
+  useEffect(() => {
+    if (documentId) dispatch(getDocumentNotarizationStatus(documentId));
+  }, [documentId, dispatch]);
 
   // Stop polling once the AI has filled in the content
   useEffect(() => {
@@ -802,6 +921,28 @@ function DocumentPreview() {
     } catch {
       setSnack({ open: true, msg: 'Could not fetch signed PDF. Please try again.', severity: 'error' });
     }
+  };
+
+  const handlePayNotarization = () => {
+    if (!notarizationRequest?.payment?.razorpayOrderId) return;
+    openCheckout({
+      orderId: notarizationRequest.payment.razorpayOrderId,
+      amount: notarizationRequest.payment.amount,
+      currency: 'INR',
+      name: 'NyayaSetu',
+      description: `Notarization — ${doc?.title || 'Document'}`,
+      onSuccess: async (response) => {
+        await dispatch(verifyNotarizationPayment({
+          requestId: notarizationRequest._id,
+          razorpayOrderId: response.razorpay_order_id,
+          razorpayPaymentId: response.razorpay_payment_id,
+          razorpaySignature: response.razorpay_signature,
+        }));
+        dispatch(getDocumentNotarizationStatus(documentId));
+        setSnack({ open: true, msg: 'Payment successful! The notary will now schedule your Video KYC.', severity: 'success' });
+      },
+      onDismiss: () => {},
+    });
   };
 
   return (
@@ -935,7 +1076,10 @@ function DocumentPreview() {
                 onConnectLawyer={() => navigate('/citizen/lawyers')}
                 onOpenChat={() => setChatOpen(true)}
                 linkedConsultation={linkedConsultation}
-                plan={plan} />
+                plan={plan}
+                onNotarize={() => setNotarizeOpen(true)}
+                onPayNotarization={handlePayNotarization}
+                notarizationRequest={notarizationRequest} />
             )}
             {mobileTab === 3 && doc?.previousVersions?.length > 0 && (
               <Box sx={{ p: 1 }}>
@@ -973,7 +1117,10 @@ function DocumentPreview() {
                   onConnectLawyer={() => navigate('/citizen/lawyers')}
                   onOpenChat={() => setChatOpen(true)}
                   linkedConsultation={linkedConsultation}
-                  plan={plan} />
+                  plan={plan}
+                  onNotarize={() => setNotarizeOpen(true)}
+                  onPayNotarization={handlePayNotarization}
+                  notarizationRequest={notarizationRequest} />
               </Box>
             </Grid>
           </Grid>
@@ -1005,6 +1152,20 @@ function DocumentPreview() {
           open={chatOpen}
           onClose={() => setChatOpen(false)}
           otherPartyName={linkedConsultation.lawyer?.name || 'Your Lawyer'}
+        />
+      )}
+
+      {/* Notarization booking drawer */}
+      {doc && (
+        <NotarizationBooking
+          open={notarizeOpen}
+          onClose={() => setNotarizeOpen(false)}
+          document={doc}
+          onSuccess={() => {
+            setNotarizeOpen(false);
+            dispatch(getDocumentNotarizationStatus(documentId));
+            setSnack({ open: true, msg: 'Notarization request submitted! The notary will contact you shortly.', severity: 'success' });
+          }}
         />
       )}
     </AnimatedPage>

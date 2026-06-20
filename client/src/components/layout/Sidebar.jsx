@@ -87,7 +87,14 @@ function useNavItems(persona, t) {
       { icon: IC.myDocs,    label: t('sidebar.auditLog',  'Audit Log'),  path: '/admin/audit-logs' },
     ];
 
-    return { citizen, lawyer, paralegal: lawyer, admin }[persona] || citizen;
+    const notary = [
+      { section: 'Notary' },
+      { icon: IC.home,          label: 'Home',           path: '/notary/home' },
+      { icon: IC.consultations, label: 'Requests',       path: '/notary/requests' },
+      { icon: IC.dashboard,     label: 'My Profile',     path: '/notary/profile' },
+    ];
+
+    return { citizen, lawyer, paralegal: lawyer, admin, notary }[persona] || citizen;
   }, [persona, t]);
 }
 

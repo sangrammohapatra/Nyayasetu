@@ -310,6 +310,16 @@ const documentSchema = new Schema(
       sessionId:           { type: String, trim: true }, // SignDesk session (pending)
     },
 
+    // ── Notarization ──────────────────────────────────────────────────────────
+    notarizationStatus: {
+      type: String,
+      enum: ['none', 'requested', 'notarized'],
+      default: 'none',
+      index: true,
+    },
+    notarizedPdfUrl: { type: String, trim: true, default: null },
+    notaryStampRef: { type: String, trim: true, default: null },
+
     // ── Status ────────────────────────────────────────────────────────────────
     isActive: { type: Boolean, default: true },
     isDeleted: { type: Boolean, default: false, index: true },

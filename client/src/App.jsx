@@ -44,6 +44,7 @@ import {
   receiveMessage,
   incrementUnread,
 } from "./store/slices/consultationChatSlice";
+import { pushRealtimeNotification } from "./store/slices/notificationSlice";
 
 import {
   selectIsAuthenticated,
@@ -97,6 +98,11 @@ const AdminAuditLog  = lazy(() => import('./pages/admin/AdminAuditLog'));
 const LawSearch           = lazy(() => import('./pages/shared/LawSearch'));
 const EmergencyHelpline   = lazy(() => import('./pages/citizen/EmergencyHelpline'));
 const LandingPage         = lazy(() => import('./pages/public/LandingPage'));
+
+// Notary
+const NotaryHome            = lazy(() => import('./pages/notary/NotaryHome'));
+const NotaryDashboard       = lazy(() => import('./pages/notary/NotaryDashboard'));
+const NotarizationRequests  = lazy(() => import('./pages/notary/NotarizationRequests'));
 
 // ─── Page loading fallback ────────────────────────────────────────────────────
 
@@ -394,6 +400,44 @@ const router = createBrowserRouter([
     ],
   },
 
+  // ── Notary routes ──────────────────────────────────────────────────────────
+  {
+    path: "/notary",
+    element: (
+      <ProtectedRoute allowedPersonas={["notary"]}>
+        <AppLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      { index: true, element: <Navigate to="/notary/home" replace /> },
+      {
+        path: "home",
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <NotaryHome />
+          </Suspense>
+        ),
+      },
+      {
+        path: "requests",
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <NotarizationRequests />
+          </Suspense>
+        ),
+      },
+      {
+        path: "profile",
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <NotaryDashboard />
+          </Suspense>
+        ),
+      },
+      { path: "settings", element: <Settings /> },
+    ],
+  },
+
   // Law search — shared across all personas
   {
     path: '/laws/search',
@@ -495,12 +539,18 @@ function AppBootstrap() {
         dispatch(incrementUnread({ consultationId }));
       };
 
+      const handleNotification = (notification) => {
+        dispatch(pushRealtimeNotification(notification));
+      };
+
       socketService.on("consultation:message", handleMessage);
       socketService.on("consultation:new_message", handleNewMessage);
+      socketService.on("notification", handleNotification);
 
       return () => {
         socketService.off("consultation:message", handleMessage);
         socketService.off("consultation:new_message", handleNewMessage);
+        socketService.off("notification", handleNotification);
         socketService.disconnect();
       };
     } else {

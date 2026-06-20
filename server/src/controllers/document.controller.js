@@ -961,15 +961,14 @@ const signWebhook = asyncHandler(async (req, res) => {
 
   // Notify the document owner
   try {
-    await Notification.create({
-      user:      document.user,
+    await Notification.createForUser({
+      userId:    document.user,
       type:      'document_signed',
       title:     'Document Signed!',
       body:      `Your document "${document.title}" has been digitally signed via Aadhaar eSign.`,
       data:      { documentId: document._id },
       actionUrl: `/documents/${document._id}`,
-      channel:   'web',
-      isRead:    false,
+      io:        req.app.get('io'),
     });
   } catch (_) {}
 

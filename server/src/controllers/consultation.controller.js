@@ -253,14 +253,14 @@ const createConsultation = asyncHandler(async (req, res) => {
 
   // In-app notification for lawyer
   try {
-    await Notification.create({
-      user: lawyerProfile.user._id,
-      type: 'new_consultation_request',
+    await Notification.createForUser({
+      userId: lawyerProfile.user._id,
+      type: 'consultation_requested',
       title: 'New consultation request',
       body: `A citizen has requested a ${mode} consultation on ${scheduledDate.toLocaleDateString('en-IN')}`,
       data: { consultationId: consultation._id },
-      channel: 'web',
-      isRead: false,
+      actionUrl: `/consultations/${consultation._id}`,
+      io: req.app.get('io'),
     });
   } catch (_) {}
 
@@ -326,8 +326,8 @@ const acceptConsultation = asyncHandler(async (req, res) => {
     : `Your ${consultation.mode} consultation on ${new Date(consultation.scheduledAt).toLocaleDateString('en-IN')} has been accepted.`;
 
   try {
-    await Notification.create({
-      user: consultation.citizen,
+    await Notification.createForUser({
+      userId: consultation.citizen,
       type: 'consultation_accepted',
       title: 'Consultation accepted',
       body: notifBody,
@@ -335,8 +335,8 @@ const acceptConsultation = asyncHandler(async (req, res) => {
         consultationId: consultation._id,
         ...(consultation.meetingLink ? { meetingLink: consultation.meetingLink } : {}),
       },
-      channel: 'web',
-      isRead: false,
+      actionUrl: `/consultations/${consultation._id}`,
+      io: req.app.get('io'),
     });
   } catch (_) {}
 
@@ -399,14 +399,14 @@ const rejectConsultation = asyncHandler(async (req, res) => {
   await notifyCitizen(citizenUser, consultation, 'rejected');
 
   try {
-    await Notification.create({
-      user: consultation.citizen,
+    await Notification.createForUser({
+      userId: consultation.citizen,
       type: 'consultation_rejected',
       title: 'Consultation declined',
       body: `Your consultation request was declined by the lawyer.${refundInitiated ? ' A refund will be processed in 5-7 business days.' : ''}`,
       data: { consultationId: consultation._id },
-      channel: 'web',
-      isRead: false,
+      actionUrl: `/consultations/${consultation._id}`,
+      io: req.app.get('io'),
     });
   } catch (_) {}
 
@@ -463,14 +463,14 @@ const completeConsultation = asyncHandler(async (req, res) => {
   await notifyCitizen(citizenUser, consultation, 'completed');
 
   try {
-    await Notification.create({
-      user: consultation.citizen,
+    await Notification.createForUser({
+      userId: consultation.citizen,
       type: 'consultation_completed',
       title: 'Consultation complete',
       body: 'Your consultation is complete. How did it go? Please take a moment to rate your lawyer.',
       data: { consultationId: consultation._id },
-      channel: 'web',
-      isRead: false,
+      actionUrl: `/consultations/${consultation._id}`,
+      io: req.app.get('io'),
     });
   } catch (_) {}
 

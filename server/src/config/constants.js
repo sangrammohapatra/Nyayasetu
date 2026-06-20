@@ -27,6 +27,7 @@ const PERSONAS = {
   LAWYER: "LAWYER",
   PARALEGAL: "PARALEGAL",
   ADMIN: "ADMIN",
+  NOTARY: "NOTARY",
 };
 
 // ─── Pay-per-document pricing (paise) ─────────────────────────────────────────
@@ -154,7 +155,11 @@ const DOCUMENT_CATEGORIES = [
 
 // ─── User persona types ───────────────────────────────────────────────────────
 
-const PERSONA_TYPES = ["citizen", "lawyer", "paralegal", "admin"];
+const PERSONA_TYPES = ["citizen", "lawyer", "paralegal", "admin", "notary"];
+
+// ─── Notarization fee (paise) ─────────────────────────────────────────────────
+
+const NOTARIZATION_FEE = 19900; // ₹199
 
 // ─── Document template slugs (for reference) ──────────────────────────────────
 
@@ -290,6 +295,7 @@ module.exports = {
   PLANS,
   PERSONAS,
   PAY_PER_DOC,
+  NOTARIZATION_FEE,
   FREE_TIER_LIMITS,
   INDIAN_STATES,
   LANGUAGES,

@@ -65,7 +65,13 @@ function useBottomNavItems(persona, t, unread) {
     { icon: IC.lawyers,   label: t('nav.lawyers',    'Lawyers'),    path: '/admin/lawyers' },
   ];
 
-  return ({ citizen, lawyer, paralegal: lawyer, admin }[persona] || citizen);
+  const notary = [
+    { icon: IC.home,          label: 'Home',     path: '/notary/home' },
+    { icon: IC.consultations, label: 'Requests', path: '/notary/requests' },
+    { icon: IC.dashboard,     label: 'Profile',  path: '/notary/profile' },
+  ];
+
+  return ({ citizen, lawyer, paralegal: lawyer, admin, notary }[persona] || citizen);
 }
 
 // ─── Animated icon with dot ───────────────────────────────────────────────────
