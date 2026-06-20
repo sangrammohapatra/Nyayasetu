@@ -38,7 +38,7 @@ import { useTheme } from '@mui/material/styles';
 
 const MODES = [
   { id: 'chat',      icon: '💬', label: 'Online Chat',   desc: 'Text chat via platform' },
-  { id: 'video',     icon: '📹', label: 'Video Call',     desc: 'Zoom / Google Meet' },
+  { id: 'video',     icon: '📹', label: 'Video Call',     desc: 'Secure link sent on acceptance' },
   { id: 'phone',     icon: '📞', label: 'Phone Call',     desc: 'Direct call' },
   { id: 'in_person', icon: '🏛️', label: 'In Person',     desc: 'Visit the chamber' },
 ];
@@ -417,7 +417,9 @@ function ConsultationBooking({ open, onClose, lawyer }) {
               {t('lawyer.confirmed', 'Consultation Booked!')}
             </GradientHeading>
             <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3, lineHeight: 1.65, maxWidth: 300 }}>
-              {t('lawyer.confirmed_desc', `Your ${mode} consultation with ${lawyer?.name} has been confirmed. You will receive a WhatsApp reminder before the session.`, { mode, lawyerName: lawyer?.name })}
+              {mode === 'video'
+                ? t('lawyer.confirmed_desc_video', `Your video consultation with ${lawyer?.name} is booked. Once the lawyer accepts, you'll receive a secure video link via WhatsApp and in-app notification.`, { lawyerName: lawyer?.name })
+                : t('lawyer.confirmed_desc', `Your ${mode} consultation with ${lawyer?.name} has been confirmed. You will receive a WhatsApp reminder before the session.`, { mode, lawyerName: lawyer?.name })}
             </Typography>
             <Button variant="contained" onClick={handleClose}
               sx={{

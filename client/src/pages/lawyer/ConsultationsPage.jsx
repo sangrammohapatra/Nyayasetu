@@ -198,18 +198,34 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, onChat, acti
 
         {/* Chat button for accepted/completed consultations */}
         {(consultation.status === 'accepted' || consultation.status === 'completed') && (
-          <Button
-            size="small" variant="outlined" disabled={actionLoading}
-            onClick={() => onChat(consultation)}
-            sx={{
-              fontSize: '0.72rem', fontWeight: 600,
-              borderRadius: `${RADIUS.md}px`, py: 0.4, flexShrink: 0,
-              borderColor: 'var(--color-primary)', color: 'var(--color-primary)',
-              '&:hover': { background: 'var(--color-primary-alpha)' },
-            }}
-          >
-            💬 Chat
-          </Button>
+          <Box sx={{ display: 'flex', gap: 0.75, flexShrink: 0 }}>
+            {consultation.mode === 'video' && consultation.meetingLink && consultation.status === 'accepted' && (
+              <Button
+                size="small" variant="contained"
+                component="a" href={consultation.meetingLink} target="_blank" rel="noopener noreferrer"
+                sx={{
+                  fontSize: '0.72rem', fontWeight: 700,
+                  borderRadius: `${RADIUS.md}px`, py: 0.4,
+                  background: '#1565c0',
+                  '&:hover': { background: '#0d47a1' },
+                }}
+              >
+                📹 Join Call
+              </Button>
+            )}
+            <Button
+              size="small" variant="outlined" disabled={actionLoading}
+              onClick={() => onChat(consultation)}
+              sx={{
+                fontSize: '0.72rem', fontWeight: 600,
+                borderRadius: `${RADIUS.md}px`, py: 0.4,
+                borderColor: 'var(--color-primary)', color: 'var(--color-primary)',
+                '&:hover': { background: 'var(--color-primary-alpha)' },
+              }}
+            >
+              💬 Chat
+            </Button>
+          </Box>
         )}
       </Box>
     </motion.div>

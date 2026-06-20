@@ -70,7 +70,11 @@ async function notifyCitizen(citizenUser, consultation, subject) {
   try {
     let message = null;
     if (subject === 'accepted') {
-      message = `✅ *NyayaSetu* — Your consultation has been accepted!\n\nLawyer will meet you on ${new Date(consultation.scheduledAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}.\n\nMode: ${consultation.mode}`;
+      const scheduledStr = new Date(consultation.scheduledAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+      const linkLine = consultation.mode === 'video' && consultation.meetingLink
+        ? `\n\n📹 Join video call: ${consultation.meetingLink}`
+        : '';
+      message = `✅ *NyayaSetu* — Your consultation has been accepted!\n\nLawyer will meet you on ${scheduledStr}.\n\nMode: ${consultation.mode}${linkLine}`;
     } else if (subject === 'rejected') {
       message = `❌ *NyayaSetu* — Your consultation request was declined. A refund (if applicable) will be processed in 5-7 business days.\n\nPlease book with another lawyer at nyayasetu.in/lawyers`;
     } else if (subject === 'completed') {
@@ -299,19 +303,38 @@ const acceptConsultation = asyncHandler(async (req, res) => {
 
   consultation.status = 'accepted';
   consultation.acceptedAt = new Date();
+
+  // Generate a video room for video consultations before saving
+  if (consultation.mode === 'video') {
+    try {
+      const { createRoom } = require('../services/video/videoProvider');
+      consultation.meetingLink = await createRoom(consultation);
+    } catch (err) {
+      logger.error('[consultation/accept] Video room creation failed', { error: err.message, id });
+      // Don't block acceptance — lawyer can share a link manually
+    }
+  }
+
   await consultation.save();
 
   const citizenUser = await User.findById(consultation.citizen).select('name email phone whatsappOptIn whatsappNumber').lean();
 
   await notifyCitizen(citizenUser, consultation, 'accepted');
 
+  const notifBody = consultation.mode === 'video' && consultation.meetingLink
+    ? `Your video consultation on ${new Date(consultation.scheduledAt).toLocaleDateString('en-IN')} has been accepted. Join here: ${consultation.meetingLink}`
+    : `Your ${consultation.mode} consultation on ${new Date(consultation.scheduledAt).toLocaleDateString('en-IN')} has been accepted.`;
+
   try {
     await Notification.create({
       user: consultation.citizen,
       type: 'consultation_accepted',
       title: 'Consultation accepted',
-      body: `Your ${consultation.mode} consultation on ${new Date(consultation.scheduledAt).toLocaleDateString('en-IN')} has been accepted.`,
-      data: { consultationId: consultation._id },
+      body: notifBody,
+      data: {
+        consultationId: consultation._id,
+        ...(consultation.meetingLink ? { meetingLink: consultation.meetingLink } : {}),
+      },
       channel: 'web',
       isRead: false,
     });
