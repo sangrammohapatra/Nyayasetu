@@ -51,12 +51,12 @@ const FEATURE_MAP = buildFeatureLookup(planFeatures, hierarchies);
  * @param {string} feature — key from FEATURE_MAP
  */
 function checkFeatureAccess(feature) {
-  return (req, res, next) => {
+  return asyncHandler(async (req, res, next) => {
     if (!req.user) {
       return next(createError(401, 'UNAUTHORIZED', 'Authentication required'));
     }
 
-    const { persona, plan } = req.user;
+    const { userId, persona } = req.user;
 
     // Admins always have access to everything
     if (persona === 'admin') return next();
@@ -71,23 +71,44 @@ function checkFeatureAccess(feature) {
       return next();
     }
 
-    // Get the list of plans that allow this feature for this persona type
     // Paralegals inherit lawyer plan permissions
     const personaKey = (persona === 'paralegal') ? 'lawyer' : persona;
     const allowedPlans = featureConfig[personaKey] || [];
 
-    if (!allowedPlans.includes(plan)) {
+    // Free-tier features are always accessible — no DB hit needed
+    if (allowedPlans.includes('free')) return next();
+
+    // Paid features: read current subscription from DB so a plan change
+    // (purchase, cancellation, expiry) takes effect within the access-token
+    // window without requiring a re-login.
+    const user = await User.findById(userId)
+      .select('subscription.plan subscription.validUntil')
+      .lean();
+
+    if (!user) {
+      return next(createError(401, 'USER_NOT_FOUND', 'User not found'));
+    }
+
+    const now = new Date();
+    const activePlan =
+      user.subscription?.validUntil && now < new Date(user.subscription.validUntil)
+        ? user.subscription.plan
+        : 'free';
+
+    if (!allowedPlans.includes(activePlan)) {
       return res.status(403).json({
         error: 'FEATURE_NOT_AVAILABLE',
-        message: `This feature requires a paid plan. Your current plan (${plan}) does not include "${feature}".`,
+        message: `This feature requires a paid plan. Your current plan (${activePlan}) does not include "${feature}".`,
         feature,
         requiredPlans: allowedPlans,
         upgradeUrl: '/pricing',
       });
     }
 
+    // Propagate the verified plan so downstream handlers don't need to re-fetch
+    req.user.plan = activePlan;
     next();
-  };
+  });
 }
 
 // ─── checkFreeQuota ───────────────────────────────────────────────────────────
