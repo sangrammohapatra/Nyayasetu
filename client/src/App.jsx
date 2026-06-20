@@ -77,6 +77,7 @@ const EarningsPanel = lazy(() => import("./pages/lawyer/EarningsPanel"));
 // Shared
 const Pricing = lazy(() => import("./pages/shared/Pricing"));
 const Settings = lazy(() => import("./pages/shared/Settings"));
+const SharedDocumentView = lazy(() => import("./pages/shared/SharedDocumentView"));
 
 // Layout 
 const ThemeSwitcher = lazy(() => import("./components/layout/ThemeSwitcher"));

@@ -30,7 +30,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 
 import {
-  getDocument, getPDF, shareDocument,
+  getDocument, getPDF, shareDocument, regenerateDocument,
   selectCurrentDocument, selectDocumentError, clearDocumentError,
 } from '../../store/slices/documentSlice';
 import { selectUserPlan } from '../../store/slices/authSlice';
@@ -156,7 +156,7 @@ function DocumentText({ content, onClauseClick, activeClauseIndex = null }) {
 /* ---------------------------------------------------------------------------
  * Right panel — Citations + Next Steps + Actions
  * ------------------------------------------------------------------------ */
-function RightPanel({ document: doc, onDownload, onShare, onConnectLawyer, plan }) {
+function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenerating, onConnectLawyer, plan }) {
   const { t } = useTranslation();
   const isPaid = doc?.isPaid || plan === 'basic' || plan === 'pro';
 
@@ -190,12 +190,24 @@ function RightPanel({ document: doc, onDownload, onShare, onConnectLawyer, plan 
 
         <Button fullWidth variant="outlined" onClick={onShare}
           sx={{
-            borderRadius: `${RADIUS.md}px`, fontWeight: 600,
+            mb: 1, borderRadius: `${RADIUS.md}px`, fontWeight: 600,
             borderColor: 'var(--color-border)', color: 'var(--color-text)',
             '&:hover': { borderColor: 'var(--color-primary)', background: 'var(--color-primary-alpha)' },
           }}>
           🔗 {t('myDocs.share', 'Copy Share Link')}
         </Button>
+
+        {isPaid && (
+          <Button fullWidth variant="outlined" onClick={onRegenerate} disabled={regenerating}
+            sx={{
+              borderRadius: `${RADIUS.md}px`, fontWeight: 600,
+              borderColor: 'var(--color-border)', color: 'var(--color-text)',
+              '&:hover': { borderColor: 'var(--color-primary)', background: 'var(--color-primary-alpha)' },
+              '&.Mui-disabled': { opacity: 0.6 },
+            }}>
+            {regenerating ? '⏳ Regenerating…' : `🔄 ${t('myDocs.regenerate', 'Regenerate Document')}`}
+          </Button>
+        )}
       </GlassCard>
 
       {/* Legal citations */}
@@ -391,6 +403,7 @@ function DocumentPreview() {
   const [activeClauseIndex, setActiveClauseIndex] = useState(null);
   const [activeClauseText, setActiveClauseText] = useState('');
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
+  const [regenerating, setRegenerating] = useState(false);
   const pollRef = useRef(null);
 
   // Document has no status field — completion is tracked via session.status and content
@@ -480,6 +493,18 @@ function DocumentPreview() {
     }
   };
 
+  const handleRegenerate = async () => {
+    setRegenerating(true);
+    const result = await dispatch(regenerateDocument(documentId));
+    if (result.meta?.requestStatus === 'fulfilled') {
+      setSnack({ open: true, msg: 'Document regeneration started. Refreshing in a moment…', severity: 'info' });
+      setTimeout(() => dispatch(getDocument(documentId)), 3000);
+    } else {
+      setSnack({ open: true, msg: result.payload || 'Regeneration failed. Please try again.', severity: 'error' });
+    }
+    setRegenerating(false);
+  };
+
   return (
     <AnimatedPage>
       <Box sx={{ p: { xs: 1.5, sm: 2.5, md: 3 }, maxWidth: 1200, mx: 'auto', pb: { xs: 10, md: 4 } }}>
@@ -537,9 +562,15 @@ function DocumentPreview() {
                     {doc.isPaid || plan !== 'free' ? '📥 Download PDF' : '🔒 Upgrade to Download'}
                   </Button>
                   <Button fullWidth variant="outlined" onClick={handleShare}
-                    sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 600, borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
+                    sx={{ mb: 1, borderRadius: `${RADIUS.md}px`, fontWeight: 600, borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
                     🔗 Copy Share Link
                   </Button>
+                  {(doc.isPaid || plan === 'basic' || plan === 'pro') && (
+                    <Button fullWidth variant="outlined" onClick={handleRegenerate} disabled={regenerating}
+                      sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 600, borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
+                      {regenerating ? '⏳ Regenerating…' : '🔄 Regenerate Document'}
+                    </Button>
+                  )}
                 </Box>
               </Box>
             )}
@@ -555,6 +586,7 @@ function DocumentPreview() {
             )}
             {mobileTab === 2 && (
               <RightPanel document={doc} onDownload={handleDownload} onShare={handleShare}
+                onRegenerate={handleRegenerate} regenerating={regenerating}
                 onConnectLawyer={() => navigate('/citizen/lawyers')} plan={plan} />
             )}
             {mobileTab === 3 && doc?.previousVersions?.length > 0 && (
