@@ -288,4 +288,17 @@ caseTrackerSchema.statics.findCasesNeedingAlerts = function () {
   }).populate('user', 'name phone email whatsappNumber whatsappOptIn preferredLanguage');
 };
 
+/**
+ * clearExpiredCache — wipes rawEcourtsData on records whose lastSyncedAt is
+ * older than 30 days. Keeps all normalised case fields intact so the UI still
+ * shows the last-known state. Called daily by the checkHearingDates cron job.
+ */
+caseTrackerSchema.statics.clearExpiredCache = function () {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  return this.updateMany(
+    { lastSyncedAt: { $lt: thirtyDaysAgo }, rawEcourtsData: { $ne: null } },
+    { $unset: { rawEcourtsData: '' } }
+  );
+};
+
 module.exports = mongoose.model('CaseTracker', caseTrackerSchema);

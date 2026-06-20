@@ -141,6 +141,16 @@ async function checkHearingDates(job, alertQueue) {
     await job.progress(20 + Math.round((i / cases.length) * 75));
   }
 
+  // ── Prune rawEcourtsData older than 30 days (storage hygiene) ──────────────
+  try {
+    const cleanup = await CaseTracker.clearExpiredCache();
+    if (cleanup.modifiedCount > 0) {
+      logger.info(`[checkHearingDates] Cleared expired rawEcourtsData from ${cleanup.modifiedCount} case(s)`);
+    }
+  } catch (cleanupErr) {
+    logger.warn(`[checkHearingDates] Cache cleanup failed: ${cleanupErr.message}`);
+  }
+
   await job.progress(100);
 
   const summary = {

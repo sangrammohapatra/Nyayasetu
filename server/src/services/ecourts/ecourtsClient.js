@@ -4,8 +4,10 @@ const { CNR_REGEX } = require('../../config/constants');
 
 // ─── eCourts API config ────────────────────────────────────────────────────────
 
-const ECOURTS_BASE    = process.env.ECOURTS_API_BASE || 'https://services.ecourts.gov.in';
-const REQUEST_TIMEOUT = 15000;
+const ECOURTS_BASE      = process.env.ECOURTS_API_BASE   || 'https://services.ecourts.gov.in';
+const SCRAPER_API_KEY   = process.env.SCRAPER_API_KEY    || null; // ScraperAPI rotating-proxy key
+const BRIGHT_DATA_PROXY = process.env.BRIGHT_DATA_PROXY  || null; // http://user:pass@host:port
+const REQUEST_TIMEOUT   = 15000;
 
 const ECOURTS_HEADERS = {
   'User-Agent':      'Mozilla/5.0 (compatible; NyayaSetu/1.0; +https://nyayasetu.in)',
@@ -14,6 +16,79 @@ const ECOURTS_HEADERS = {
   'Referer':         'https://services.ecourts.gov.in/',
   'Cache-Control':   'no-cache',
 };
+
+// ─── Proxy routing & retry helpers ────────────────────────────────────────────
+
+/**
+ * buildRequest — constructs an axios config that routes through ScraperAPI or
+ * Bright Data when the respective env vars are set, falling back to a direct
+ * request otherwise.
+ */
+function buildRequest(targetUrl, params = {}, extraHeaders = {}) {
+  const headers = { ...ECOURTS_HEADERS, ...extraHeaders };
+
+  if (SCRAPER_API_KEY) {
+    const fullTarget = `${targetUrl}?${new URLSearchParams(params).toString()}`;
+    return {
+      method:         'get',
+      url:            'https://api.scraperapi.com',
+      params:         { api_key: SCRAPER_API_KEY, url: fullTarget, country_code: 'in' },
+      headers,
+      timeout:        REQUEST_TIMEOUT * 2, // ScraperAPI adds latency
+      validateStatus: (s) => s < 500,
+    };
+  }
+
+  if (BRIGHT_DATA_PROXY) {
+    const proxyUrl = new URL(BRIGHT_DATA_PROXY);
+    return {
+      method:  'get',
+      url:     targetUrl,
+      params,
+      headers,
+      timeout: REQUEST_TIMEOUT,
+      proxy: {
+        protocol: proxyUrl.protocol.replace(':', ''),
+        host:     proxyUrl.hostname,
+        port:     parseInt(proxyUrl.port, 10),
+        auth:     proxyUrl.username
+          ? { username: decodeURIComponent(proxyUrl.username), password: decodeURIComponent(proxyUrl.password) }
+          : undefined,
+      },
+      validateStatus: (s) => s < 500,
+    };
+  }
+
+  return {
+    method:         'get',
+    url:            targetUrl,
+    params,
+    headers,
+    timeout:        REQUEST_TIMEOUT,
+    validateStatus: (s) => s < 500,
+  };
+}
+
+/**
+ * fetchWithRetry — wraps axios with exponential-backoff retries.
+ * Delays: 2s, 4s, 8s across 3 attempts.
+ */
+async function fetchWithRetry(config, maxAttempts = 3) {
+  let lastErr;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await axios(config);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < maxAttempts) {
+        const delay = 2000 * Math.pow(2, attempt - 1);
+        logger.warn(`[ecourts] Attempt ${attempt}/${maxAttempts} failed (${err.message}). Retrying in ${delay}ms`);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+  }
+  throw lastErr;
+}
 
 // ─── CNR Validation ───────────────────────────────────────────────────────────
 
@@ -231,14 +306,12 @@ function parseParties(partiesArr, rawData) {
 async function scrapeNJDG(cnrNumber) {
   const cheerio = require('cheerio');
 
-  const response = await axios.get(
+  const config   = buildRequest(
     `${ECOURTS_BASE}/ecourtindiaHC/cases/case_no`,
-    {
-      params:  { cnr_no: cnrNumber },
-      headers: { ...ECOURTS_HEADERS, Accept: 'text/html' },
-      timeout: REQUEST_TIMEOUT,
-    }
+    { cnr_no: cnrNumber },
+    { Accept: 'text/html' }
   );
+  const response = await axios(config);
 
   const $ = cheerio.load(response.data);
 
@@ -287,17 +360,10 @@ async function getCaseStatus(cnrNumber) {
 
   logger.info(`[ecourts] Fetching case status for CNR: ${cnr}`);
 
-  // ── Primary: eCourts JSON API ─────────────────────────────────────────────
+  // ── Primary: eCourts JSON API (via proxy if configured) ──────────────────
   try {
-    const response = await axios.get(
-      `${ECOURTS_BASE}/ecourtindiaHC/cases/case_no`,
-      {
-        params:  { cnr_no: cnr },
-        headers: ECOURTS_HEADERS,
-        timeout: REQUEST_TIMEOUT,
-        validateStatus: (status) => status < 500,
-      }
-    );
+    const config   = buildRequest(`${ECOURTS_BASE}/ecourtindiaHC/cases/case_no`, { cnr_no: cnr });
+    const response = await fetchWithRetry(config, 3);
 
     // Detect CAPTCHA or redirect (common eCourts anti-scraping measure)
     const isHtml      = typeof response.data === 'string';

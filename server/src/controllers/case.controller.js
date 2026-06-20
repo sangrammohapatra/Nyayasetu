@@ -9,6 +9,36 @@ const { createError } = require('../middleware/error.middleware');
 const logger        = require('../utils/logger');
 const { CNR_REGEX } = require('../config/constants');
 
+// ─── Data freshness helper ────────────────────────────────────────────────────
+
+/**
+ * computeDataFreshness — converts lastSyncedAt into a human-readable staleness
+ * label and boolean flags for the API response.
+ */
+function computeDataFreshness(lastSyncedAt) {
+  if (!lastSyncedAt) {
+    return { label: 'Not yet synced', isStale: true, isCacheExpired: false };
+  }
+
+  const diffMs   = Date.now() - new Date(lastSyncedAt).getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHrs  = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  let label;
+  if (diffMins < 5)       label = 'Updated just now';
+  else if (diffHrs < 1)   label = `Updated ${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+  else if (diffHrs < 24)  label = `Updated ${diffHrs} hour${diffHrs !== 1 ? 's' : ''} ago`;
+  else if (diffDays < 30) label = `Updated ${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+  else                    label = 'Data not refreshed in over 30 days';
+
+  return {
+    label,
+    isStale:        diffHrs >= 24,
+    isCacheExpired: diffDays >= 30,
+  };
+}
+
 // ─── addCase ──────────────────────────────────────────────────────────────────
 
 /**
@@ -135,16 +165,19 @@ const listCases = asyncHandler(async (req, res) => {
     .sort({ nextHearingDate: 1, createdAt: -1 })
     .lean();
 
-  // Compute daysUntilNextHearing for each case
-  const enriched = cases.map((c) => ({
-    ...c,
-    daysUntilNextHearing: c.nextHearingDate
+  const enriched = cases.map((c) => {
+    const freshness = computeDataFreshness(c.lastSyncedAt);
+    const daysUntilNextHearing = c.nextHearingDate
       ? Math.ceil((new Date(c.nextHearingDate) - new Date()) / (1000 * 60 * 60 * 24))
-      : null,
-    isHearingSoon: c.nextHearingDate
-      ? Math.ceil((new Date(c.nextHearingDate) - new Date()) / (1000 * 60 * 60 * 24)) <= (c.alertDaysBefore || 1)
-      : false,
-  }));
+      : null;
+    return {
+      ...c,
+      daysUntilNextHearing,
+      isHearingSoon:  daysUntilNextHearing !== null && daysUntilNextHearing <= (c.alertDaysBefore || 1),
+      dataFreshness:  freshness.label,
+      isDataStale:    freshness.isStale,
+    };
+  });
 
   res.json({ cases: enriched, total: cases.length });
 });
@@ -166,9 +199,12 @@ const getCaseDetail = asyncHandler(async (req, res) => {
   if (!caseDoc)                      throw createError(404, 'CASE_NOT_FOUND', 'Case not found');
   if (!caseDoc.user.equals(userId))  throw createError(403, 'FORBIDDEN', 'This case does not belong to you');
 
-  const caseObj = caseDoc.toObject();
+  const freshness = computeDataFreshness(caseDoc.lastSyncedAt);
+  const caseObj   = caseDoc.toObject();
   caseObj.daysUntilNextHearing = caseDoc.daysUntilNextHearing;
   caseObj.isHearingSoon        = caseDoc.isHearingSoon;
+  caseObj.dataFreshness        = freshness.label;
+  caseObj.isDataStale          = freshness.isStale;
 
   res.json({ case: caseObj });
 });
@@ -188,27 +224,35 @@ const refreshCase = asyncHandler(async (req, res) => {
   if (!caseDoc)                      throw createError(404, 'CASE_NOT_FOUND', 'Case not found');
   if (!caseDoc.user.equals(userId))  throw createError(403, 'FORBIDDEN', 'Access denied');
 
-  let ecourtsData;
+  let ecourtsData  = null;
+  let refreshed    = true;
+  let refreshError = null;
+
   try {
     ecourtsData = await getCaseStatus(caseDoc.cnrNumber);
   } catch (err) {
     logger.error(`[case/refresh] eCourts fetch failed: ${err.message}`);
-    return res.status(503).json({
-      error:   'ECOURTS_UNAVAILABLE',
-      message: 'eCourts system is temporarily unavailable. Please try again later.',
-      lastSyncedAt: caseDoc.lastSyncedAt,
-    });
+    refreshed    = false;
+    refreshError = 'eCourts system is temporarily unavailable. Showing last known data.';
+    // Persist the error so the cron job can skip recently-failed cases
+    await CaseTracker.updateOne({ _id: caseDoc._id }, { $set: { syncError: err.message } });
   }
 
-  await caseDoc.updateFromEcourts(ecourtsData);
+  if (refreshed && ecourtsData) {
+    await caseDoc.updateFromEcourts(ecourtsData);
+    logger.info(`[case/refresh] Refreshed case ${caseDoc.cnrNumber}, nextHearing: ${caseDoc.nextHearingDate}`);
+  }
 
-  logger.info(`[case/refresh] Refreshed case ${caseDoc.cnrNumber}, nextHearing: ${caseDoc.nextHearingDate}`);
+  const freshness = computeDataFreshness(caseDoc.lastSyncedAt);
 
   res.json({
-    message:      'Case refreshed successfully',
-    case:         sanitizeCase(caseDoc),
-    refreshedAt:  new Date().toISOString(),
-    _isMock:      ecourtsData._isMock || false,
+    message:       refreshed ? 'Case refreshed successfully' : 'Showing last known data',
+    case:          sanitizeCase(caseDoc),
+    refreshed,
+    dataFreshness: freshness.label,
+    isDataStale:   freshness.isStale,
+    ...(refreshError && { refreshError }),
+    _isMock:       ecourtsData?._isMock || false,
   });
 });
 
