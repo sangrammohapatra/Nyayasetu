@@ -53,6 +53,17 @@ const OTP_ATTEMPT_TTL_SECONDS = 900; // 15 minutes
 const memoryOtpStore = new Map();
 const memoryOtpAttemptStore = new Map();
 
+// Proactive sweep so expired entries don't accumulate during Redis downtime
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of memoryOtpStore) {
+    if (entry.expiresAt <= now) memoryOtpStore.delete(key);
+  }
+  for (const [key, entry] of memoryOtpAttemptStore) {
+    if (entry.expiresAt <= now) memoryOtpAttemptStore.delete(key);
+  }
+}, 5 * 60 * 1000).unref();
+
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function isEmailIdentifier(value) {
