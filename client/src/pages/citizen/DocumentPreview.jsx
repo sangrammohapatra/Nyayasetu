@@ -266,7 +266,7 @@ function DocumentText({ content, onClauseClick, activeClauseIndex = null }) {
 /* ---------------------------------------------------------------------------
  * Right panel — Citations + Next Steps + Actions
  * ------------------------------------------------------------------------ */
-function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenerating, onConnectLawyer, onOpenChat, linkedConsultation, plan }) {
+function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenerating, onSign, signing, onDownloadSigned, onConnectLawyer, onOpenChat, linkedConsultation, plan }) {
   const { t } = useTranslation();
   const isPaid = doc?.isPaid || plan === 'basic' || plan === 'pro';
   const approvalMeta = APPROVAL_META[doc?.approvalStatus] || APPROVAL_META.draft;
@@ -392,6 +392,53 @@ function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenera
               '&.Mui-disabled': { opacity: 0.6 },
             }}>
             {regenerating ? '⏳ Regenerating…' : `🔄 ${t('myDocs.regenerate', 'Regenerate Document')}`}
+          </Button>
+        )}
+
+        {/* Digital signature section */}
+        {doc?.isSigned && (
+          <Chip
+            label="✓ Digitally Signed"
+            size="small"
+            sx={{
+              mt: 1, width: '100%', height: 26, fontSize: '0.72rem', fontWeight: 700,
+              borderRadius: `${RADIUS.md}px`,
+              background: 'rgba(27,94,32,0.12)', color: '#1b5e20',
+              border: '1px solid rgba(27,94,32,0.3)',
+            }}
+          />
+        )}
+        {doc?.signatureStatus === 'pending' && (
+          <Chip
+            label="⏳ Signature Pending…"
+            size="small"
+            sx={{
+              mt: 1, width: '100%', height: 26, fontSize: '0.72rem', fontWeight: 700,
+              borderRadius: `${RADIUS.md}px`,
+              background: 'rgba(2,136,209,0.1)', color: '#0288d1',
+              border: '1px solid rgba(2,136,209,0.3)',
+            }}
+          />
+        )}
+        {doc?.isPaid && !doc?.isSigned && doc?.signatureStatus !== 'pending' && (
+          <Button fullWidth variant="outlined" onClick={onSign} disabled={signing}
+            sx={{
+              mt: 1, borderRadius: `${RADIUS.md}px`, fontWeight: 600,
+              borderColor: '#1b5e20', color: '#1b5e20',
+              '&:hover': { background: 'rgba(27,94,32,0.06)', borderColor: '#1b5e20' },
+              '&.Mui-disabled': { opacity: 0.6 },
+            }}>
+            {signing ? '✍️ Signing…' : '✍️ Sign Document'}
+          </Button>
+        )}
+        {doc?.isSigned && (
+          <Button fullWidth variant="outlined" onClick={onDownloadSigned}
+            sx={{
+              mt: 0.75, borderRadius: `${RADIUS.md}px`, fontWeight: 600,
+              borderColor: '#1b5e20', color: '#1b5e20',
+              '&:hover': { background: 'rgba(27,94,32,0.06)', borderColor: '#1b5e20' },
+            }}>
+            📥 Download Signed PDF
           </Button>
         )}
       </GlassCard>
@@ -610,6 +657,8 @@ function DocumentPreview() {
   const [activeClauseText, setActiveClauseText] = useState('');
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
   const [regenerating, setRegenerating] = useState(false);
+  const [signing, setSigning] = useState(false);
+  const [signedPdfUrl, setSignedPdfUrl] = useState(null);
   const [reviewDismissed, setReviewDismissed] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [linkedConsultation, setLinkedConsultation] = useState(null);
@@ -723,6 +772,38 @@ function DocumentPreview() {
     setRegenerating(false);
   };
 
+  const handleSign = async () => {
+    setSigning(true);
+    try {
+      const { data } = await api.post(`/documents/${documentId}/sign`);
+      if (data.pending) {
+        window.location.href = data.redirectUrl;
+      } else {
+        setSignedPdfUrl(data.signedPdfUrl);
+        dispatch(getDocument(documentId));
+        setSnack({ open: true, msg: 'Document digitally signed successfully!', severity: 'success' });
+      }
+    } catch (err) {
+      setSnack({ open: true, msg: err.response?.data?.message || 'Signing failed. Please try again.', severity: 'error' });
+    } finally {
+      setSigning(false);
+    }
+  };
+
+  const handleDownloadSigned = async () => {
+    try {
+      if (signedPdfUrl) {
+        window.open(signedPdfUrl, '_blank');
+        return;
+      }
+      const { data } = await api.get(`/documents/${documentId}/signed-pdf`);
+      setSignedPdfUrl(data.signedPdfUrl);
+      window.open(data.signedPdfUrl, '_blank');
+    } catch {
+      setSnack({ open: true, msg: 'Could not fetch signed PDF. Please try again.', severity: 'error' });
+    }
+  };
+
   return (
     <AnimatedPage>
       <Box sx={{ p: { xs: 1.5, sm: 2.5, md: 3 }, maxWidth: 1200, mx: 'auto', pb: { xs: 10, md: 4 } }}>
@@ -793,8 +874,45 @@ function DocumentPreview() {
                   </Button>
                   {(doc.isPaid || plan === 'basic' || plan === 'pro') && (
                     <Button fullWidth variant="outlined" onClick={handleRegenerate} disabled={regenerating}
-                      sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 600, borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
+                      sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 600, borderColor: 'var(--color-border)', color: 'var(--color-text)', mb: 1 }}>
                       {regenerating ? '⏳ Regenerating…' : '🔄 Regenerate Document'}
+                    </Button>
+                  )}
+                  {doc?.isSigned && (
+                    <Chip label="✓ Digitally Signed" size="small" sx={{
+                      mb: 1, width: '100%', height: 26, fontSize: '0.72rem', fontWeight: 700,
+                      borderRadius: `${RADIUS.md}px`,
+                      background: 'rgba(27,94,32,0.12)', color: '#1b5e20',
+                      border: '1px solid rgba(27,94,32,0.3)',
+                    }} />
+                  )}
+                  {doc?.signatureStatus === 'pending' && (
+                    <Chip label="⏳ Signature Pending…" size="small" sx={{
+                      mb: 1, width: '100%', height: 26, fontSize: '0.72rem', fontWeight: 700,
+                      borderRadius: `${RADIUS.md}px`,
+                      background: 'rgba(2,136,209,0.1)', color: '#0288d1',
+                      border: '1px solid rgba(2,136,209,0.3)',
+                    }} />
+                  )}
+                  {doc?.isPaid && !doc?.isSigned && doc?.signatureStatus !== 'pending' && (
+                    <Button fullWidth variant="outlined" onClick={handleSign} disabled={signing}
+                      sx={{
+                        mb: 1, borderRadius: `${RADIUS.md}px`, fontWeight: 600,
+                        borderColor: '#1b5e20', color: '#1b5e20',
+                        '&:hover': { background: 'rgba(27,94,32,0.06)' },
+                        '&.Mui-disabled': { opacity: 0.6 },
+                      }}>
+                      {signing ? '✍️ Signing…' : '✍️ Sign Document'}
+                    </Button>
+                  )}
+                  {doc?.isSigned && (
+                    <Button fullWidth variant="outlined" onClick={handleDownloadSigned}
+                      sx={{
+                        borderRadius: `${RADIUS.md}px`, fontWeight: 600,
+                        borderColor: '#1b5e20', color: '#1b5e20',
+                        '&:hover': { background: 'rgba(27,94,32,0.06)' },
+                      }}>
+                      📥 Download Signed PDF
                     </Button>
                   )}
                 </Box>
@@ -813,6 +931,7 @@ function DocumentPreview() {
             {mobileTab === 2 && (
               <RightPanel document={doc} onDownload={handleDownload} onShare={handleShare}
                 onRegenerate={handleRegenerate} regenerating={regenerating}
+                onSign={handleSign} signing={signing} onDownloadSigned={handleDownloadSigned}
                 onConnectLawyer={() => navigate('/citizen/lawyers')}
                 onOpenChat={() => setChatOpen(true)}
                 linkedConsultation={linkedConsultation}
@@ -850,6 +969,7 @@ function DocumentPreview() {
               <Box sx={{ position: 'sticky', top: 80 }}>
                 <RightPanel document={doc} onDownload={handleDownload} onShare={handleShare}
                   onRegenerate={handleRegenerate} regenerating={regenerating}
+                  onSign={handleSign} signing={signing} onDownloadSigned={handleDownloadSigned}
                   onConnectLawyer={() => navigate('/citizen/lawyers')}
                   onOpenChat={() => setChatOpen(true)}
                   linkedConsultation={linkedConsultation}

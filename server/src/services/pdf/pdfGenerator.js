@@ -367,6 +367,72 @@ function renderLegalCitations(doc, legalCitations) {
   });
 }
 
+/**
+ * renderSignatureBlock — green attestation section appended when a document
+ * is signed via selfSigner (dev) or re-rendered after SignDesk (prod).
+ * Injected via document._signatureBlock — not persisted to DB.
+ */
+function renderSignatureBlock(doc, block) {
+  const pageW    = doc.page.width;
+  const contentW = pageW - MARGINS.left - MARGINS.right;
+
+  const remainingY = doc.page.height - MARGINS.bottom - doc.y;
+  if (remainingY < 180) doc.addPage();
+
+  doc.moveDown(1.5);
+
+  // Green header bar
+  doc.rect(MARGINS.left, doc.y, contentW, 30).fill('#1B5E20');
+  doc.font(FONTS.bold)
+     .fontSize(11)
+     .fillColor('#FFFFFF')
+     .text('✓  DIGITAL ATTESTATION', MARGINS.left + 12, doc.y + 9, { width: contentW - 24 });
+  doc.y += 38;
+
+  // Attestation box
+  const boxTop = doc.y;
+  doc.rect(MARGINS.left, boxTop, contentW, 110).fill('#F1F8E9');
+  doc.rect(MARGINS.left, boxTop, 4, 110).fill('#2E7D32');
+
+  const ix = MARGINS.left + 14;
+  const iw = contentW - 28;
+
+  doc.font(FONTS.bold).fontSize(10).fillColor('#1B5E20')
+     .text(`Signed by: ${block.signerName}`, ix, boxTop + 10, { width: iw });
+
+  if (block.aadhaarName) {
+    doc.font(FONTS.regular).fontSize(9).fillColor('#2E7D32')
+       .text(`Aadhaar-verified name: ${block.aadhaarName}`, ix, boxTop + 24, { width: iw });
+  }
+
+  doc.font(FONTS.regular).fontSize(9).fillColor('#455A64')
+     .text(
+       `Signed on: ${new Date(block.signedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST`,
+       ix, boxTop + (block.aadhaarName ? 40 : 26), { width: iw }
+     );
+
+  doc.font(FONTS.regular).fontSize(8.5).fillColor('#546E7A')
+     .text(`Provider: ${block.provider}`, ix, boxTop + (block.aadhaarName ? 56 : 42), { width: iw });
+
+  if (block.transactionId) {
+    doc.font(FONTS.regular).fontSize(8).fillColor('#546E7A')
+       .text(`Transaction ID: ${block.transactionId}`, ix, boxTop + 70, { width: iw });
+  }
+
+  const fpY = boxTop + (block.transactionId ? 86 : block.aadhaarName ? 70 : 58);
+  doc.font(FONTS.regular).fontSize(7).fillColor('#78909C')
+     .text('SHA-256 Fingerprint:', ix, fpY, { width: iw });
+  doc.font(FONTS.regular).fontSize(7).fillColor('#37474F')
+     .text(block.fingerprint || '', ix, fpY + 10, { width: iw });
+
+  doc.y = boxTop + 118;
+
+  doc.font(FONTS.italic).fontSize(8).fillColor('#78909C')
+     .text('Verify this document at: nyayasetu.in/verify', MARGINS.left, doc.y, { width: contentW, align: 'center' });
+
+  doc.moveDown(0.5);
+}
+
 // ─── Main export ───────────────────────────────────────────────────────────────
 
 /**
@@ -411,9 +477,14 @@ async function generateLegalDocument(document, user, template) {
         renderNextSteps(doc, document.nextSteps);
       }
 
-      // ── Legal Citations (final section) ───────────────────────────────────
+      // ── Legal Citations ───────────────────────────────────────────────────
       if (document.legalCitations && document.legalCitations.length > 0) {
         renderLegalCitations(doc, document.legalCitations);
+      }
+
+      // ── Digital Attestation (injected by signatureProvider) ───────────────
+      if (document._signatureBlock) {
+        renderSignatureBlock(doc, document._signatureBlock);
       }
 
       // ── Watermark: DRAFT for unpaid free-tier docs ─────────────────────────

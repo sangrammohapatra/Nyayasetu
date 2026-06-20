@@ -6,6 +6,7 @@ const {
   getDocument,
   listDocuments,
   getPDF,
+  getSignedPDF,
   explainClauseHandler,
   shareDocument,
   getSharedDocument,
@@ -16,6 +17,7 @@ const {
   addAnnotation,
   lawyerEditDocument,
   getLinkedConsultation,
+  initiateSign,
 } = require('../controllers/document.controller');
 
 const { verifyToken, optionalAuth }    = require('../middleware/auth.middleware');
@@ -220,6 +222,29 @@ router.get(
   '/:id/consultation',
   validate([param('id').isMongoId().withMessage('Invalid document ID')]),
   getLinkedConsultation
+);
+
+/**
+ * POST /v1/documents/:id/sign
+ * Initiate digital signing for a paid document.
+ * Dev:  Signs synchronously (self-signed attestation) → returns signed PDF URL.
+ * Prod: Initiates SignDesk Aadhaar eSign flow → returns redirect URL.
+ */
+router.post(
+  '/:id/sign',
+  validate([param('id').isMongoId().withMessage('Invalid document ID')]),
+  initiateSign
+);
+
+/**
+ * GET /v1/documents/:id/signed-pdf
+ * Returns a fresh 15-minute signed URL for the completed signed PDF.
+ * Only available once isSigned is true.
+ */
+router.get(
+  '/:id/signed-pdf',
+  validate([param('id').isMongoId().withMessage('Invalid document ID')]),
+  getSignedPDF
 );
 
 module.exports = router;

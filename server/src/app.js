@@ -63,16 +63,23 @@ app.use(
   })
 );
 
-// ─── Razorpay Webhook — raw body BEFORE express.json() ────────────────────────
-// CRITICAL: Razorpay HMAC verification requires the raw request body.
-// This route must be registered before express.json() parses the body.
+// ─── Raw-body routes — must come BEFORE express.json() ───────────────────────
+// Razorpay and SignDesk both require the raw request bytes for HMAC verification.
+
 app.use(
   '/v1/payments/webhook',
   express.raw({ type: 'application/json' }),
-  (req, res, next) => {
-    req.rawBody = req.body;
-    next();
-  }
+  (req, res, next) => { req.rawBody = req.body; next(); }
+);
+
+app.use(
+  '/v1/webhooks/signdesk',
+  express.raw({ type: '*/*' }),
+  (req, res, next) => { req.rawBody = req.body; next(); },
+  (() => {
+    const { signWebhook } = require('./controllers/document.controller');
+    return signWebhook;
+  })()
 );
 
 // ─── Body Parsing ─────────────────────────────────────────────────────────────

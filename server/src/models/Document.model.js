@@ -286,6 +286,30 @@ const documentSchema = new Schema(
       default: null,
     },
 
+    // ── Digital Signature ─────────────────────────────────────────────────────
+    signatureStatus: {
+      type: String,
+      enum: ['none', 'pending', 'signed', 'failed'],
+      default: 'none',
+      index: true,
+    },
+    isSigned: { type: Boolean, default: false, index: true },
+    signedAt: { type: Date, default: null },
+    signedPdfStorageKey: { type: String, default: null }, // never sent to client
+    signatureProvider: {
+      type: String,
+      enum: ['self-signed', 'signdesk', null],
+      default: null,
+    },
+    signatureMetadata: {
+      signerName:          { type: String, trim: true },
+      signerAadhaarMasked: { type: String, trim: true }, // e.g. "XXXX-XXXX-1234"
+      transactionId:       { type: String, trim: true }, // SignDesk transaction
+      fingerprint:         { type: String, trim: true }, // SHA-256 of content
+      attestation:         { type: String, trim: true }, // HMAC (dev only)
+      sessionId:           { type: String, trim: true }, // SignDesk session (pending)
+    },
+
     // ── Status ────────────────────────────────────────────────────────────────
     isActive: { type: Boolean, default: true },
     isDeleted: { type: Boolean, default: false, index: true },
@@ -296,8 +320,8 @@ const documentSchema = new Schema(
     toJSON: {
       virtuals: true,
       transform: (_doc, ret) => {
-        // Never expose the internal storage key
-        delete ret.pdfStorageKey;
+        delete ret.pdfStorageKey;        // internal storage key — never exposed
+        delete ret.signedPdfStorageKey;  // same for the signed version
         delete ret.__v;
         return ret;
       },

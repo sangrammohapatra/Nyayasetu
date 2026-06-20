@@ -316,6 +316,32 @@ const getPDF = asyncHandler(async (req, res) => {
   });
 });
 
+// ─── getSignedPDF ─────────────────────────────────────────────────────────────
+
+/**
+ * GET /v1/documents/:id/signed-pdf
+ *
+ * Returns a fresh 15-minute signed URL for the digitally-signed PDF.
+ * Only available after the signing flow completes (isSigned: true).
+ */
+const getSignedPDF = asyncHandler(async (req, res) => {
+  const { id: documentId } = req.params;
+  const { userId } = req.user;
+
+  const document = await DocumentModel.findById(documentId)
+    .select('user isSigned signedPdfStorageKey isDeleted');
+  if (!document || document.isDeleted) throw createError(404, 'DOCUMENT_NOT_FOUND', 'Document not found');
+  if (!document.user.equals(userId))   throw createError(403, 'FORBIDDEN', 'Access denied');
+  if (!document.isSigned || !document.signedPdfStorageKey) {
+    throw createError(404, 'SIGNED_PDF_NOT_FOUND', 'No signed PDF is available for this document yet');
+  }
+
+  const signedPdfUrl = await getSignedPdfUrl(document.signedPdfStorageKey);
+  await AuditLog.log(req, 'document.signed_pdf.downloaded', 'Document', document._id);
+
+  res.json({ signedPdfUrl, expiresIn: PDF_URL_EXPIRY_SECONDS });
+});
+
 // ─── explainClauseHandler ────────────────────────────────────────────────────
 
 /**
@@ -779,11 +805,184 @@ const getDocumentForLawyer = asyncHandler(async (req, res) => {
   res.json({ document });
 });
 
+// ─── initiateSign ─────────────────────────────────────────────────────────────
+
+/**
+ * POST /v1/documents/:id/sign
+ *
+ * Dev:  Signs synchronously in-place → returns signed PDF URL immediately.
+ * Prod: Sends to SignDesk → returns { pending: true, redirectUrl } so the
+ *       client can redirect the user to the Aadhaar eSign page.
+ */
+const initiateSign = asyncHandler(async (req, res) => {
+  const { userId, persona } = req.user;
+  const { id: documentId }  = req.params;
+
+  const document = await DocumentModel.findById(documentId)
+    .populate('template');
+
+  if (!document)                       throw createError(404, 'NOT_FOUND',  'Document not found');
+  if (!document.user.equals(userId))   throw createError(403, 'FORBIDDEN',  'Not your document');
+  if (!document.isPaid && document.accessType === 'free_tier')
+    throw createError(403, 'SIGN_REQUIRES_PAID', 'Document must be paid before signing');
+  if (!document.pdfStorageKey)         throw createError(400, 'NO_PDF',     'PDF has not been generated yet');
+  if (document.isSigned)               throw createError(409, 'ALREADY_SIGNED', 'Document is already signed');
+  if (document.signatureStatus === 'pending')
+    throw createError(409, 'SIGN_PENDING', 'A signing request is already in progress');
+
+  const user     = await User.findById(userId).select('name email phone').lean();
+  const template = document.template;
+
+  const { initiateSign: providerInitiate, isProd } = require('../services/signature/signatureProvider');
+  const { uploadPDF, getSignedPdfUrl }             = require('../services/storage/storageProvider');
+
+  // ── Download current PDF buffer from storage ────────────────────────────
+  // We need the raw bytes to send to SignDesk (prod) or to re-render (dev)
+  let pdfBuffer = null;
+  if (isProd()) {
+    // Prod: fetch the PDF bytes to ship to SignDesk
+    const signedUrl = await getSignedPdfUrl(document.pdfStorageKey);
+    const response  = await fetch(signedUrl);
+    if (!response.ok) throw createError(502, 'PDF_FETCH_FAILED', 'Could not retrieve PDF for signing');
+    pdfBuffer = Buffer.from(await response.arrayBuffer());
+  }
+
+  // Webhook URL — SignDesk will POST the signed result here
+  const webhookUrl = `${process.env.SERVER_URL || `http://localhost:${process.env.PORT || 5000}`}/v1/webhooks/signdesk`;
+
+  const result = await providerInitiate(document, user, template, pdfBuffer, webhookUrl);
+
+  // ── Prod: mark pending, return redirect URL ──────────────────────────────
+  if (!result.done) {
+    document.signatureStatus = 'pending';
+    document.signatureMetadata = { ...document.signatureMetadata, sessionId: result.sessionId };
+    await document.save();
+    return res.json({ pending: true, redirectUrl: result.redirectUrl });
+  }
+
+  // ── Dev: sign complete — upload signed PDF and update document ───────────
+  const signedKey  = `signed_${documentId}`;
+  const { storageKey: signedPdfStorageKey } = await uploadPDF(result.signedPdfBuffer, signedKey);
+
+  document.isSigned            = true;
+  document.signatureStatus     = 'signed';
+  document.signedAt            = result.signedAt;
+  document.signedPdfStorageKey = signedPdfStorageKey;
+  document.signatureProvider   = result.provider;
+  document.signatureMetadata   = {
+    signerName:  result.signerName,
+    fingerprint: result.fingerprint,
+    attestation: result.attestation,
+  };
+  await document.save();
+
+  const signedPdfUrl = await getSignedPdfUrl(signedPdfStorageKey);
+
+  await AuditLog.log(req, 'document.signed', 'Document', documentId, { provider: result.provider });
+
+  return res.json({
+    signed:        true,
+    signedPdfUrl,
+    signedAt:      result.signedAt,
+    provider:      result.provider,
+    fingerprint:   result.fingerprint,
+  });
+});
+
+// ─── signWebhook ──────────────────────────────────────────────────────────────
+
+/**
+ * POST /v1/webhooks/signdesk
+ *
+ * Called by SignDesk after the citizen completes Aadhaar OTP verification.
+ * No auth middleware — HMAC verification is done inside signatureProvider.
+ * Must be registered BEFORE express.json() (needs raw body for HMAC check).
+ */
+const signWebhook = asyncHandler(async (req, res) => {
+  const { handleWebhook } = require('../services/signature/signatureProvider');
+  const { uploadPDF, getSignedPdfUrl } = require('../services/storage/storageProvider');
+
+  const signature = req.headers['x-signdesk-signature'] || '';
+  const { valid, parsed } = handleWebhook(req.rawBody, signature, req.body);
+
+  if (!valid) return res.status(401).json({ error: 'Invalid webhook signature' });
+
+  const { sessionId, status, signedPdfBuffer, documentUrl, aadhaarName, transactionId } = parsed;
+
+  // Look up document by SignDesk session id
+  const document = await DocumentModel.findOne({ 'signatureMetadata.sessionId': sessionId });
+  if (!document) {
+    logger.warn(`[signWebhook] No document found for SignDesk session ${sessionId}`);
+    return res.json({ ok: true }); // ACK to SignDesk even if we can't find it
+  }
+
+  if (status === 'failed') {
+    document.signatureStatus = 'failed';
+    await document.save();
+    return res.json({ ok: true });
+  }
+
+  // Resolve PDF buffer — may be inline base64 or a URL to download
+  let pdfBuf = signedPdfBuffer;
+  if (!pdfBuf && documentUrl) {
+    const dlRes = await fetch(documentUrl);
+    if (!dlRes.ok) {
+      logger.error(`[signWebhook] Failed to download signed PDF from ${documentUrl}`);
+      document.signatureStatus = 'failed';
+      await document.save();
+      return res.json({ ok: true });
+    }
+    pdfBuf = Buffer.from(await dlRes.arrayBuffer());
+  }
+
+  if (!pdfBuf) {
+    logger.error(`[signWebhook] No signed PDF in SignDesk payload for session ${sessionId}`);
+    document.signatureStatus = 'failed';
+    await document.save();
+    return res.json({ ok: true });
+  }
+
+  // Upload signed PDF
+  const signedKey = `signed_${document._id}`;
+  const { storageKey: signedPdfStorageKey } = await uploadPDF(pdfBuf, signedKey);
+
+  document.isSigned            = true;
+  document.signatureStatus     = 'signed';
+  document.signedAt            = new Date();
+  document.signedPdfStorageKey = signedPdfStorageKey;
+  document.signatureProvider   = 'signdesk';
+  document.signatureMetadata   = {
+    ...document.signatureMetadata,
+    signerName:          aadhaarName || document.signatureMetadata?.signerName,
+    signerAadhaarMasked: aadhaarName ? `${aadhaarName} (Aadhaar-verified)` : '',
+    transactionId,
+  };
+  await document.save();
+
+  // Notify the document owner
+  try {
+    await Notification.create({
+      user:      document.user,
+      type:      'document_signed',
+      title:     'Document Signed!',
+      body:      `Your document "${document.title}" has been digitally signed via Aadhaar eSign.`,
+      data:      { documentId: document._id },
+      actionUrl: `/documents/${document._id}`,
+      channel:   'web',
+      isRead:    false,
+    });
+  } catch (_) {}
+
+  logger.info(`[signWebhook] Document ${document._id} signed via SignDesk (tx: ${transactionId})`);
+  return res.json({ ok: true });
+});
+
 module.exports = {
   generateDocument,
   getDocument,
   listDocuments,
   getPDF,
+  getSignedPDF,
   explainClauseHandler,
   shareDocument,
   getSharedDocument,
@@ -795,4 +994,6 @@ module.exports = {
   lawyerEditDocument,
   getLinkedConsultation,
   getDocumentForLawyer,
+  initiateSign,
+  signWebhook,
 };
