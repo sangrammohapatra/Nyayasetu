@@ -43,20 +43,7 @@ const MODES = [
   { id: 'in_person', icon: '🏛️', label: 'In Person',     desc: 'Visit the chamber' },
 ];
 
-// ─── Time slots (generated) ───────────────────────────────────────────────────
-
-function generateSlots(dateStr) {
-  const slots = [];
-  const base = new Date(dateStr);
-  for (let h = 9; h <= 17; h++) {
-    for (let m = 0; m < 60; m += 30) {
-      const d = new Date(base);
-      d.setHours(h, m, 0, 0);
-      if (d > new Date()) slots.push(d);
-    }
-  }
-  return slots;
-}
+// ─── Time slots (fetched from API) ───────────────────────────────────────────
 
 // ─── Steps ────────────────────────────────────────────────────────────────────
 
@@ -100,10 +87,27 @@ function Step1({ mode, onSelect, supportedModes }) {
   );
 }
 
-function Step2({ date, setDate, time, setTime }) {
+function Step2({ lawyerId, date, setDate, time, setTime }) {
   const { t } = useTranslation();
   const today = new Date().toISOString().split('T')[0];
-  const slots = date ? generateSlots(date) : [];
+  const [slots, setSlots] = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsReason, setSlotsReason] = useState('');
+
+  useEffect(() => {
+    if (!date || !lawyerId) return;
+    setSlotsLoading(true);
+    setSlotsReason('');
+    setSlots([]);
+    setTime('');
+    api.get(`/lawyers/${lawyerId}/slots?date=${date}`)
+      .then(({ data }) => {
+        setSlots(data.slots || []);
+        if (!data.slots?.length) setSlotsReason(data.reason || 'No slots available for this date.');
+      })
+      .catch(() => setSlotsReason('Could not load available slots. Please try again.'))
+      .finally(() => setSlotsLoading(false));
+  }, [date, lawyerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Box>
@@ -111,7 +115,7 @@ function Step2({ date, setDate, time, setTime }) {
         {t('lawyer.select_date_time', 'Choose a date and time')}
       </Typography>
       <TextField type="date" fullWidth label={t('lawyer.date', 'Date')} value={date}
-        onChange={(e) => { setDate(e.target.value); setTime(''); }}
+        onChange={(e) => { setDate(e.target.value); }}
         inputProps={{ min: today }}
         sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: `${RADIUS.md}px` } }}
         InputLabelProps={{ shrink: true }}
@@ -121,25 +125,36 @@ function Step2({ date, setDate, time, setTime }) {
           <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--color-text)', mb: 1.25 }}>
             {t('lawyer.available_slots', 'Available Slots')}
           </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-            {slots.map((slot) => {
-              const val = slot.toISOString();
-              const label = slot.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-              const isActive = time === val;
-              return (
-                <Chip key={val} label={label} size="small" clickable onClick={() => setTime(val)}
-                  sx={{
-                    fontWeight: isActive ? 700 : 500, height: 28, fontSize: '0.78rem',
-                    background: isActive ? 'var(--color-primary)' : 'var(--color-surface)',
-                    color: isActive ? '#fff' : 'var(--color-text)',
-                    border: isActive ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
-                    boxShadow: isActive ? '0 0 0 3px var(--color-primary-alpha)' : 'none',
-                    transition: 'all 0.15s',
-                    '&:hover': { background: isActive ? 'var(--color-primary)' : 'var(--color-overlay)', borderColor: 'var(--color-primary)' },
-                  }} />
-              );
-            })}
-          </Box>
+          {slotsLoading ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+              <CircularProgress size={16} sx={{ color: 'var(--color-primary)' }} />
+              <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
+                Loading available slots…
+              </Typography>
+            </Box>
+          ) : slots.length === 0 ? (
+            <Alert severity="info" sx={{ borderRadius: `${RADIUS.md}px`, fontSize: '0.8rem' }}>
+              {slotsReason}
+            </Alert>
+          ) : (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+              {slots.map((slot) => {
+                const isActive = time === slot.iso;
+                return (
+                  <Chip key={slot.iso} label={slot.time} size="small" clickable onClick={() => setTime(slot.iso)}
+                    sx={{
+                      fontWeight: isActive ? 700 : 500, height: 28, fontSize: '0.78rem',
+                      background: isActive ? 'var(--color-primary)' : 'var(--color-surface)',
+                      color: isActive ? '#fff' : 'var(--color-text)',
+                      border: isActive ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                      boxShadow: isActive ? '0 0 0 3px var(--color-primary-alpha)' : 'none',
+                      transition: 'all 0.15s',
+                      '&:hover': { background: isActive ? 'var(--color-primary)' : 'var(--color-overlay)', borderColor: 'var(--color-primary)' },
+                    }} />
+                );
+              })}
+            </Box>
+          )}
         </Box>
       )}
     </Box>
@@ -261,7 +276,7 @@ function ConsultationBooking({ open, onClose, lawyer }) {
       const { data } = await api.post('/consultations', {
         lawyerId: lawyer.id || lawyer._id,
         mode,
-        scheduledAt: time || `${date}T10:00:00.000Z`,
+        scheduledAt: time,
         notes,
         ...(documentId ? { documentId } : {}),
       });
@@ -350,7 +365,7 @@ function ConsultationBooking({ open, onClose, lawyer }) {
                   transition={{ duration: 0.28 }}
                 >
                   {step === 0 && <Step1 mode={mode} onSelect={setMode} supportedModes={supportedModes} />}
-                  {step === 1 && <Step2 date={date} setDate={setDate} time={time} setTime={setTime} />}
+                  {step === 1 && <Step2 lawyerId={lawyer?.id || lawyer?._id} date={date} setDate={setDate} time={time} setTime={setTime} />}
                   {step === 2 && <Step3 notes={notes} setNotes={setNotes} documentId={documentId} setDocumentId={setDocumentId} documents={documents} />}
                   {step === 3 && <Step4 lawyer={lawyer} mode={mode} date={date} time={time} notes={notes} fee={fee} />}
                 </motion.div>

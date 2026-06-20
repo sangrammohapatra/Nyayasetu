@@ -188,6 +188,7 @@ const applyAsLawyer = asyncHandler(async (req, res) => {
     bio,
     consultationFee,
     district,
+    availability: availabilityRaw,
   } = req.body;
 
   if (!barCouncilNumber || !specialisations || !practicingStates || !consultationFee) {
@@ -242,6 +243,13 @@ const applyAsLawyer = asyncHandler(async (req, res) => {
           isVerified: process.env.NODE_ENV === 'development',
           verificationStatus: process.env.NODE_ENV === 'development' ? 'approved' : 'pending',
           ...(certificateUrl ? { barCouncilCertificateUrl: certificateUrl } : {}),
+          ...(availabilityRaw ? (() => {
+            try {
+              const parsed = typeof availabilityRaw === 'string' ? JSON.parse(availabilityRaw) : availabilityRaw;
+              if (Array.isArray(parsed)) return { availability: parsed };
+            } catch { /* ignore malformed availability */ }
+            return {};
+          })() : {}),
         },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
@@ -404,11 +412,157 @@ const getMyClients = asyncHandler(async (req, res) => {
   }
 });
 
+/* ---------------------------------------------------------------------------
+ * getAvailableSlots
+ * GET /v1/lawyers/:id/slots?date=YYYY-MM-DD
+ *
+ * Returns 30-minute slots the lawyer is free on the given date.
+ * Filters out: days with no availability rule, past times (today only),
+ * and slots already occupied by requested/accepted consultations.
+ * ------------------------------------------------------------------------ */
+const SLOT_DURATION_MINUTES = 30;
+
+const getAvailableSlots = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { date } = req.query;
+
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'INVALID_DATE', message: 'Provide date as YYYY-MM-DD' });
+  }
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid lawyer id' });
+  }
+
+  const profile = await LawyerProfile.findById(id).select('availability isAcceptingClients').lean();
+  if (!profile) return res.status(404).json({ error: 'LAWYER_NOT_FOUND', message: 'Lawyer not found' });
+
+  if (!profile.isAcceptingClients) {
+    return res.json({ slots: [], date, reason: 'Lawyer is not currently accepting consultations' });
+  }
+
+  // dayOfWeek for the requested date (local time in IST)
+  const [y, m, d] = date.split('-').map(Number);
+  const localDate = new Date(y, m - 1, d);
+  const dayOfWeek = localDate.getDay(); // 0 = Sunday
+
+  const rule = (profile.availability || []).find((a) => a.dayOfWeek === dayOfWeek && a.isActive !== false);
+  if (!rule) {
+    return res.json({ slots: [], date, dayOfWeek, reason: 'Lawyer is not available on this day' });
+  }
+
+  const [startH, startM] = rule.startTime.split(':').map(Number);
+  const [endH,   endM]   = rule.endTime.split(':').map(Number);
+  const startMinutes = startH * 60 + startM;
+  const endMinutes   = endH   * 60 + endM;
+
+  const allSlots = [];
+  for (let min = startMinutes; min + SLOT_DURATION_MINUTES <= endMinutes; min += SLOT_DURATION_MINUTES) {
+    allSlots.push(min);
+  }
+
+  if (!allSlots.length) return res.json({ slots: [], date });
+
+  // Block past slots when date is today (IST)
+  const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  const isToday =
+    nowIST.getFullYear() === y &&
+    (nowIST.getMonth() + 1) === m &&
+    nowIST.getDate() === d;
+  // Add a 30-min buffer so users can't book for "right now"
+  const nowMinutesIST = isToday ? (nowIST.getHours() * 60 + nowIST.getMinutes() + 30) : 0;
+
+  // Fetch existing bookings for this day
+  const dayStartIST = new Date(`${date}T00:00:00+05:30`);
+  const dayEndIST   = new Date(`${date}T23:59:59+05:30`);
+
+  const existingBookings = await Consultation.find({
+    lawyer: id,
+    scheduledAt: { $gte: dayStartIST, $lte: dayEndIST },
+    status: { $in: ['requested', 'accepted'] },
+  }).select('scheduledAt durationMinutes').lean();
+
+  // Build blocked ranges in minutes-since-midnight (IST)
+  const blockedRanges = existingBookings.map((c) => {
+    const ist = new Date(new Date(c.scheduledAt).toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const slotStart = ist.getHours() * 60 + ist.getMinutes();
+    const dur = c.durationMinutes || SLOT_DURATION_MINUTES;
+    return { start: slotStart, end: slotStart + dur };
+  });
+
+  const available = allSlots
+    .filter((min) => min >= nowMinutesIST)
+    .filter((min) => {
+      const slotEnd = min + SLOT_DURATION_MINUTES;
+      return !blockedRanges.some((b) => min < b.end && slotEnd > b.start);
+    })
+    .map((min) => {
+      const hh = String(Math.floor(min / 60)).padStart(2, '0');
+      const mm = String(min % 60).padStart(2, '0');
+      return {
+        time: `${hh}:${mm}`,
+        iso:  `${date}T${hh}:${mm}:00+05:30`,
+      };
+    });
+
+  return res.json({ slots: available, date, dayOfWeek });
+});
+
+/* ---------------------------------------------------------------------------
+ * updateAvailability
+ * PUT /v1/lawyers/availability
+ * Body: { availability: [{ dayOfWeek, startTime, endTime, isActive? }] }
+ * ------------------------------------------------------------------------ */
+const updateAvailability = asyncHandler(async (req, res) => {
+  const { userId } = req.user;
+  const { availability } = req.body;
+
+  if (!Array.isArray(availability)) {
+    return res.status(400).json({ error: 'INVALID_INPUT', message: 'availability must be an array' });
+  }
+
+  const TIME_RE = /^\d{2}:\d{2}$/;
+  for (const slot of availability) {
+    if (slot.dayOfWeek < 0 || slot.dayOfWeek > 6 || !Number.isInteger(slot.dayOfWeek)) {
+      return res.status(400).json({ error: 'INVALID_DAY', message: 'dayOfWeek must be an integer 0–6' });
+    }
+    if (!TIME_RE.test(slot.startTime) || !TIME_RE.test(slot.endTime)) {
+      return res.status(400).json({ error: 'INVALID_TIME', message: 'startTime and endTime must be HH:MM' });
+    }
+    if (slot.startTime >= slot.endTime) {
+      return res.status(400).json({ error: 'INVALID_RANGE', message: 'startTime must be before endTime' });
+    }
+  }
+
+  const profile = await LawyerProfile.findOneAndUpdate(
+    { user: userId },
+    {
+      $set: {
+        availability: availability.map((s) => ({
+          dayOfWeek: s.dayOfWeek,
+          startTime: s.startTime,
+          endTime:   s.endTime,
+          isActive:  s.isActive !== false,
+        })),
+      },
+    },
+    { new: true, runValidators: true }
+  ).select('availability');
+
+  if (!profile) {
+    return res.status(404).json({ error: 'PROFILE_NOT_FOUND', message: 'Lawyer profile not found — please apply first' });
+  }
+
+  logger.info('[lawyer.controller] Availability updated', { userId, slots: availability.length });
+  return res.json({ ok: true, availability: profile.availability });
+});
+
 module.exports = {
   uploadCertificate,
   searchLawyers,
   getLawyerProfile,
   applyAsLawyer,
   updateLawyerProfile,
+  updateAvailability,
+  getAvailableSlots,
   getMyClients,
 };

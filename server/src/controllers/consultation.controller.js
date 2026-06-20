@@ -139,6 +139,53 @@ const createConsultation = asyncHandler(async (req, res) => {
     }
   }
 
+  // ── Availability + conflict check ────────────────────────────────────────
+  // 1. Check the lawyer's weekly availability schedule for this dayOfWeek
+  const dayOfWeek = scheduledDate.getDay(); // scheduler sends IST ISO string, JS Date handles it
+  if (lawyerProfile.availability && lawyerProfile.availability.length > 0) {
+    const rule = lawyerProfile.availability.find((a) => a.dayOfWeek === dayOfWeek && a.isActive !== false);
+    if (!rule) {
+      const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      return res.status(409).json({
+        error: 'LAWYER_UNAVAILABLE',
+        message: `Lawyer is not available on ${DAY_NAMES[dayOfWeek]}. Please choose another date.`,
+      });
+    }
+    // Verify the slot time falls within the rule's window
+    const istDate = new Date(scheduledDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const slotMinutes = istDate.getHours() * 60 + istDate.getMinutes();
+    const [sH, sM] = rule.startTime.split(':').map(Number);
+    const [eH, eM] = rule.endTime.split(':').map(Number);
+    if (slotMinutes < sH * 60 + sM || slotMinutes >= eH * 60 + eM) {
+      return res.status(409).json({
+        error: 'OUTSIDE_HOURS',
+        message: `Slot is outside the lawyer's working hours (${rule.startTime}–${rule.endTime} IST).`,
+      });
+    }
+  }
+
+  // 2. Check for an overlapping booking (same lawyer, overlapping time range, active statuses)
+  const slotDuration = 30; // minutes
+  const slotEnd = new Date(scheduledDate.getTime() + slotDuration * 60 * 1000);
+  const overlap = await Consultation.findOne({
+    lawyer: lawyerId,
+    status: { $in: ['requested', 'accepted'] },
+    scheduledAt: { $lt: slotEnd },
+    $expr: {
+      $gt: [
+        { $add: ['$scheduledAt', { $multiply: [{ $ifNull: ['$durationMinutes', 30] }, 60000] }] },
+        scheduledDate,
+      ],
+    },
+  }).lean();
+
+  if (overlap) {
+    return res.status(409).json({
+      error: 'SLOT_TAKEN',
+      message: 'This slot is already booked. Please choose a different time.',
+    });
+  }
+
   const feeInPaise = lawyerProfile.consultationFee; // stored in paise per Section 12 spec
 
   // Create Razorpay order first (atomic: if this fails, no consultation record is saved)

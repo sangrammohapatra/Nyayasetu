@@ -54,6 +54,13 @@ router.get(
 );
 
 /**
+ * GET /v1/lawyers/:id/slots?date=YYYY-MM-DD
+ * Returns available 30-min slots for the given date.
+ * Must be declared before /lawyers/:id so the router doesn't treat 'slots' sub-path incorrectly.
+ */
+router.get('/lawyers/:id/slots', verifyToken, lawyerController.getAvailableSlots);
+
+/**
  * GET /v1/lawyers/:id
  * Full profile with last 5 ratings.
  */
@@ -81,6 +88,17 @@ router.put(
   verifyToken,
   requirePersona(PERSONAS.LAWYER),
   lawyerController.updateLawyerProfile
+);
+
+/**
+ * PUT /v1/lawyers/availability
+ * Replace the authenticated lawyer's weekly availability schedule.
+ */
+router.put(
+  '/lawyers/availability',
+  verifyToken,
+  requirePersona(PERSONAS.LAWYER),
+  lawyerController.updateAvailability
 );
 
 /* ===========================================================================

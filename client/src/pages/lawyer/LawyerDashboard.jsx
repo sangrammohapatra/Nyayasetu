@@ -179,10 +179,25 @@ function StepPracticeDetails({ control, errors, practicingStates, setPracticingS
   );
 }
 
-function StepAvailability({ control, modes, setModes }) {
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function defaultAvailability() {
+  return DAY_LABELS.map((_, i) => ({
+    dayOfWeek: i,
+    startTime: '09:00',
+    endTime: '17:00',
+    isActive: i >= 1 && i <= 5, // Mon–Fri active by default
+  }));
+}
+
+function StepAvailability({ control, modes, setModes, availability, setAvailability }) {
   const { t } = useTranslation();
   const toggleMode = (m) => setModes((prev) => prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]);
   const modeLabels = { chat: '💬 Chat', video: '📹 Video', phone: '📞 Phone', in_person: '🏛️ In-Person' };
+
+  const updateDay = (idx, field, value) => {
+    setAvailability((prev) => prev.map((d, i) => i === idx ? { ...d, [field]: value } : d));
+  };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
@@ -213,6 +228,59 @@ function StepAvailability({ control, modes, setModes }) {
                 color: modes.includes(m) ? '#fff' : 'var(--color-text)',
                 border: modes.includes(m) ? 'none' : '1px solid var(--color-border)',
               }} />
+          ))}
+        </Box>
+      </Box>
+
+      {/* Weekly schedule editor */}
+      <Box>
+        <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--color-text)', mb: 1 }}>
+          {t('lawyer_setup.weekly_schedule', 'Weekly Schedule')}
+        </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+          {availability.map((day, idx) => (
+            <Box key={day.dayOfWeek} sx={{
+              display: 'grid',
+              gridTemplateColumns: '80px 1fr',
+              alignItems: 'center',
+              gap: 1,
+              px: 1.25, py: 0.75,
+              borderRadius: `${RADIUS.md}px`,
+              border: '1px solid var(--color-border)',
+              background: day.isActive ? 'var(--color-primary-alpha)' : 'var(--color-bg)',
+              opacity: day.isActive ? 1 : 0.6,
+              transition: 'all 0.18s',
+            }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={day.isActive}
+                    onChange={(e) => updateDay(idx, 'isActive', e.target.checked)}
+                    size="small"
+                    sx={{ color: 'var(--color-primary)', '&.Mui-checked': { color: 'var(--color-primary)' }, p: 0.5 }}
+                  />
+                }
+                label={<Typography variant="caption" sx={{ fontWeight: 700, color: day.isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>{DAY_LABELS[day.dayOfWeek]}</Typography>}
+                sx={{ m: 0, gap: 0.25 }}
+              />
+              {day.isActive && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  <TextField
+                    type="time" size="small" value={day.startTime}
+                    onChange={(e) => updateDay(idx, 'startTime', e.target.value)}
+                    inputProps={{ step: 1800 }}
+                    sx={{ width: 110, '& .MuiOutlinedInput-root': { borderRadius: `${RADIUS.sm}px`, fontSize: '0.8rem' } }}
+                  />
+                  <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>to</Typography>
+                  <TextField
+                    type="time" size="small" value={day.endTime}
+                    onChange={(e) => updateDay(idx, 'endTime', e.target.value)}
+                    inputProps={{ step: 1800 }}
+                    sx={{ width: 110, '& .MuiOutlinedInput-root': { borderRadius: `${RADIUS.sm}px`, fontSize: '0.8rem' } }}
+                  />
+                </Box>
+              )}
+            </Box>
           ))}
         </Box>
       </Box>
@@ -361,6 +429,10 @@ function LawyerDashboard() {
   const [specialisations, setSpecialisations] = useState([]);
   const [practicingStates, setPracticingStates] = useState([]);
   const [modes, setModes] = useState(['chat', 'video', 'phone']);
+  const [availability, setAvailability] = useState(() => {
+    const saved = existingProfile?.availability;
+    return (Array.isArray(saved) && saved.length === 7) ? saved : defaultAvailability();
+  });
   const [certFile, setCertFile] = useState(null);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -406,6 +478,7 @@ function LawyerDashboard() {
       fd.append('bio', values.bio || '');
       fd.append('consultationFee', String(values.consultationFee * 100));
       fd.append('district', values.district || '');
+      fd.append('availability', JSON.stringify(availability));
       if (certFile) fd.append('certificate', certFile);
 
       const result = await dispatch(applyAsLawyer(fd));
@@ -425,7 +498,7 @@ function LawyerDashboard() {
     <StepBarCouncil key={0} control={control} errors={errors} />,
     <StepSpecialisations key={1} specialisations={specialisations} onToggle={toggleSpec} error={specError} />,
     <StepPracticeDetails key={2} control={control} errors={errors} practicingStates={practicingStates} setPracticingStates={setPracticingStates} />,
-    <StepAvailability key={3} control={control} modes={modes} setModes={setModes} />,
+    <StepAvailability key={3} control={control} modes={modes} setModes={setModes} availability={availability} setAvailability={setAvailability} />,
     <StepDocuments key={4} file={certFile} setFile={setCertFile} />,
   ];
 
