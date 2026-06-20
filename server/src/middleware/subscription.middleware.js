@@ -4,100 +4,35 @@ const asyncHandler = require('../utils/asyncHandler');
 
 // ─── Feature Map ───────────────────────────────────────────────────────────────
 
+const { planFeatures, hierarchies } = require('../../../shared/featureFlags.json');
+
 /**
- * FEATURE_MAP — the single source of truth for which persona+plan combinations
- * unlock which features.
- *
- * Structure: { [feature]: { citizen: string[], lawyer: string[] } }
- *   citizen plans:  free | basic | pro
- *   lawyer plans:   free | professional | firm
- *
- * 'admin' persona always bypasses all feature gates.
- * Mirror of client/src/hooks/useAuth.js hasFeature() — keep in sync.
+ * Derive feature-centric lookup from the shared plan-centric map.
+ * Result: { [feature]: { [persona]: string[] } } where the plan array
+ * contains the plan where the feature is first introduced plus all
+ * higher plans (inheritance applied).
  */
-const FEATURE_MAP = {
-  // ── Documents ───────────────────────────────────────────────────────────────
-  pdf_download: {
-    citizen: ['basic', 'pro'],
-    lawyer:  ['professional', 'firm'],
-  },
-  document_sharing: {
-    citizen: ['basic', 'pro'],
-    lawyer:  ['professional', 'firm'],
-  },
-  clause_explainer: {
-    citizen: ['basic', 'pro'],
-    lawyer:  ['professional', 'firm'],
-  },
-  document_regenerate: {
-    citizen: ['basic', 'pro'],
-    lawyer:  ['professional', 'firm'],
-  },
-  premium_templates: {
-    citizen: ['pro'],
-    lawyer:  ['professional', 'firm'],
-  },
+function buildFeatureLookup(features, hier) {
+  const lookup = {};
+  for (const [persona, plans] of Object.entries(features)) {
+    if (persona === 'admin') continue;
+    const hierarchy = hier[persona] || [];
+    for (let i = 0; i < hierarchy.length; i++) {
+      for (const feature of (plans[hierarchy[i]] || [])) {
+        if (!lookup[feature]) lookup[feature] = {};
+        if (!lookup[feature][persona]) lookup[feature][persona] = [];
+        for (let j = i; j < hierarchy.length; j++) {
+          if (!lookup[feature][persona].includes(hierarchy[j])) {
+            lookup[feature][persona].push(hierarchy[j]);
+          }
+        }
+      }
+    }
+  }
+  return lookup;
+}
 
-  // ── Voice ────────────────────────────────────────────────────────────────────
-  voice_input: {
-    citizen: ['basic', 'pro'],
-    lawyer:  ['professional', 'firm'],
-  },
-
-  // ── Case tracking ─────────────────────────────────────────────────────────
-  hearing_alerts_whatsapp: {
-    citizen: ['basic', 'pro'],
-    lawyer:  ['professional', 'firm'],
-  },
-  hearing_alerts_email: {
-    citizen: ['pro'],
-    lawyer:  ['professional', 'firm'],
-  },
-
-  // ── Lawyer access (citizen features) ─────────────────────────────────────
-  lawyer_profile_view: {
-    citizen: ['basic', 'pro'],
-    lawyer:  ['free', 'professional', 'firm'],
-  },
-  book_consultation: {
-    citizen: ['pro'],
-    lawyer:  ['free', 'professional', 'firm'], // Lawyers can always receive bookings
-  },
-  priority_support: {
-    citizen: ['pro'],
-    lawyer:  ['firm'],
-  },
-
-  // ── Lawyer portal features ────────────────────────────────────────────────
-  case_management: {
-    citizen: [],                               // Citizens don't get this
-    lawyer:  ['professional', 'firm'],
-  },
-  client_portal: {
-    citizen: [],
-    lawyer:  ['professional', 'firm'],
-  },
-  review_client_docs: {
-    citizen: [],
-    lawyer:  ['professional', 'firm'],
-  },
-  analytics_basic: {
-    citizen: [],
-    lawyer:  ['professional', 'firm'],
-  },
-  analytics_advanced: {
-    citizen: [],
-    lawyer:  ['firm'],
-  },
-  custom_branding: {
-    citizen: [],
-    lawyer:  ['firm'],
-  },
-  team_members: {
-    citizen: [],
-    lawyer:  ['firm'],
-  },
-};
+const FEATURE_MAP = buildFeatureLookup(planFeatures, hierarchies);
 
 // ─── checkFeatureAccess ────────────────────────────────────────────────────────
 

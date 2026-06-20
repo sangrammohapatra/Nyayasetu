@@ -135,7 +135,6 @@ const otpLimiter = rateLimit({
 app.use('/v1', globalLimiter);
 app.use('/v1/chat/sessions/:id/message', aiLimiter);
 app.use('/v1/auth/send-otp', otpLimiter);
-app.use('/v1/nyayabot', nyayabotRoutes);
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {

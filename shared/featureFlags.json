@@ -1,0 +1,86 @@
+{
+  "hierarchies": {
+    "citizen":   ["free", "basic", "pro"],
+    "lawyer":    ["free", "professional", "firm"],
+    "paralegal": ["free", "professional", "firm"]
+  },
+  "planFeatures": {
+    "citizen": {
+      "free": [
+        "basic_templates",
+        "preview_document",
+        "ai_chat_limited",
+        "track_1_case",
+        "domestic_violence_template",
+        "police_complaint_template"
+      ],
+      "basic": [
+        "all_basic_templates",
+        "pdf_download",
+        "voice_input",
+        "clause_explainer",
+        "document_sharing",
+        "document_regenerate",
+        "track_5_cases",
+        "hearing_alerts_whatsapp",
+        "lawyer_profile_view",
+        "ai_chat_extended"
+      ],
+      "pro": [
+        "all_templates",
+        "unlimited_docs",
+        "unlimited_cases",
+        "all_alerts",
+        "hearing_alerts_email",
+        "book_consultation",
+        "priority_support",
+        "ai_chat_unlimited",
+        "advanced_clause_explainer",
+        "premium_templates"
+      ]
+    },
+    "lawyer": {
+      "free": [
+        "apply_profile",
+        "view_public_cases",
+        "lawyer_profile_view",
+        "book_consultation"
+      ],
+      "professional": [
+        "client_portal",
+        "case_management",
+        "consultation_bookings",
+        "verified_badge",
+        "review_client_docs",
+        "document_sharing",
+        "pdf_download",
+        "voice_input",
+        "clause_explainer",
+        "document_regenerate",
+        "analytics_basic",
+        "revenue_90pct",
+        "hearing_alerts_whatsapp",
+        "hearing_alerts_email",
+        "premium_templates"
+      ],
+      "firm": [
+        "team_members",
+        "analytics_advanced",
+        "custom_branding",
+        "priority_placement",
+        "gold_verified_badge",
+        "revenue_92pct",
+        "paralegal_accounts",
+        "priority_support"
+      ]
+    },
+    "paralegal": {
+      "free":         ["view_assigned_cases", "view_assigned_documents"],
+      "professional": ["edit_assigned_documents", "client_communication"],
+      "firm":         ["full_paralegal_access"]
+    },
+    "admin": {
+      "free": ["admin_dashboard", "manage_users", "manage_templates", "verify_lawyers", "view_all_stats"]
+    }
+  }
+}
