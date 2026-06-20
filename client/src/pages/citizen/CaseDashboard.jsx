@@ -4,7 +4,6 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
@@ -27,19 +26,13 @@ import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Snackbar from '@mui/material/Snackbar';
 
-import {
-  addCase, listCases, refreshCase, removeCase,
-  selectCases, selectCaseLoading,
-} from '../../store/slices/caseSlice';
-import { selectUserPlan } from '../../store/slices/authSlice';
-import { selectFreeUsage } from '../../store/slices/subscriptionSlice';
+import { useCaseTracker } from '../../hooks/useCaseTracker';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GlassCard from '../../components/ui/GlassCard';
 import GradientHeading from '../../components/ui/GradientHeading';
 import HearingTimeline from '../../components/case/HearingTimeline';
 import CNRInput, { CNR_REGEX } from '../../components/case/CNRInput';
 import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
-import api from '../../services/api';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -61,9 +54,8 @@ const STATUS_MAP = {
 
 // ─── Add Case Modal ───────────────────────────────────────────────────────────
 
-function AddCaseModal({ open, onClose }) {
+function AddCaseModal({ open, onClose, onAdd }) {
   const { t } = useTranslation();
-  const dispatch = useDispatch();
   const [cnr, setCnr] = useState('');
   const [alertWhatsapp, setAlertWhatsapp] = useState(true);
   const [alertEmail, setAlertEmail] = useState(false);
@@ -78,10 +70,10 @@ function AddCaseModal({ open, onClose }) {
     setError('');
     setLoading(true);
     try {
-      const result = await dispatch(addCase({
+      const result = await onAdd({
         cnrNumber: cnr,
         alertChannels: { whatsapp: alertWhatsapp, email: alertEmail },
-      }));
+      });
       if (result.meta.requestStatus === 'fulfilled') {
         onClose(true);
         setCnr('');
@@ -187,7 +179,7 @@ function CaseCardSkeleton() {
   );
 }
 
-function CaseCard({ caseData, onRefresh, onDelete }) {
+function CaseCard({ caseData, onRefresh, onDelete, onUpdateAlerts }) {
   const { t } = useTranslation();
   const prefersReducedMotion = useReducedMotion();
   const [expanded, setExpanded] = useState(false);
@@ -196,12 +188,12 @@ function CaseCard({ caseData, onRefresh, onDelete }) {
 
   const handleRemind = useCallback(async () => {
     try {
-      await api.patch(`/cases/${caseData._id}/alerts`, { alertsEnabled: true });
+      await onUpdateAlerts(caseData._id, { alertsEnabled: true });
       setRemindSnack('success');
     } catch {
       setRemindSnack('error');
     }
-  }, [caseData._id]);
+  }, [caseData._id, onUpdateAlerts]);
 
   const statusStyle = STATUS_MAP[caseData.status?.toLowerCase()] || STATUS_MAP.active;
   const nextDate = caseData.nextHearingDate;
@@ -372,34 +364,28 @@ function CaseCard({ caseData, onRefresh, onDelete }) {
 
 function CaseDashboard() {
   const { t } = useTranslation();
-  const dispatch = useDispatch();
   const navigate = useNavigate();
   const prefersReducedMotion = useReducedMotion();
 
-  const cases = useSelector(selectCases);
-  const loading = useSelector(selectCaseLoading);
-  const plan = useSelector(selectUserPlan);
-  const freeUsage = useSelector(selectFreeUsage);
+  const {
+    cases, loading,
+    caseLimit, casesTracked, atLimit, slotsRemaining,
+    load, add, refresh, remove, updateAlerts, upgradeOrAdd,
+  } = useCaseTracker();
 
   const [modalOpen, setModalOpen] = useState(false);
 
-  const caseLimit = plan === 'free' ? 1 : plan === 'basic' ? 5 : Infinity;
-  const casesTracked = freeUsage?.casesTracked || cases.length;
-  const atLimit = plan === 'free' && casesTracked >= caseLimit;
+  useEffect(() => { load(); }, [load]);
 
-  useEffect(() => { dispatch(listCases()); }, [dispatch]);
-
-  const handleModalClose = (added) => {
+  const handleModalClose = useCallback((added) => {
     setModalOpen(false);
-    if (added) dispatch(listCases());
-  };
+    if (added) load();
+  }, [load]);
 
-  const handleRefresh = useCallback((id) => dispatch(refreshCase(id)), [dispatch]);
-  const handleDelete = useCallback(async (id) => {
-    if (window.confirm(t('case.confirm_delete', 'Remove this case from tracking?'))) {
-      await dispatch(removeCase(id));
-    }
-  }, [dispatch, t]);
+  const handleDelete = useCallback(
+    (id) => remove(id, t('case.confirm_delete', 'Remove this case from tracking?')),
+    [remove, t],
+  );
 
   return (
     <AnimatedPage>
@@ -413,12 +399,12 @@ function CaseDashboard() {
               </GradientHeading>
               <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mt: 0.25 }}>
                 {cases.length} {t('case.tracked', 'cases tracked')}
-                {caseLimit !== Infinity && ` · ${caseLimit - casesTracked} ${t('case.remaining', 'slots remaining')}`}
+                {slotsRemaining !== null && ` · ${slotsRemaining} ${t('case.remaining', 'slots remaining')}`}
               </Typography>
             </Box>
             <Button
               variant="contained"
-              onClick={() => atLimit ? navigate('/pricing') : setModalOpen(true)}
+              onClick={() => upgradeOrAdd(() => setModalOpen(true))}
               sx={{
                 borderRadius: `${RADIUS.md}px`, fontWeight: 700,
                 background: atLimit ? 'var(--color-warning)' : 'var(--color-primary)',
@@ -488,14 +474,14 @@ function CaseDashboard() {
             <AnimatePresence>
               {cases.map((c) => (
                 <Grid item xs={12} sm={6} key={c._id}>
-                  <CaseCard caseData={c} onRefresh={handleRefresh} onDelete={handleDelete} />
+                  <CaseCard caseData={c} onRefresh={refresh} onDelete={handleDelete} onUpdateAlerts={updateAlerts} />
                 </Grid>
               ))}
             </AnimatePresence>
           </Grid>
         )}
 
-        <AddCaseModal open={modalOpen} onClose={handleModalClose} />
+        <AddCaseModal open={modalOpen} onClose={handleModalClose} onAdd={add} />
       </Box>
     </AnimatedPage>
   );

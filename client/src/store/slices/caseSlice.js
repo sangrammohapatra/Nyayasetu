@@ -55,9 +55,9 @@ export const refreshCase = createAsyncThunk(
 
 export const updateCaseAlerts = createAsyncThunk(
   'case/updateAlerts',
-  async ({ caseId, alertDaysBefore, alertChannels }, { rejectWithValue }) => {
+  async ({ caseId, ...alertOpts }, { rejectWithValue }) => {
     try {
-      const { data } = await api.patch(`/cases/${caseId}/alerts`, { alertDaysBefore, alertChannels });
+      const { data } = await api.patch(`/cases/${caseId}/alerts`, alertOpts);
       return data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.error || 'Failed to update alerts');
