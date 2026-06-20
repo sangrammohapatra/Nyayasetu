@@ -205,8 +205,8 @@ router.post(
     body('persona')
       .optional()
       .customSanitizer((v) => v?.toUpperCase())
-      .isIn([PERSONAS.CITIZEN, PERSONAS.LAWYER, PERSONAS.PARALEGAL])
-      .withMessage('Persona must be: citizen, lawyer, or paralegal'),
+      .isIn([PERSONAS.CITIZEN, PERSONAS.LAWYER])
+      .withMessage('Persona must be: citizen or lawyer'),
 
     body('preferredLanguage')
       .optional()

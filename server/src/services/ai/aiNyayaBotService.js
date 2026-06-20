@@ -33,9 +33,7 @@ Always:
 - Analyse jurisdiction-specific procedural requirements
 - Highlight recent amendments or judicial interpretations`,
 
-  paralegal: `You are NyayaBot, a legal assistant for paralegals working at NyayaSetu.
-You help with document drafting assistance, legal research, and procedural guidance.
-Balance technical accuracy with accessibility. Support the paralegal in their work under lawyer supervision.`,
+
 };
 
 // ─── Language instructions ───────────────────────────────────────────────────
@@ -172,7 +170,7 @@ function defaultDisclaimer(language) {
  * @param {Object} params
  * @param {string}   params.userQuery       - latest user message
  * @param {Array}    params.messageHistory  - previous messages in session
- * @param {string}   params.persona         - 'citizen' | 'lawyer' | 'paralegal'
+ * @param {string}   params.persona         - 'citizen' | 'lawyer'
  * @param {string}   params.language        - 'en' | 'hi' | ...
  * @param {string}   params.jurisdiction    - state code or null
  * @param {string}   params.contextType     - 'general' | 'document' | 'case' | ...
@@ -262,7 +260,6 @@ async function generateGreeting(persona, language, userName) {
     en: {
       citizen: `Namaskar${userName ? `, ${userName}` : ''}! 🙏 I'm **NyayaBot**, your AI legal assistant on NyayaSetu.\n\nI can help you understand your legal rights, find the right document to file, track your court cases, or connect you with a verified lawyer. What legal question can I help you with today?`,
       lawyer: `Welcome${userName ? `, Adv. ${userName}` : ''}! I'm **NyayaBot**, your AI legal research assistant on NyayaSetu.\n\nI can assist with case research, precedent lookup, drafting support, and jurisdiction-specific procedures. How can I assist you today?`,
-      paralegal: `Hello${userName ? `, ${userName}` : ''}! I'm **NyayaBot**, your legal workflow assistant on NyayaSetu.\n\nHow can I help you today?`,
     },
     hi: {
       citizen: `नमस्कार${userName ? `, ${userName}` : ''}! 🙏 मैं **NyayaBot** हूं, NyayaSetu पर आपका AI कानूनी सहायक।\n\nमैं आपके कानूनी अधिकार समझने में, सही दस्तावेज़ दाखिल करने में, और वकील से जोड़ने में मदद कर सकता हूं। आज आप क्या जानना चाहते हैं?`,

@@ -28,7 +28,6 @@ const DEFAULT_DEV_OTP = DEV_OTP || "123456";
 const PERSONA_MAP = PERSONAS || {
   CITIZEN: "citizen",
   LAWYER: "lawyer",
-  PARALEGAL: "paralegal",
   ADMIN: "admin",
 };
 const LANGUAGE_LIST = SUPPORTED_LANGUAGES || [
@@ -553,10 +552,7 @@ const getMe = asyncHandler(async (req, res) => {
     new Date() < new Date(user.subscription.validUntil);
 
   let lawyerProfile = null;
-  if (
-    user.persona === PERSONA_MAP.LAWYER ||
-    user.persona === PERSONA_MAP.PARALEGAL
-  ) {
+  if (user.persona === PERSONA_MAP.LAWYER) {
     lawyerProfile = await LawyerProfile.findOne({ user: user._id })
       .select("-ratings -verificationDocs -__v")
       .lean();

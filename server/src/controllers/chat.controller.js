@@ -19,14 +19,14 @@ const CITIZEN_PLAN_RANK = { free: 0, basic: 1, pro: 2 };
 const LAWYER_PLAN_RANK  = { free: 0, professional: 1, firm: 2 };
 
 function getPlanRank(persona, plan) {
-  if (persona === 'lawyer' || persona === 'paralegal') {
+  if (persona === 'lawyer') {
     return LAWYER_PLAN_RANK[plan] ?? 0;
   }
   return CITIZEN_PLAN_RANK[plan] ?? 0;
 }
 
 function meetsRequiredPlan(userPersona, userPlan, requiredPlan) {
-  const personaKey = (userPersona === 'lawyer' || userPersona === 'paralegal') ? 'lawyer' : 'citizen';
+  const personaKey = userPersona === 'lawyer' ? 'lawyer' : 'citizen';
   const required   = requiredPlan?.[personaKey] || 'free';
   return getPlanRank(userPersona, userPlan) >= getPlanRank(userPersona, required);
 }
@@ -96,7 +96,7 @@ const createSession = asyncHandler(async (req, res) => {
   // ── Plan gate: check if user's plan allows this template ──────────────────
   const isAlwaysFree = ALWAYS_FREE_TEMPLATES.includes(templateSlug);
   if (!isAlwaysFree && !meetsRequiredPlan(persona, plan, template.requiredPlan)) {
-    const personaKey = (persona === 'lawyer' || persona === 'paralegal') ? 'lawyer' : 'citizen';
+    const personaKey = persona === 'lawyer' ? 'lawyer' : 'citizen';
     return res.status(403).json({
       error:           'PLAN_REQUIRED',
       message:         `This document type requires the "${template.requiredPlan[personaKey]}" plan or higher.`,

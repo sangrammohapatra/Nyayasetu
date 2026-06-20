@@ -325,7 +325,7 @@ const router = createBrowserRouter([
   {
     path: "/lawyer",
     element: (
-      <ProtectedRoute allowedPersonas={["lawyer", "paralegal"]}>
+      <ProtectedRoute allowedPersonas={["lawyer"]}>
         <AppLayout />
       </ProtectedRoute>
     ),

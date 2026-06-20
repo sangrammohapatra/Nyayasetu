@@ -1,8 +1,7 @@
 {
   "hierarchies": {
-    "citizen":   ["free", "basic", "pro"],
-    "lawyer":    ["free", "professional", "firm"],
-    "paralegal": ["free", "professional", "firm"]
+    "citizen": ["free", "basic", "pro"],
+    "lawyer":  ["free", "professional", "firm"]
   },
   "planFeatures": {
     "citizen": {
@@ -70,14 +69,8 @@
         "priority_placement",
         "gold_verified_badge",
         "revenue_92pct",
-        "paralegal_accounts",
         "priority_support"
       ]
-    },
-    "paralegal": {
-      "free":         ["view_assigned_cases", "view_assigned_documents"],
-      "professional": ["edit_assigned_documents", "client_communication"],
-      "firm":         ["full_paralegal_access"]
     },
     "admin": {
       "free": ["admin_dashboard", "manage_users", "manage_templates", "verify_lawyers", "view_all_stats"]

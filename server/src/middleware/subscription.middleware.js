@@ -71,8 +71,7 @@ function checkFeatureAccess(feature) {
       return next();
     }
 
-    // Paralegals inherit lawyer plan permissions
-    const personaKey = (persona === 'paralegal') ? 'lawyer' : persona;
+    const personaKey = persona;
     const allowedPlans = featureConfig[personaKey] || [];
 
     // Free-tier features are always accessible — no DB hit needed

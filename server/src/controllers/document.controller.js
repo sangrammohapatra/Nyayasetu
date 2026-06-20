@@ -591,7 +591,7 @@ const updateApprovalStatus = asyncHandler(async (req, res) => {
   if (!document || document.isDeleted) throw createError(404, 'DOCUMENT_NOT_FOUND', 'Document not found');
 
   const isCitizen = document.user.equals(userId) && persona === 'citizen';
-  const isLawyer  = persona === 'lawyer' || persona === 'paralegal';
+  const isLawyer  = persona === 'lawyer';
 
   if (!isCitizen && !isLawyer) throw createError(403, 'FORBIDDEN', 'Access denied');
 
@@ -648,7 +648,7 @@ const addAnnotation = asyncHandler(async (req, res) => {
   const { note, clauseIndex, clauseText } = req.body;
 
   if (!note?.trim()) throw createError(400, 'NOTE_REQUIRED', 'Annotation note is required');
-  if (persona !== 'lawyer' && persona !== 'paralegal')
+  if (persona !== 'lawyer')
     throw createError(403, 'FORBIDDEN', 'Only lawyers can annotate documents');
 
   const document = await DocumentModel.findById(documentId);
@@ -702,7 +702,7 @@ const lawyerEditDocument = asyncHandler(async (req, res) => {
   const { content } = req.body;
 
   if (!content?.trim()) throw createError(400, 'CONTENT_REQUIRED', 'Edited content is required');
-  if (persona !== 'lawyer' && persona !== 'paralegal')
+  if (persona !== 'lawyer')
     throw createError(403, 'FORBIDDEN', 'Only lawyers can edit documents');
 
   const document = await DocumentModel.findById(documentId);
@@ -779,7 +779,7 @@ const getDocumentForLawyer = asyncHandler(async (req, res) => {
   const { consultationId } = req.params;
   const { userId, persona } = req.user;
 
-  if (persona !== 'lawyer' && persona !== 'paralegal')
+  if (persona !== 'lawyer')
     throw createError(403, 'FORBIDDEN', 'Lawyers only');
 
   const lawyerProf = await LawyerProfile.findOne({ user: userId }).select('_id').lean();

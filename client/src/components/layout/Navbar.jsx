@@ -101,7 +101,7 @@ function useNavLinks(persona, t) {
       { label: t('nav.templates', 'Templates'), path: '/admin/templates' },
       { label: t('nav.lawyers',   'Lawyers'),   path: '/admin/lawyers' },
     ];
-    return ({ citizen, lawyer, paralegal: lawyer, admin }[persona] || citizen);
+    return ({ citizen, lawyer, admin }[persona] || citizen);
   }, [persona, t]);
 }
 

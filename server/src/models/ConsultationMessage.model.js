@@ -16,7 +16,7 @@ const consultationMessageSchema = new Schema(
     },
     senderRole: {
       type: String,
-      enum: ['citizen', 'lawyer', 'paralegal'],
+      enum: ['citizen', 'lawyer'],
       required: true,
     },
     content: {

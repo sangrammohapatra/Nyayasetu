@@ -1731,7 +1731,7 @@ function Settings() {
   const user          = useSelector(selectUser);
   const persona       = useSelector(selectUserPersona);
   const lawyerProfile = useSelector(selectLawyerProfile);
-  const isLawyer      = persona === "lawyer" || persona === "paralegal";
+  const isLawyer      = persona === "lawyer";
 
   const [activeTab, setActiveTab] = useState("account");
   const [snack, setSnack] = useState({

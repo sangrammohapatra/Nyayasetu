@@ -25,7 +25,6 @@ const PLANS = {
 const PERSONAS = {
   CITIZEN: "CITIZEN",
   LAWYER: "LAWYER",
-  PARALEGAL: "PARALEGAL",
   ADMIN: "ADMIN",
   NOTARY: "NOTARY",
 };
@@ -155,7 +154,7 @@ const DOCUMENT_CATEGORIES = [
 
 // ─── User persona types ───────────────────────────────────────────────────────
 
-const PERSONA_TYPES = ["citizen", "lawyer", "paralegal", "admin", "notary"];
+const PERSONA_TYPES = ["citizen", "lawyer", "admin", "notary"];
 
 // ─── Notarization fee (paise) ─────────────────────────────────────────────────
 

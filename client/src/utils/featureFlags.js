@@ -24,7 +24,7 @@ export { FEATURE_MAP };
  * Return all features available to persona+plan, including inherited ones
  * from lower plans in the hierarchy.
  *
- * @param {string} persona  'citizen' | 'lawyer' | 'paralegal' | 'admin'
+ * @param {string} persona  'citizen' | 'lawyer' | 'admin'
  * @param {string} plan     e.g. 'free', 'basic', 'pro', 'professional', 'firm'
  * @returns {string[]}      Deduplicated feature list
  */
@@ -53,7 +53,7 @@ export function getFeaturesForPlan(persona, plan) {
 /**
  * Check whether a specific feature is accessible to a persona+plan combination.
  *
- * @param {string}  persona     'citizen' | 'lawyer' | 'paralegal' | 'admin'
+ * @param {string}  persona     'citizen' | 'lawyer' | 'admin'
  * @param {string}  plan        e.g. 'free', 'basic', 'pro'
  * @param {string}  featureName Feature key from FEATURE_MAP
  * @returns {boolean}

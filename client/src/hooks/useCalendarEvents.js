@@ -77,7 +77,7 @@ export function useCalendarEvents() {
 
   useEffect(() => {
     if (!persona) return;
-    if (['citizen', 'lawyer', 'paralegal'].includes(persona)) {
+    if (['citizen', 'lawyer'].includes(persona)) {
       dispatch(fetchConsultations({}));
     }
     if (persona === 'citizen') {
@@ -93,7 +93,7 @@ export function useCalendarEvents() {
     if (!persona) return [];
     const out = [];
 
-    if (['citizen', 'lawyer', 'paralegal'].includes(persona)) {
+    if (['citizen', 'lawyer'].includes(persona)) {
       consultations.forEach((c) => {
         const ev = consultationToEvent(c, persona === 'lawyer' ? 'lawyer' : 'citizen');
         if (ev) out.push(ev);

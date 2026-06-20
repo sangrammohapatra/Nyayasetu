@@ -71,7 +71,7 @@ function useBottomNavItems(persona, t, unread) {
     { icon: IC.dashboard,     label: 'Profile',  path: '/notary/profile' },
   ];
 
-  return ({ citizen, lawyer, paralegal: lawyer, admin, notary }[persona] || citizen);
+  return ({ citizen, lawyer, admin, notary }[persona] || citizen);
 }
 
 // ─── Animated icon with dot ───────────────────────────────────────────────────

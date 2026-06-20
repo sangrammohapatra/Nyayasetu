@@ -30,9 +30,8 @@ import { RADIUS, TYPOGRAPHY } from '../../theme/tokens';
 
 const PERSONA_COLORS = {
   citizen: { bg: 'rgba(25,118,210,0.1)', color: '#1976d2' },
-  lawyer: { bg: 'rgba(123,31,162,0.1)', color: '#7b1fa2' },
-  paralegal: { bg: 'rgba(230,81,0,0.1)', color: '#e65100' },
-  admin: { bg: 'rgba(211,47,47,0.1)', color: '#d32f2f' },
+  lawyer:  { bg: 'rgba(123,31,162,0.1)', color: '#7b1fa2' },
+  admin:   { bg: 'rgba(211,47,47,0.1)', color: '#d32f2f' },
 };
 
 const PLAN_COLORS = {
@@ -161,7 +160,7 @@ export default function AdminUsers() {
               <Select label="Persona" value={persona} onChange={(e) => { setPersona(e.target.value); setPage(0); }}
                 sx={{ borderRadius: `${RADIUS.md}px` }}>
                 <MenuItem value="">All</MenuItem>
-                {['citizen', 'lawyer', 'paralegal', 'admin'].map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                {['citizen', 'lawyer', 'admin'].map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
               </Select>
             </FormControl>
             <FormControl size="small" sx={{ minWidth: 110 }}>

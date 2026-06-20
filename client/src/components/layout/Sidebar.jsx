@@ -98,7 +98,7 @@ function useNavItems(persona, t) {
       { icon: IC.dashboard,     label: 'My Profile',     path: '/notary/profile' },
     ];
 
-    return { citizen, lawyer, paralegal: lawyer, admin, notary }[persona] || citizen;
+    return { citizen, lawyer, admin, notary }[persona] || citizen;
   }, [persona, t]);
 }
 

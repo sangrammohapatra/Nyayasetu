@@ -77,7 +77,7 @@ const optionalAuth = (req, res, next) => {
  *
  * Usage:
  *   router.delete('/:id', verifyToken, requirePersona('admin'), handler);
- *   router.post('/apply', verifyToken, requirePersona('lawyer', 'paralegal'), handler);
+ *   router.post('/apply', verifyToken, requirePersona('lawyer'), handler);
  *
  * Returns 401 if req.user is missing (verifyToken wasn't called first).
  * Returns 403 if the user's persona is not in the allowed list.
@@ -111,8 +111,8 @@ function requirePersona(...personas) {
 /** requireAdmin — blocks anyone who isn't an admin */
 const requireAdmin = requirePersona('admin');
 
-/** requireLawyer — allows lawyers, paralegals, and admins */
-const requireLawyer = requirePersona('lawyer', 'paralegal', 'admin');
+/** requireLawyer — allows lawyers and admins */
+const requireLawyer = requirePersona('lawyer', 'admin');
 
 /** requireCitizen — allows citizens and admins */
 const requireCitizen = requirePersona('citizen', 'admin');

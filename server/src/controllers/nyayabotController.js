@@ -5,7 +5,6 @@
  * Quota by persona + plan:
  *   Citizen  free=5,  basic=20,  pro=unlimited
  *   Lawyer   free=0,  professional=40, firm=unlimited
- *   Paralegal free=5, professional=20, firm=40
  *
  * All AI responses use Server-Sent Events (SSE) for real-time streaming.
  */

@@ -70,7 +70,7 @@ const NyayaBotSessionSchema = new mongoose.Schema(
     },
     persona: {
       type: String,
-      enum: ['citizen', 'lawyer', 'paralegal'],
+      enum: ['citizen', 'lawyer'],
       required: true,
     },
 
@@ -200,7 +200,6 @@ NyayaBotSessionSchema.statics.getQuotaConfig = function (persona, plan) {
   const configs = {
     citizen: { free: 5, basic: 20, pro: Infinity },
     lawyer: { free: 0, professional: 40, firm: Infinity },
-    paralegal: { free: 5, professional: 20, firm: 40 },
   };
   const personaConfig = configs[persona] || configs.citizen;
   const limit = personaConfig[plan];

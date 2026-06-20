@@ -45,8 +45,8 @@ router.post(
       .isIn(['monthly', 'annual']).withMessage('billingCycle must be monthly or annual'),
     body('persona')
       .optional()
-      .isIn(['citizen', 'lawyer', 'paralegal'])
-      .withMessage('persona must be citizen, lawyer, or paralegal'),
+      .isIn(['citizen', 'lawyer'])
+      .withMessage('persona must be citizen or lawyer'),
   ]),
   paymentController.createSubscriptionOrder
 );
@@ -75,8 +75,8 @@ router.post(
       .isIn(['monthly', 'annual']).withMessage('billingCycle must be monthly or annual'),
     body('persona')
       .optional()
-      .isIn(['citizen', 'lawyer', 'paralegal'])
-      .withMessage('persona must be citizen, lawyer, or paralegal'),
+      .isIn(['citizen', 'lawyer'])
+      .withMessage('persona must be citizen or lawyer'),
   ]),
   paymentController.verifySubscription
 );
