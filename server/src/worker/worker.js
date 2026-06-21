@@ -96,7 +96,10 @@ function loadProcessors() {
 
   // ── Subscription / quota management ───────────────────────────────────────
   subscriptionQueue.process('resetFreeQuota', 1, resetFreeQuotaJob.process);
-  // sendMonthlyReminder job file not yet implemented — processor omitted
+  // No-op until the real processor is built; prevents jobs accumulating in Redis.
+  notificationQueue.process('sendMonthlyReminder', 1, async (job) => {
+    logger.warn('[worker] sendMonthlyReminder not yet implemented — job skipped', { jobId: job.id });
+  });
 
   logger.info('[worker] All job processors registered');
 }
@@ -128,7 +131,7 @@ async function scheduleCronJobs() {
     'resetFreeQuota',
     {},
     {
-      repeat: { cron: '30 18 * * *', tz: 'UTC' },  // daily at 00:00 IST; job guards itself
+      repeat: { cron: '30 18 1 * *', tz: 'UTC' },  // 1st of month at 00:00 IST (18:30 UTC)
       jobId: 'cron_resetFreeQuota',
       removeOnComplete: true,
       removeOnFail: 50,
@@ -167,7 +170,7 @@ async function scheduleCronJobs() {
   logger.info('[worker] Cron jobs scheduled', {
     checkHearingDates:  '00:30 UTC daily (06:00 AM IST)',
     checkRTIDeadlines:  '01:30 UTC daily (07:00 AM IST)',
-    resetFreeQuota:     '18:30 UTC daily — self-guarded monthly reset',
+    resetFreeQuota:     '18:30 UTC on 1st of month (00:00 IST)',
     sendMonthlyReminder:'03:30 UTC on 1st of month (09:00 AM IST)',
   });
 }
