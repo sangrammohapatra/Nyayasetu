@@ -37,11 +37,13 @@ router.get('/stats', adminController.getStats);
  * ------------------------------------------------------------------------ */
 router.get('/users', adminController.listUsers);
 router.get('/users/:id', adminController.getUser);
+router.patch('/users/:id/toggle-active', adminController.toggleUserActive);
 
 /* ---------------------------------------------------------------------------
- * Lawyer verification
+ * Lawyer verification / rejection
  * ------------------------------------------------------------------------ */
 router.post('/lawyers/:id/verify', adminController.verifyLawyer);
+router.post('/lawyers/:id/reject', adminController.rejectLawyer);
 
 /* ---------------------------------------------------------------------------
  * Audit log

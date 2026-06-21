@@ -338,8 +338,129 @@ const updateTemplate = asyncHandler(async (req, res) => {
   }
 });
 
+/* ---------------------------------------------------------------------------
+ * rejectLawyer
+ * POST /v1/admin/lawyers/:id/reject
+ * id = LawyerProfile._id
+ * body: { reason?: string }
+ * ------------------------------------------------------------------------ */
+const rejectLawyer = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'Invalid lawyer profile id' });
+  }
+
+  const profile = await LawyerProfile.findById(id).populate('user', 'name email phone whatsappOptIn whatsappNumber');
+  if (!profile) {
+    return res.status(404).json({ error: 'Lawyer profile not found' });
+  }
+
+  if (profile.isVerified) {
+    return res.status(409).json({ error: 'Cannot reject an already verified lawyer' });
+  }
+
+  profile.verificationStatus = 'rejected';
+  profile.rejectedAt = new Date();
+  profile.rejectedBy = req.user.userId;
+  if (reason) profile.rejectionReason = reason;
+  await profile.save();
+
+  const lawyerUser = profile.user;
+
+  // WhatsApp notification (best-effort)
+  if (lawyerUser && lawyerUser.whatsappOptIn && lawyerUser.whatsappNumber) {
+    try {
+      const reasonText = reason ? `\n\nReason: ${reason}` : '';
+      await whatsappService.sendMessage(
+        lawyerUser.whatsappNumber,
+        `❌ *NyayaSetu* — Hi ${lawyerUser.name || ''},\n\nWe were unable to verify your lawyer profile at this time.${reasonText}\n\nPlease log in at nyayasetu.in to update your documents and resubmit.`
+      );
+    } catch (err) {
+      logger.warn('[admin.controller] rejectLawyer WA notify failed', { error: err.message });
+    }
+  }
+
+  // Email notification (best-effort)
+  if (lawyerUser && lawyerUser.email) {
+    try {
+      await emailService.sendEmail({
+        to: lawyerUser.email,
+        subject: 'Update on your NyayaSetu lawyer profile verification',
+        html: `<p>Dear ${lawyerUser.name || 'Advocate'},</p>
+<p>We were unable to verify your lawyer profile at this time.</p>
+${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
+<p>Please log in to <a href="https://nyayasetu.in">nyayasetu.in</a>, update your documents, and resubmit for review.</p>
+<p>If you have questions, please contact support@nyayasetu.in</p>`,
+      });
+    } catch (err) {
+      logger.warn('[admin.controller] rejectLawyer email notify failed', { error: err.message });
+    }
+  }
+
+  // In-app notification
+  try {
+    await Notification.createForUser({
+      userId: lawyerUser._id,
+      type: 'lawyer_rejected',
+      title: 'Profile verification update',
+      body: reason
+        ? `Your lawyer profile could not be verified. Reason: ${reason}`
+        : 'Your lawyer profile could not be verified at this time. Please update your documents and resubmit.',
+      data: { lawyerProfileId: profile._id },
+      actionUrl: '/lawyer/setup',
+      io: req.app.get('io'),
+    });
+  } catch (_) {}
+
+  logger.info('[admin.controller] Lawyer rejected', {
+    lawyerProfileId: profile._id,
+    adminUserId: req.user.userId,
+    reason,
+  });
+
+  return res.json({ ok: true, lawyerProfileId: profile._id, verificationStatus: 'rejected' });
+});
+
+/* ---------------------------------------------------------------------------
+ * toggleUserActive
+ * PATCH /v1/admin/users/:id/toggle-active
+ * Enables or disables a user account.
+ * ------------------------------------------------------------------------ */
+const toggleUserActive = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'Invalid user id' });
+  }
+
+  const user = await User.findById(id).select('name email phone isActive persona');
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  // Prevent admins from deactivating other admins
+  if (user.persona === 'admin') {
+    return res.status(403).json({ error: 'Cannot toggle active status of admin accounts' });
+  }
+
+  user.isActive = !user.isActive;
+  await user.save();
+
+  logger.info('[admin.controller] User active status toggled', {
+    targetUserId: user._id,
+    isActive: user.isActive,
+    adminUserId: req.user.userId,
+  });
+
+  return res.json({ ok: true, userId: user._id, isActive: user.isActive });
+});
+
 module.exports = {
   verifyLawyer,
+  rejectLawyer,
+  toggleUserActive,
   getStats,
   listUsers,
   getUser,
