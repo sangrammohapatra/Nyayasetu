@@ -3,7 +3,7 @@
 const express = require('express');
 const router  = express.Router();
 
-const { protect } = require('../middleware/auth.middleware');
+const { verifyToken } = require('../middleware/auth.middleware');
 const {
   listRTIs,
   getRTIDetail,
@@ -19,7 +19,7 @@ const {
 } = require('../controllers/rti.controller');
 
 // All RTI routes require authentication
-router.use(protect);
+router.use(verifyToken);
 
 // Ministry reference data
 router.get('/ministries',                    getMinistries);
