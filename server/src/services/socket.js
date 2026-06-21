@@ -19,7 +19,6 @@ const jwt = require('jsonwebtoken');
 const ConsultationMessage = require('../models/ConsultationMessage.model');
 const Consultation = require('../models/Consultation.model');
 const User = require('../models/User.model');
-const LawyerProfile = require('../models/LawyerProfile.model');
 const logger = require('../utils/logger');
 
 // ─── JWT auth middleware for socket connections ────────────────────────────────
@@ -45,17 +44,13 @@ async function socketAuth(socket, next) {
 }
 
 // ─── Verify the user is a party to the consultation ──────────────────────────
-// NOTE: Consultation.lawyer stores LawyerProfile._id (not User._id).
-// Citizen is stored as User._id. So the check is asymmetric.
+// Both consultation.citizen and consultation.lawyer store User._id (ref: 'User').
 async function assertIsParty(consultationId, userId) {
   const c = await Consultation.findById(consultationId).select('citizen lawyer').lean();
   if (!c) return null;
 
   if (c.citizen.toString() === userId) return c;
-
-  // Check lawyer side: find LawyerProfile for this user and compare
-  const profile = await LawyerProfile.findOne({ user: userId }).select('_id').lean();
-  if (profile && c.lawyer.toString() === profile._id.toString()) return c;
+  if (c.lawyer.toString() === userId) return c;
 
   return null;
 }
@@ -118,23 +113,16 @@ function initSocket(io) {
         io.to(`consultation:${consultationId}`).emit('consultation:message', populated);
 
         // Notify the other party's personal room (for unread badge even if not in room)
-        // Lawyer stores LawyerProfile._id, so we must resolve the actual User._id
-        let otherId;
-        if (consultation.citizen.toString() === socket.userId) {
-          const lawyerProf = await LawyerProfile.findById(consultation.lawyer).select('user').lean();
-          otherId = lawyerProf?.user?.toString() || null;
-        } else {
-          otherId = consultation.citizen.toString();
-        }
+        const otherId = consultation.citizen.toString() === socket.userId
+          ? consultation.lawyer.toString()
+          : consultation.citizen.toString();
 
-        if (otherId) {
-          io.to(`user:${otherId}`).emit('consultation:new_message', {
-            consultationId,
-            messageId:  msg._id,
-            senderName: socket.userName,
-            preview:    content.slice(0, 60),
-          });
-        }
+        io.to(`user:${otherId}`).emit('consultation:new_message', {
+          consultationId,
+          messageId:  msg._id,
+          senderName: socket.userName,
+          preview:    content.slice(0, 60),
+        });
       } catch (err) {
         logger.error(`consultation:message error: ${err.message}`);
         socket.emit('consultation:error', { code: 'MESSAGE_FAILED', message: err.message });
@@ -142,12 +130,18 @@ function initSocket(io) {
     });
 
     // ── Typing indicator ──────────────────────────────────────────────────────
-    socket.on('consultation:typing', ({ consultationId, isTyping }) => {
+    socket.on('consultation:typing', async ({ consultationId, isTyping }) => {
       if (!consultationId) return;
-      socket.to(`consultation:${consultationId}`).emit('consultation:typing', {
-        userId: socket.userId,
-        isTyping: !!isTyping,
-      });
+      try {
+        const consultation = await assertIsParty(consultationId, socket.userId);
+        if (!consultation) return;
+        socket.to(`consultation:${consultationId}`).emit('consultation:typing', {
+          userId: socket.userId,
+          isTyping: !!isTyping,
+        });
+      } catch (err) {
+        logger.error(`consultation:typing error: ${err.message}`);
+      }
     });
 
     // ── Leave a consultation room ─────────────────────────────────────────────

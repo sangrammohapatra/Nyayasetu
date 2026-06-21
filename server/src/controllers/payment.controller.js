@@ -178,21 +178,26 @@ const verifyDocumentPayment = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Payment signature verification failed' });
   }
 
-  const payment = await Payment.findOne({ razorpayOrderId: orderId });
+  // Atomic transition created → paid. Only one concurrent request wins the update;
+  // subsequent retries get null and fall into the idempotent path below.
+  const payment = await Payment.findOneAndUpdate(
+    { razorpayOrderId: orderId, status: { $ne: 'paid' } },
+    { $set: { status: 'paid', razorpayPaymentId: paymentId, paidAt: new Date() } },
+    { new: true }
+  );
+
   if (!payment) {
-    return res.status(404).json({ error: 'Payment record not found' });
-  }
-
-  // Idempotent — if already processed just return success
-  if (payment.status === 'paid') {
+    // Null can mean "already paid" or "record not found" — distinguish them.
+    const existing = await Payment.findOne({ razorpayOrderId: orderId })
+      .select('status')
+      .lean();
+    if (!existing) {
+      return res.status(404).json({ error: 'Payment record not found' });
+    }
+    // Already paid — return success without re-running side effects.
     const doc = await Document.findById(documentId).select('pdfUrl').lean();
-    return res.json({ success: true, pdfUrl: doc && doc.pdfUrl });
+    return res.json({ success: true, pdfUrl: doc?.pdfUrl ?? null });
   }
-
-  payment.status = 'paid';
-  payment.razorpayPaymentId = paymentId;
-  payment.paidAt = new Date();
-  await payment.save();
 
   const doc = await Document.findOneAndUpdate(
     { _id: documentId, user: userId },

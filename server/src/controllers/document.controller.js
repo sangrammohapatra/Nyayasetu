@@ -395,14 +395,17 @@ const explainClauseHandler = asyncHandler(async (req, res) => {
  */
 const shareDocument = asyncHandler(async (req, res) => {
   const { id: documentId } = req.params;
-  const { userId }         = req.user;
+  const { userId, plan }   = req.user;
   const { expiryDays = 30 } = req.body;
 
   const document = await DocumentModel.findById(documentId);
   if (!document || document.isDeleted) throw createError(404, 'DOCUMENT_NOT_FOUND', 'Document not found');
   if (!document.user.equals(userId))   throw createError(403, 'FORBIDDEN', 'Access denied');
 
-  await document.generateShareToken(Math.min(90, Math.max(1, expiryDays)));
+  const maxDays = (plan === 'pro' || plan === 'professional' || plan === 'firm') ? 90
+                : plan === 'basic' ? 30
+                : 7; // free
+  await document.generateShareToken(Math.min(maxDays, Math.max(1, expiryDays)));
 
   const shareUrl = `${process.env.CLIENT_URL || 'https://nyayasetu.in'}/documents/shared/${document.shareToken}`;
 
