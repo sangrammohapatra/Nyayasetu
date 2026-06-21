@@ -41,6 +41,8 @@ import {
 } from '../../store/slices/notarySlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import ClauseExplainer from '../../components/document/ClauseExplainer';
+import { useOfflineDocuments } from '../../hooks/useOfflineDocuments';
+import { useOfflineStatus } from '../../hooks/useOfflineStatus';
 import FeatureGate from '../../components/ui/FeatureGate';
 import GlassCard from '../../components/ui/GlassCard';
 import GradientHeading from '../../components/ui/GradientHeading';
@@ -290,7 +292,7 @@ function notarizationStatusLabel(req) {
   return map[req.status] || { label: req.status, color: '#757575', bg: 'rgba(0,0,0,0.05)' };
 }
 
-function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenerating, onSign, signing, onDownloadSigned, onConnectLawyer, onOpenChat, linkedConsultation, plan, onNotarize, onPayNotarization, notarizationRequest }) {
+function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenerating, onSign, signing, onDownloadSigned, onConnectLawyer, onOpenChat, linkedConsultation, plan, onNotarize, onPayNotarization, notarizationRequest, onSaveOffline, savedOffline, isOnline }) {
   const { t } = useTranslation();
   const isPaid = doc?.isPaid || plan === 'basic' || plan === 'pro';
   const approvalMeta = APPROVAL_META[doc?.approvalStatus] || APPROVAL_META.draft;
@@ -405,6 +407,24 @@ function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenera
             '&:hover': { borderColor: 'var(--color-primary)', background: 'var(--color-primary-alpha)' },
           }}>
           🔗 {t('myDocs.share', 'Copy Share Link')}
+        </Button>
+
+        <Button
+          fullWidth
+          variant="outlined"
+          onClick={savedOffline ? undefined : onSaveOffline}
+          disabled={savedOffline || !isOnline}
+          sx={{
+            mb: 1, borderRadius: `${RADIUS.md}px`, fontWeight: 600,
+            borderColor: savedOffline ? '#2e7d32' : 'var(--color-border)',
+            color: savedOffline ? '#2e7d32' : 'var(--color-text)',
+            background: savedOffline ? 'rgba(46,125,50,0.07)' : undefined,
+            cursor: savedOffline ? 'default' : 'pointer',
+            '&:hover': savedOffline ? {} : { borderColor: '#2e7d32', background: 'rgba(46,125,50,0.07)' },
+            '&.Mui-disabled': { opacity: 0.55 },
+          }}
+        >
+          {savedOffline ? '✓ Saved for offline' : isOnline ? '⬇ Save for offline' : 'No connection to save'}
         </Button>
 
         {isPaid && (
@@ -767,6 +787,9 @@ function DocumentPreview() {
   const plan = useSelector(selectUserPlan);
   const docError = useSelector(selectDocumentError);
   const notarizationRequest = useSelector(selectDocumentNotarizationStatus);
+  const { isPinned, pin } = useOfflineDocuments();
+  const isOnline = useOfflineStatus();
+  const savedOffline = isPinned(documentId);
 
   const [mobileTab, setMobileTab] = useState(0);
   const [clauseAnchor, setClauseAnchor] = useState(null);
@@ -1083,7 +1106,10 @@ function DocumentPreview() {
                 plan={plan}
                 onNotarize={() => setNotarizeOpen(true)}
                 onPayNotarization={handlePayNotarization}
-                notarizationRequest={notarizationRequest} />
+                notarizationRequest={notarizationRequest}
+                onSaveOffline={() => pin(documentId)}
+                savedOffline={savedOffline}
+                isOnline={isOnline} />
             )}
             {mobileTab === 3 && doc?.previousVersions?.length > 0 && (
               <Box sx={{ p: 1 }}>

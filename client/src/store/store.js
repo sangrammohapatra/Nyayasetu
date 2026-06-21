@@ -1,8 +1,11 @@
 /**
  * client/src/store/store.js
  *
- * redux-persist is used for auth + ui slices only.
- * All other slices use plain in-memory state (re-hydrated from the API on mount).
+ * Slices persisted to localStorage:
+ *   auth     — token, refreshToken, user
+ *   ui       — theme, language
+ *   document — documents list + currentDocument (offline viewing)
+ *   chat     — currentSession + messages (resume after reconnection)
  */
 
 import { configureStore, combineReducers } from "@reduxjs/toolkit";
@@ -45,15 +48,31 @@ const uiPersistConfig = {
   whitelist: ["theme", "language"],
 };
 
+// Persist the document list and the currently-open document so rural users
+// can browse their documents even when connectivity drops.
+const documentPersistConfig = {
+  key: "nyayasetu_documents",
+  storage,
+  whitelist: ["documents", "currentDocument", "total"],
+};
+
+// Persist the active chat session so an in-progress interview survives a
+// network interruption; ChatFlow's ResumeDialog picks it up on reconnect.
+const chatPersistConfig = {
+  key: "nyayasetu_chat",
+  storage,
+  whitelist: ["currentSession", "messages"],
+};
+
 // ─── Root reducer ─────────────────────────────────────────────────────────────
 
 const rootReducer = combineReducers({
   error: errorReducer,
   auth: persistReducer(authPersistConfig, authReducer),
   ui: persistReducer(uiPersistConfig, uiReducer),
-  chat: chatReducer,
+  chat: persistReducer(chatPersistConfig, chatReducer),
   nyayabot: nyayabotReducer,
-  document: documentReducer,
+  document: persistReducer(documentPersistConfig, documentReducer),
   case: caseReducer,
   subscription: subscriptionReducer,
   notification: notificationReducer,

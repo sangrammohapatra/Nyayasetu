@@ -40,6 +40,7 @@ import NyayaBotWidget from "./components/nyayabot/NyayaBotWidget";
 import ScrollProgressBar from "./components/ui/ScrollProgressBar";
 import ErrorBoundaryWithDispatch from "./components/ui/ErrorBoundary";
 import { ErrorNotificationSnackbar } from "./hooks/useErrorHandling";
+import OfflineBanner from "./components/ui/OfflineBanner";
 import socketService from "./services/socket";
 import {
   receiveMessage,
@@ -646,21 +647,15 @@ function AppBootstrap() {
     document.documentElement.lang = language || "en";
   }, [language]);
 
-  // Register service worker
+  // Signal to index.html loader that React is ready.
+  // SW registration is handled by vite-plugin-pwa (injectRegister: 'auto') — no manual register needed.
   useEffect(() => {
-    if ("serviceWorker" in navigator && import.meta.env.PROD) {
-      navigator.serviceWorker
-        .register("/sw.js")
-        .then((reg) => console.info("[SW] Registered:", reg.scope))
-        .catch((err) => console.warn("[SW] Registration failed:", err));
-    }
-
-    // Signal to index.html loader that React is ready
     window.dispatchEvent(new Event("nyayasetu:ready"));
   }, []);
 
   return (
     <ErrorBoundaryWithDispatch>
+      <OfflineBanner />
       <ErrorNotificationSnackbar />
       <GlobalSnackbars />
       <Suspense fallback={<PageLoader />}>

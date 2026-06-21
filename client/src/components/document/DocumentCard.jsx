@@ -38,7 +38,7 @@ export function DocumentCardSkeleton() {
   );
 }
 
-export default function DocumentCard({ doc, plan, onView, onDownload, onShare, onDelete, delay = 0 }) {
+export default function DocumentCard({ doc, plan, onView, onDownload, onShare, onDelete, delay = 0, offlineSaved = false }) {
   const { t } = useTranslation();
   const prefersReducedMotion = useReducedMotion();
   const status = STATUS_CONFIG[doc.status] || STATUS_CONFIG.completed;
@@ -89,6 +89,11 @@ export default function DocumentCard({ doc, plan, onView, onDownload, onShare, o
                 <Chip size="small" label="✓ PDF Ready"
                   sx={{ height: 19, fontSize: '0.67rem', fontWeight: 600,
                     background: 'rgba(46,125,50,0.1)', color: 'var(--color-success)', border: 'none' }} />
+              )}
+              {offlineSaved && (
+                <Chip size="small" label="⬇ Offline"
+                  sx={{ height: 19, fontSize: '0.67rem', fontWeight: 600,
+                    background: 'rgba(2,136,209,0.1)', color: '#0288d1', border: 'none' }} />
               )}
             </Box>
           </Box>

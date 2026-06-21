@@ -29,6 +29,7 @@ import {
   selectDocuments,
 } from '../../store/slices/documentSlice';
 import { selectUserPlan } from '../../store/slices/authSlice';
+import { useOfflineDocuments } from '../../hooks/useOfflineDocuments';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GradientHeading from '../../components/ui/GradientHeading';
 import DocumentCard, { DocumentCardSkeleton, CATEGORY_ICONS } from '../../components/document/DocumentCard';
@@ -90,6 +91,7 @@ function MyDocuments() {
   const prefersReducedMotion = useReducedMotion();
   const plan = useSelector(selectUserPlan);
   const allDocuments = useSelector(selectDocuments);
+  const { isPinned } = useOfflineDocuments();
 
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -263,6 +265,7 @@ function MyDocuments() {
                   onDownload={handleDownload}
                   onShare={handleShare}
                   onDelete={setDeleteTarget}
+                  offlineSaved={isPinned(doc._id)}
                 />
               ))}
 

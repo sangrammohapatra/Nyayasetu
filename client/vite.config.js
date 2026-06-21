@@ -49,6 +49,22 @@ export default defineConfig({
 
         // Runtime caching strategies
         runtimeCaching: [
+            // ── Document API — Stale While Revalidate ────────────────────────
+          // Documents are served from cache immediately; background-refreshed.
+          // 24-hour TTL keeps them readable offline after the last network hit.
+          {
+            urlPattern: /^https?:\/\/[^/]+\/v1\/documents(?:\/[^/]+)?$/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'nyayasetu-documents',
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: {
+                maxEntries: 200,
+                maxAgeSeconds: 60 * 60 * 24, // 24 hours
+              },
+            },
+          },
+
           // ── API calls — Network First ────────────────────────────────────
           // Always try network first so data is fresh; fall back to cache
           {
