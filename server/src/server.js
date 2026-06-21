@@ -12,6 +12,7 @@ const PORT = process.env.PORT || 5000;
 
 const REQUIRED_ENV_VARS = [
   'JWT_SECRET',
+  'JWT_REFRESH_SECRET',
   'MONGO_URI',
   'RAZORPAY_KEY_SECRET',
 ];
