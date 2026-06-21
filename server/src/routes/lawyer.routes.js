@@ -25,11 +25,20 @@
 
 const express = require('express');
 const router = express.Router();
+const { query, validationResult } = require('express-validator');
 
 const lawyerController = require('../controllers/lawyer.controller');
 const consultationController = require('../controllers/consultation.controller');
 const { verifyToken, requirePersona } = require('../middleware/auth.middleware');
 const { PERSONAS } = require('../config/constants');
+
+const rejectIfInvalid = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', fields: errors.mapped() });
+  }
+  next();
+};
 
 /* ===========================================================================
  *  LAWYER ROUTES
@@ -40,7 +49,22 @@ const { PERSONAS } = require('../config/constants');
  * Public search — only verified lawyers returned.
  * Auth required (optionalAuth could be used, but context spec says 'auth').
  */
-router.get('/lawyers', verifyToken, lawyerController.searchLawyers);
+router.get(
+  '/lawyers',
+  verifyToken,
+  [
+    query('state').optional().isString().trim().isLength({ max: 100 }).escape(),
+    query('specialisation').optional().isString().trim().isLength({ max: 100 }).escape(),
+    query('district').optional().isString().trim().isLength({ max: 100 }).escape(),
+    query('minRating').optional().isFloat({ min: 0, max: 5 }),
+    query('maxFee').optional().isInt({ min: 0 }),
+    query('availableOnly').optional().isBoolean(),
+    query('page').optional().isInt({ min: 1 }),
+    query('limit').optional().isInt({ min: 1, max: 50 }),
+  ],
+  rejectIfInvalid,
+  lawyerController.searchLawyers
+);
 
 /**
  * GET /v1/lawyers/me/clients

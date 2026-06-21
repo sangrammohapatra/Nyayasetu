@@ -140,6 +140,13 @@ module.exports = async function processGenerateDocument(job) {
     document.pdfSizeBytes   = pdfBuffer.length;
     await document.save();
 
+    // ── 5b. Increment free-tier quota — only on success ───────────────────────
+    // Quota is consumed here (not in the HTTP controller) so that a failed job
+    // never permanently costs the user a document slot.
+    if (document.accessType === 'free_tier' && !document.isPaid) {
+      await User.findByIdAndUpdate(userId, { $inc: { 'freeUsage.docsGenerated': 1 } });
+    }
+
     await job.progress(90);
     logger.info(`[job/generateDocument] PDF uploaded: ${storageKey}`);
 

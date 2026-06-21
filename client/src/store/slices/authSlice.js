@@ -127,8 +127,12 @@ export const logout = createAsyncThunk(
     } finally {
       localStorage.removeItem('nyayasetu_token');
       localStorage.removeItem('nyayasetu_refresh_token');
-      // Clear the redux-persist snapshot so stale session isn't rehydrated on reload
+      // Wipe every persisted slice so the next user on the same device
+      // cannot see the previous user's documents, cases, or chat history.
       localStorage.removeItem('nyayasetu_auth');
+      localStorage.removeItem('nyayasetu_ui');
+      localStorage.removeItem('nyayasetu_documents');
+      localStorage.removeItem('nyayasetu_chat');
     }
     return null;
   }

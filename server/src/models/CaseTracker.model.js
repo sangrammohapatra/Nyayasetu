@@ -192,7 +192,7 @@ caseTrackerSchema.index({ cnrNumber: 1, user: 1 }, { unique: true }); // One use
 caseTrackerSchema.index({ nextHearingDate: 1, alertsEnabled: 1 });
 caseTrackerSchema.index({ state: 1 });
 caseTrackerSchema.index({ caseStatus: 1 });
-caseTrackerSchema.index({ sharedWithLawyer: 1 }, { sparse: true });
+caseTrackerSchema.index({ sharedWithLawyer: 1, user: 1 }, { sparse: true });
 
 // ─── Virtuals ─────────────────────────────────────────────────────────────────
 

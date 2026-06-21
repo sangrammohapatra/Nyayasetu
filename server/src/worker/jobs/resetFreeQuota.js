@@ -33,6 +33,7 @@
 
 const mongoose = require('mongoose');
 const logger = require('../../utils/logger');
+const { FREE_TIER_LIMITS } = require('../../config/constants');
 
 /**
  * Compute the 1st of next month at 00:00:00 UTC.
@@ -95,7 +96,7 @@ async function process(job) {
 
   // Cursor-based iteration — never load all users at once
   const cursor = User.find(filter)
-    .select('_id freeUsage subscription')
+    .select('_id persona freeUsage subscription')
     .lean()
     .cursor();
 
@@ -106,19 +107,36 @@ async function process(job) {
 
     const newResetDate = nextMonthFirstDay(now);
 
-    const bulkOps = batch.map(user => ({
-      updateOne: {
-        filter: { _id: user._id },
-        update: {
-          $set: {
-            'freeUsage.docsGenerated': 0,
-            'freeUsage.casesTracked': 0,
-            'freeUsage.aiChatsUsed': 0,
-            'freeUsage.resetDate': newResetDate,
+    const bulkOps = batch.map(user => {
+      const persona = user.persona || 'citizen';
+      const subPlan = user.subscription?.plan;
+      const subActive =
+        subPlan &&
+        subPlan !== 'free' &&
+        user.subscription?.validUntil &&
+        now < new Date(user.subscription.validUntil);
+      const activePlan = subActive ? subPlan : 'free';
+      const limits =
+        FREE_TIER_LIMITS[persona]?.[activePlan] ||
+        FREE_TIER_LIMITS.citizen.free;
+
+      return {
+        updateOne: {
+          filter: { _id: user._id },
+          update: {
+            $set: {
+              'freeUsage.docsGenerated': 0,
+              'freeUsage.casesTracked': 0,
+              'freeUsage.aiChatsUsed': 0,
+              'freeUsage.docsLimit': limits.docsLimit,
+              'freeUsage.casesLimit': limits.casesLimit,
+              'freeUsage.aiChatsLimit': limits.aiChatsLimit,
+              'freeUsage.resetDate': newResetDate,
+            },
           },
         },
-      },
-    }));
+      };
+    });
 
     try {
       const result = await User.bulkWrite(bulkOps, { ordered: false });

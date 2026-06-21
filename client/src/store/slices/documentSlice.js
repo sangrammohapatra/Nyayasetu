@@ -175,6 +175,7 @@ const initialState = {
   generating: false,
   generationProgress: 0,
   pdfUrl: null,
+  pdfUrlExpiresAt: null,
   error: null,
   // Clause explanation streaming state
   activeClauseIndex: null,
@@ -200,6 +201,7 @@ const documentSlice = createSlice({
     clearCurrentDocument(state) {
       state.currentDocument = null;
       state.pdfUrl = null;
+      state.pdfUrlExpiresAt = null;
       state.clauseExplanations = {};
     },
     clauseExplanationStart(state, action) {
@@ -274,6 +276,7 @@ const documentSlice = createSlice({
     builder
       .addCase(getPDF.fulfilled, (state, action) => {
         state.pdfUrl = action.payload.pdfUrl;
+        state.pdfUrlExpiresAt = action.payload.expiresAt || null;
       })
       .addCase(getPDF.rejected, (state, action) => {
         state.error = action.payload;
@@ -317,6 +320,7 @@ export const selectCurrentDocument = (state) => state.document.currentDocument;
 export const selectIsGenerating = (state) => state.document.generating;
 export const selectGenerationProgress = (state) => state.document.generationProgress;
 export const selectPdfUrl = (state) => state.document.pdfUrl;
+export const selectPdfUrlExpiresAt = (state) => state.document.pdfUrlExpiresAt;
 export const selectDocumentError = (state) => state.document.error;
 export const selectClauseExplanations = (state) => state.document.clauseExplanations;
 export const selectClauseBuffer = (state) => state.document.clauseExplanationBuffer;

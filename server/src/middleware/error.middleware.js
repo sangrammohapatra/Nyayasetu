@@ -135,7 +135,7 @@ function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-va
   if (mapped.field)  response.field  = mapped.field;
 
   // Stack trace — development only, never in production (Rule #20)
-  if (process.env.NODE_ENV === 'development' && mapped.status >= 500) {
+  if (process.env.NODE_ENV !== 'production' && mapped.status >= 500) {
     response.stack = err.stack;
   }
 

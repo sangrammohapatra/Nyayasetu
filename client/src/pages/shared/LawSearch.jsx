@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import DOMPurify from "dompurify";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -108,7 +109,7 @@ function ResultCard({ doc, index }) {
                   WebkitBoxOrient: "vertical",
                   overflow: "hidden",
                 }}
-                dangerouslySetInnerHTML={{ __html: doc.headline }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(doc.headline) }}
               />
             ) : null}
 

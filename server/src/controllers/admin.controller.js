@@ -20,6 +20,7 @@ const whatsappService = require('../services/notification/whatsappService');
 const emailService = require('../services/notification/emailService');
 const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
+const { getRedisClient } = require('../config/redis');
 
 /* ---------------------------------------------------------------------------
  * verifyLawyer
@@ -417,10 +418,7 @@ const rejectLawyer = asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'NOT_FOUND', message: 'Lawyer profile not found' });
   }
 
-  if (profile.isVerified) {
-    return res.status(409).json({ error: 'ALREADY_VERIFIED', message: 'Cannot reject an already verified lawyer' });
-  }
-
+  profile.isVerified = false;
   profile.verificationStatus = 'rejected';
   profile.rejectedAt = new Date();
   profile.rejectedBy = req.user.userId;
@@ -428,6 +426,15 @@ const rejectLawyer = asyncHandler(async (req, res) => {
   await profile.save();
 
   const lawyerUser = profile.user;
+
+  // Invalidate any active sessions so a rejected/revoked lawyer cannot keep operating.
+  if (lawyerUser) {
+    await User.findByIdAndUpdate(lawyerUser._id, { $set: { refreshTokens: [] } });
+    const redis = getRedisClient();
+    if (redis) {
+      await redis.set(`user:suspended:${lawyerUser._id}`, '1', 'EX', 3600);
+    }
+  }
 
   // WhatsApp notification (best-effort)
   if (lawyerUser && lawyerUser.whatsappOptIn && lawyerUser.whatsappNumber) {
@@ -715,7 +722,26 @@ const toggleUserActive = asyncHandler(async (req, res) => {
     return res.status(403).json({ error: 'FORBIDDEN', message: 'Cannot toggle active status of admin accounts' });
   }
 
+  const deactivating = user.isActive; // true means we're about to set it false
   user.isActive = !user.isActive;
+
+  if (deactivating) {
+    // Invalidate all existing sessions immediately.
+    // Clearing refreshTokens prevents new access tokens; the Redis blocklist key
+    // blocks the current access token for the remainder of its 1-hour lifetime.
+    user.refreshTokens = [];
+    const redis = getRedisClient();
+    if (redis) {
+      await redis.set(`user:suspended:${user._id}`, '1', 'EX', 3600);
+    }
+  } else {
+    // Reactivating — lift the suspension blocklist entry.
+    const redis = getRedisClient();
+    if (redis) {
+      await redis.del(`user:suspended:${user._id}`);
+    }
+  }
+
   await user.save();
 
   logger.info('[admin.controller] User active status toggled', {
@@ -727,6 +753,51 @@ const toggleUserActive = asyncHandler(async (req, res) => {
   return res.json({ ok: true, userId: user._id, isActive: user.isActive });
 });
 
+/* ---------------------------------------------------------------------------
+ * revokeSubscription
+ * POST /v1/admin/users/:id/revoke-subscription
+ * Immediately expires a user's paid subscription — used for chargebacks,
+ * policy violations, or fraud. Normal cancellation honours the paid period;
+ * this does not.
+ * ------------------------------------------------------------------------ */
+
+const revokeSubscription = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid user id' });
+  }
+
+  const user = await User.findById(id).select('name subscription');
+  if (!user) {
+    return res.status(404).json({ error: 'NOT_FOUND', message: 'User not found' });
+  }
+
+  const now = new Date();
+
+  // Expire the embedded subscription on User immediately
+  await User.findByIdAndUpdate(id, {
+    $set: {
+      'subscription.plan':       'free',
+      'subscription.validUntil': now,
+      'subscription.autoRenew':  false,
+    },
+  });
+
+  // Also close the Subscription document record if one exists
+  await Subscription.findOneAndUpdate(
+    { user: id, isActive: true },
+    { $set: { isActive: false, cancelledAt: now, endDate: now, autoRenew: false } }
+  );
+
+  logger.info('[admin.controller] Subscription force-revoked', {
+    targetUserId: id,
+    adminUserId: req.user.userId,
+  });
+
+  return res.json({ ok: true, userId: id, revokedAt: now });
+});
+
 module.exports = {
   verifyLawyer,
   rejectLawyer,
@@ -735,6 +806,7 @@ module.exports = {
   rejectNotary,
   listNotaries,
   toggleUserActive,
+  revokeSubscription,
   getStats,
   listUsers,
   getUser,

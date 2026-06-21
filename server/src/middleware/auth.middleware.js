@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { createError } = require('./error.middleware');
 const asyncHandler = require('../utils/asyncHandler');
+const { getRedisClient } = require('../config/redis');
 
 // ─── verifyToken ───────────────────────────────────────────────────────────────
 
@@ -25,6 +26,16 @@ const verifyToken = asyncHandler(async (req, res, next) => {
   // jwt.verify throws JsonWebTokenError or TokenExpiredError on failure —
   // those bubble to errorHandler via asyncHandler → mapped to 401.
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+  // Check Redis suspension blocklist — set by admin toggleUserActive on deactivation.
+  // Fail open if Redis is unavailable so a Redis outage doesn't lock out all users.
+  const redis = getRedisClient();
+  if (redis) {
+    const suspended = await redis.exists(`user:suspended:${decoded.userId}`);
+    if (suspended) {
+      throw createError(401, 'ACCOUNT_SUSPENDED', 'Your account has been suspended');
+    }
+  }
 
   req.user = {
     userId:  decoded.userId,

@@ -38,6 +38,7 @@ router.get('/stats', adminController.getStats);
 router.get('/users', adminController.listUsers);
 router.get('/users/:id', adminController.getUser);
 router.patch('/users/:id/toggle-active', adminController.toggleUserActive);
+router.post('/users/:id/revoke-subscription', adminController.revokeSubscription);
 
 /* ---------------------------------------------------------------------------
  * Lawyer listing, verification, and rejection

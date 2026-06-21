@@ -47,7 +47,7 @@ function computeDataFreshness(lastSyncedAt) {
  * Validate CNR → quota check → duplicate check → eCourts fetch → create document.
  */
 const addCase = asyncHandler(async (req, res) => {
-  const { userId, plan } = req.user;
+  const { userId } = req.user;
   const { cnrNumber, state, district, alertDaysBefore = 1, alertChannels = {} } = req.body;
 
   // ── CNR validation ─────────────────────────────────────────────────────────
@@ -64,9 +64,12 @@ const addCase = asyncHandler(async (req, res) => {
   if (!user) throw createError(404, 'USER_NOT_FOUND', 'User not found');
 
   // ── Quota check: cases tracked ─────────────────────────────────────────────
-  const isSubscribed = plan !== 'free' &&
+  const now = new Date();
+  const isSubscribed =
+    user.subscription?.plan &&
+    user.subscription.plan !== 'free' &&
     user.subscription?.validUntil &&
-    new Date() < new Date(user.subscription.validUntil);
+    now < new Date(user.subscription.validUntil);
 
   if (!isSubscribed) {
     const used  = user.freeUsage?.casesTracked  ?? 0;
@@ -364,9 +367,12 @@ const shareWithLawyer = asyncHandler(async (req, res) => {
  */
 const removeCase = asyncHandler(async (req, res) => {
   const { id: caseId } = req.params;
-  const { userId, plan } = req.user;
+  const { userId } = req.user;
 
-  const caseDoc = await CaseTracker.findById(caseId);
+  const [caseDoc, user] = await Promise.all([
+    CaseTracker.findById(caseId),
+    User.findById(userId).select('subscription').lean(),
+  ]);
   if (!caseDoc)                      throw createError(404, 'CASE_NOT_FOUND', 'Case not found');
   if (!caseDoc.user.equals(userId))  throw createError(403, 'FORBIDDEN', 'Access denied');
   if (!caseDoc.isActive)             return res.json({ message: 'Case already removed' });
@@ -374,8 +380,13 @@ const removeCase = asyncHandler(async (req, res) => {
   caseDoc.isActive = false;
   await caseDoc.save();
 
-  // Decrement counter for free-tier users
-  const isSubscribed = plan !== 'free';
+  // Decrement counter only for users without an active paid subscription
+  const now = new Date();
+  const isSubscribed =
+    user?.subscription?.plan &&
+    user.subscription.plan !== 'free' &&
+    user.subscription?.validUntil &&
+    now < new Date(user.subscription.validUntil);
   if (!isSubscribed) {
     await User.findByIdAndUpdate(userId, {
       $inc: { 'freeUsage.casesTracked': -1 },

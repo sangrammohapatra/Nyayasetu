@@ -21,6 +21,7 @@
     "axios": "^1.7.7",
     "canvas-confetti": "^1.9.4",
     "date-fns": "^3.6.0",
+    "dompurify": "^3.4.11",
     "framer-motion": "^11.11.1",
     "i18next": "^23.16.2",
     "i18next-browser-languagedetector": "^8.0.0",

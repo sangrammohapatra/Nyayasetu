@@ -31,7 +31,7 @@ import { useTheme } from '@mui/material/styles';
 
 import {
   getDocument, getPDF, shareDocument, regenerateDocument,
-  selectCurrentDocument, selectDocumentError, clearDocumentError,
+  selectCurrentDocument, selectDocumentError, clearDocumentError, selectPdfUrlExpiresAt,
 } from '../../store/slices/documentSlice';
 import { selectUserPlan } from '../../store/slices/authSlice';
 import {
@@ -785,6 +785,7 @@ function DocumentPreview() {
 
   const doc = useSelector(selectCurrentDocument);
   const plan = useSelector(selectUserPlan);
+  const pdfUrlExpiresAt = useSelector(selectPdfUrlExpiresAt);
   const docError = useSelector(selectDocumentError);
   const notarizationRequest = useSelector(selectDocumentNotarizationStatus);
   const { isPinned, pin } = useOfflineDocuments();
@@ -857,6 +858,10 @@ function DocumentPreview() {
   const handleDownload = async () => {
     const canDownload = doc?.isPaid || plan === 'basic' || plan === 'pro';
     if (canDownload) {
+      // Always fetch a URL from the server. If the previously cached URL is still
+      // within its validity window the server returns from Redis (N14); otherwise
+      // a fresh signed URL is generated. Either way the client never uses a
+      // potentially-expired URL from Redux state directly.
       const result = await dispatch(getPDF(documentId));
       if (result.payload?.pdfUrl) {
         window.open(result.payload.pdfUrl, '_blank');

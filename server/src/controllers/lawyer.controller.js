@@ -236,7 +236,7 @@ const applyAsLawyer = asyncHandler(async (req, res) => {
           barCouncilNumber: barCouncilNumber.trim(),
           specialisations: toArray(specialisations),
           practicingStates: toArray(practicingStates),
-          experience: parseInt(experience, 10) || 0,
+          experience: Math.max(0, parseInt(experience, 10) || 0),
           bio: bio || '',
           consultationFee: parseInt(consultationFee, 10),
           district: district || '',
@@ -252,7 +252,7 @@ const applyAsLawyer = asyncHandler(async (req, res) => {
           })() : {}),
         },
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true }
     );
 
     // Notify admins (best-effort)
@@ -315,6 +315,10 @@ const updateLawyerProfile = asyncHandler(async (req, res) => {
     if (updates[field] !== undefined && !Array.isArray(updates[field])) {
       updates[field] = String(updates[field]).split(',').map(s => s.trim()).filter(Boolean);
     }
+  }
+
+  if (updates.experience !== undefined) {
+    updates.experience = Math.max(0, parseInt(updates.experience, 10) || 0);
   }
 
   if (Object.keys(updates).length === 0) {

@@ -9,6 +9,7 @@ const LawyerProfile    = require('../models/LawyerProfile.model');
 const AuditLog         = require('../models/AuditLog.model');
 const Notification     = require('../models/Notification.model');
 const { getSignedPdfUrl } = require('../services/storage/storageProvider');
+const { getRedisClient } = require('../config/redis');
 const { explainClause }   = require('../services/ai/clauseExplainer');
 const asyncHandler     = require('../utils/asyncHandler');
 const { createError }  = require('../middleware/error.middleware');
@@ -130,12 +131,9 @@ const generateDocument = asyncHandler(async (req, res) => {
     version: 1,
   });
 
-  // ── Increment document usage for free-tier users ───────────────────────────
-  if (accessType === DOCUMENT_ACCESS_TYPES.FREE_TIER && !template.isAlwaysFree) {
-    await User.findByIdAndUpdate(userId, { $inc: { 'freeUsage.docsGenerated': 1 } });
-  }
-
   // ── Enqueue generation job ────────────────────────────────────────────────
+  // NOTE: quota is incremented inside the Bull job, after PDF upload succeeds,
+  // so a job failure never permanently consumes a free-tier document slot.
   const job = await getDocumentQueue().add(
     'generateDocument',
     { sessionId, userId, documentId: document._id.toString() },
@@ -195,13 +193,23 @@ const getDocument = asyncHandler(async (req, res) => {
     docObj._upgradeUrl = '/pricing';
     docObj._upgradeMessage = 'Upgrade to Basic or Pro to download the PDF.';
   } else if (document.pdfStorageKey) {
-    // Generate a fresh 15-min signed URL on each access (Rule #9)
-    try {
-      docObj.pdfUrl = await getSignedPdfUrl(document.pdfStorageKey);
-    } catch (err) {
-      logger.error(`[document/get] Failed to sign PDF URL: ${err.message}`);
-      docObj.pdfUrl = null;
+    // Serve a cached signed URL when possible — generating one on every GET
+    // burns a storage provider API call per page view. Cache for TTL-60s so
+    // the URL is always valid for the full duration a client holds it.
+    const redis = getRedisClient();
+    const cacheKey = `pdf:signed:${documentId}`;
+    let signedUrl = redis ? await redis.get(cacheKey) : null;
+    if (!signedUrl) {
+      try {
+        signedUrl = await getSignedPdfUrl(document.pdfStorageKey);
+        if (redis && signedUrl) {
+          await redis.set(cacheKey, signedUrl, 'EX', PDF_URL_EXPIRY_SECONDS - 60);
+        }
+      } catch (err) {
+        logger.error(`[document/get] Failed to sign PDF URL: ${err.message}`);
+      }
     }
+    docObj.pdfUrl = signedUrl || null;
   }
 
   // Always remove internal storage key from response
@@ -904,6 +912,10 @@ const initiateSign = asyncHandler(async (req, res) => {
 const signWebhook = asyncHandler(async (req, res) => {
   const { handleWebhook } = require('../services/signature/signatureProvider');
   const { uploadPDF, getSignedPdfUrl } = require('../services/storage/storageProvider');
+
+  if (!req.rawBody) {
+    return res.status(400).json({ error: 'MISSING_RAW_BODY', message: 'Missing raw body' });
+  }
 
   const signature = req.headers['x-signdesk-signature'] || '';
   const { valid, parsed } = handleWebhook(req.rawBody, signature, req.body);

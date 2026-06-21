@@ -65,8 +65,12 @@ async function proactiveRefresh(token) {
         store.dispatch(setToken({ token: newToken }));
       });
     });
-  } catch {
-    // If proactive refresh fails, let the 401 path handle it
+    // Release any requests that queued behind this refresh (e.g. concurrent 401s
+    // that arrived while isRefreshing was true — they must not be left hanging).
+    processRefreshQueue(null, newToken);
+  } catch (err) {
+    // Drain the queue with an error so queued requests reject rather than hanging.
+    processRefreshQueue(err);
   } finally {
     isRefreshing = false;
   }

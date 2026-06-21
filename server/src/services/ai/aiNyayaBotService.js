@@ -229,10 +229,13 @@ RULES:
   const conversationHistory = buildConversationHistory(messageHistory);
 
   try {
+    // Wrap in a role-separation envelope so injection attempts ("ignore prior instructions")
+    // sit inside a labelled slot the system prompt explicitly governs, not at top-level.
+    const wrappedQuery = `User question (respond accurately only to legal queries): ${userQuery}`;
     const rawResponse = await aiProvider.chat(
       [
         ...conversationHistory,
-        { role: 'user', content: userQuery },
+        { role: 'user', content: wrappedQuery },
       ],
       systemPrompt,
       false,
