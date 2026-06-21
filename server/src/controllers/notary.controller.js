@@ -10,9 +10,8 @@ const razorpayService = require('../services/payment/razorpayService');
 const storageProvider = require('../services/storage/storageProvider');
 const videoProvider = require('../services/video/videoProvider');
 const logger = require('../utils/logger');
-const { PERSONAS } = require('../config/constants');
-
-const NOTARIZATION_FEE = 19900; // ₹199 in paise
+const { PERSONAS, NOTARIZATION_FEE } = require('../config/constants');
+const { signTokenPair } = require('./auth.controller');
 
 // ─── Multer (certificate upload) ─────────────────────────────────────────────
 const upload = multer({
@@ -54,18 +53,20 @@ exports.searchNotaries = async (req, res) => {
     if (language) filter.languages = language;
     if (minRating) filter.averageRating = { $gte: parseFloat(minRating) };
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
+    const skip = (pageNum - 1) * limitNum;
 
     const [items, total] = await Promise.all([
       NotaryProfile.find(filter)
         .populate('user', 'name avatar state preferredLanguage')
         .sort({ averageRating: -1, totalNotarizations: -1 })
         .skip(skip)
-        .limit(parseInt(limit)),
+        .limit(limitNum),
       NotaryProfile.countDocuments(filter),
     ]);
 
-    res.json({ items, total, page: parseInt(page), limit: parseInt(limit) });
+    res.json({ items, total, page: pageNum, limit: limitNum });
   } catch (err) {
     logger.error('searchNotaries error:', err);
     res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to search notaries' });
@@ -93,7 +94,7 @@ exports.getNotaryProfile = async (req, res) => {
 
 exports.applyAsNotary = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.userId;
 
     const existing = await NotaryProfile.findOne({ user: userId });
     if (existing) {
@@ -123,24 +124,33 @@ exports.applyAsNotary = async (req, res) => {
       practicingStates: Array.isArray(practicingStates) ? practicingStates : (practicingStates ? [practicingStates] : []),
     };
 
-    if (req.file) {
-      const uploaded = await storageProvider.upload(req.file.buffer, {
-        folder: 'notary-certs',
-        filename: `notary_cert_${userId}`,
-        mimetype: req.file.mimetype,
-      });
-      profileData.verificationDocs = [{
-        type: 'notary_certificate',
-        url: uploaded.url,
-        uploadedAt: new Date(),
-      }];
+    if (!req.file) {
+      return res.status(400).json({ error: 'CERTIFICATE_REQUIRED', message: 'Notary certificate document is required' });
     }
+
+    const uploaded = await storageProvider.upload(req.file.buffer, {
+      folder: 'notary-certs',
+      filename: `notary_cert_${userId}`,
+      mimetype: req.file.mimetype,
+    });
+    profileData.verificationDocs = [{
+      type: 'notary_certificate',
+      url: uploaded.url,
+      uploadedAt: new Date(),
+    }];
 
     const profile = await NotaryProfile.create(profileData);
 
-    await User.findByIdAndUpdate(userId, { persona: PERSONAS.NOTARY });
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { persona: PERSONAS.NOTARY },
+      { new: true }
+    );
 
-    res.status(201).json({ message: 'Application submitted. Under review.', profile });
+    const { accessToken, refreshToken } = signTokenPair(updatedUser);
+    await updatedUser.addRefreshToken(refreshToken);
+
+    res.status(201).json({ message: 'Application submitted. Under review.', profile, accessToken, refreshToken });
   } catch (err) {
     logger.error('applyAsNotary error:', err);
     if (err.code === 11000) {
@@ -154,7 +164,7 @@ exports.applyAsNotary = async (req, res) => {
 
 exports.updateNotaryProfile = async (req, res) => {
   try {
-    const profile = await NotaryProfile.findOne({ user: req.user._id });
+    const profile = await NotaryProfile.findOne({ user: req.user.userId });
     if (!profile) return res.status(404).json({ error: 'NOT_FOUND', message: 'Profile not found' });
 
     const allowed = ['bio', 'languages', 'practicingStates', 'experience', 'isAcceptingRequests', 'availability'];
@@ -174,7 +184,7 @@ exports.updateNotaryProfile = async (req, res) => {
 
 exports.createNotarizationRequest = async (req, res) => {
   try {
-    const citizenId = req.user._id;
+    const citizenId = req.user.userId;
     const { notaryId, documentId, notes, courierRequested, courierAddress } = req.body;
 
     // Validate notary
@@ -240,7 +250,7 @@ exports.verifyNotarizationPayment = async (req, res) => {
     }
 
     const notarizationReq = await NotarizationRequest.findOneAndUpdate(
-      { _id: requestId, citizen: req.user._id, 'payment.razorpayOrderId': razorpayOrderId },
+      { _id: requestId, citizen: req.user.userId, 'payment.razorpayOrderId': razorpayOrderId },
       {
         'payment.status': 'paid',
         'payment.razorpayPaymentId': razorpayPaymentId,
@@ -292,17 +302,24 @@ exports.verifyNotarizationPayment = async (req, res) => {
 
 exports.listNotarizationRequests = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.userId;
     const persona = req.user.persona?.toLowerCase();
     const { status, page = 1, limit = 20 } = req.query;
 
-    const filter = persona === 'notary'
-      ? { notary: userId }
-      : { citizen: userId };
+    let filter = {};
+    if (persona === 'admin') {
+      // no restriction — admins see all requests
+    } else if (persona === 'notary') {
+      filter.notary = userId;
+    } else {
+      filter.citizen = userId;
+    }
 
     if (status) filter.status = status;
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
+    const skip = (pageNum - 1) * limitNum;
 
     const [items, total] = await Promise.all([
       NotarizationRequest.find(filter)
@@ -312,11 +329,11 @@ exports.listNotarizationRequests = async (req, res) => {
         .populate('document', 'title template createdAt')
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(parseInt(limit)),
+        .limit(limitNum),
       NotarizationRequest.countDocuments(filter),
     ]);
 
-    res.json({ items, total, page: parseInt(page), limit: parseInt(limit) });
+    res.json({ items, total, page: pageNum, limit: limitNum });
   } catch (err) {
     logger.error('listNotarizationRequests error:', err);
     res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to load requests' });
@@ -327,7 +344,7 @@ exports.listNotarizationRequests = async (req, res) => {
 
 exports.getNotarizationRequest = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.userId;
     const request = await NotarizationRequest.findById(req.params.id)
       .populate('citizen', 'name avatar phone')
       .populate('notary', 'name avatar')
@@ -351,7 +368,7 @@ exports.getNotarizationRequest = async (req, res) => {
 exports.acceptRequest = async (req, res) => {
   try {
     const existing = await NotarizationRequest.findOne({
-      _id: req.params.id, notary: req.user._id, status: 'pending',
+      _id: req.params.id, notary: req.user.userId, status: 'pending',
     });
     if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Request not found' });
 
@@ -410,7 +427,7 @@ exports.scheduleKYC = async (req, res) => {
     });
 
     const request = await NotarizationRequest.findOneAndUpdate(
-      { _id: req.params.id, notary: req.user._id, status: 'accepted', 'payment.status': 'paid' },
+      { _id: req.params.id, notary: req.user.userId, status: 'accepted', 'payment.status': 'paid' },
       {
         status: 'kyc_scheduled',
         scheduledAt: new Date(scheduledAt),
@@ -447,7 +464,7 @@ exports.scheduleKYC = async (req, res) => {
 exports.completeKYC = async (req, res) => {
   try {
     const request = await NotarizationRequest.findOneAndUpdate(
-      { _id: req.params.id, notary: req.user._id, status: 'kyc_scheduled' },
+      { _id: req.params.id, notary: req.user.userId, status: 'kyc_scheduled' },
       { status: 'kyc_completed', kycCompletedAt: new Date() },
       { new: true }
     );
@@ -479,14 +496,14 @@ exports.stampDocument = async (req, res) => {
   try {
     const request = await NotarizationRequest.findOne({
       _id: req.params.id,
-      notary: req.user._id,
+      notary: req.user.userId,
       status: 'kyc_completed',
     }).populate('document').populate('notaryProfile');
 
     if (!request) return res.status(404).json({ error: 'NOT_FOUND' });
 
     const notaryProfile = request.notaryProfile;
-    const notary = await User.findById(req.user._id);
+    const notary = await User.findById(req.user.userId);
 
     // Generate stamp reference
     const stampRef = generateStampRef();
@@ -561,7 +578,7 @@ exports.rejectRequest = async (req, res) => {
   try {
     const { reason } = req.body;
     const request = await NotarizationRequest.findOneAndUpdate(
-      { _id: req.params.id, notary: req.user._id, status: { $in: ['pending', 'accepted'] } },
+      { _id: req.params.id, notary: req.user.userId, status: { $in: ['pending', 'accepted'] } },
       { status: 'rejected', rejectionReason: reason?.trim() },
       { new: true }
     );
@@ -605,7 +622,7 @@ exports.requestCourier = async (req, res) => {
   try {
     const { courierAddress } = req.body;
     const request = await NotarizationRequest.findOneAndUpdate(
-      { _id: req.params.id, citizen: req.user._id, status: 'stamped', courierRequested: false },
+      { _id: req.params.id, citizen: req.user.userId, status: 'stamped', courierRequested: false },
       { courierRequested: true, courierAddress },
       { new: true }
     );
@@ -623,7 +640,7 @@ exports.markDispatched = async (req, res) => {
   try {
     const { courierTrackingId } = req.body;
     const request = await NotarizationRequest.findOneAndUpdate(
-      { _id: req.params.id, notary: req.user._id, status: 'stamped', courierRequested: true },
+      { _id: req.params.id, notary: req.user.userId, status: 'stamped', courierRequested: true },
       {
         status: 'dispatched',
         courierTrackingId: courierTrackingId?.trim(),
@@ -667,7 +684,7 @@ exports.rateNotary = async (req, res) => {
     const request = await NotarizationRequest.findOneAndUpdate(
       {
         _id: req.params.id,
-        citizen: req.user._id,
+        citizen: req.user.userId,
         status: { $in: ['stamped', 'dispatched'] },
         'rating.score': { $exists: false },
       },
@@ -679,7 +696,7 @@ exports.rateNotary = async (req, res) => {
 
     const notaryProfile = await NotaryProfile.findById(request.notaryProfile);
     if (notaryProfile) {
-      await notaryProfile.addRating({ citizenId: req.user._id, requestId: request._id, score, review });
+      await notaryProfile.addRating({ citizenId: req.user.userId, requestId: request._id, score, review });
     }
 
     res.json({ message: 'Rating submitted', request });
@@ -695,7 +712,7 @@ exports.getDocumentNotarizationStatus = async (req, res) => {
   try {
     const request = await NotarizationRequest.findOne({
       document: req.params.documentId,
-      citizen: req.user._id,
+      citizen: req.user.userId,
       status: { $nin: ['rejected', 'cancelled'] },
     })
       .populate('notary', 'name avatar')

@@ -31,7 +31,7 @@
 const express = require('express');
 
 const notaryController = require('../controllers/notary.controller');
-const { verifyToken, requirePersona } = require('../middleware/auth.middleware');
+const { verifyToken, optionalAuth, requirePersona } = require('../middleware/auth.middleware');
 const { PERSONAS } = require('../config/constants');
 
 // ─── Notary Profile Router ────────────────────────────────────────────────────
@@ -39,7 +39,7 @@ const { PERSONAS } = require('../config/constants');
 
 const notaryProfileRouter = express.Router();
 
-notaryProfileRouter.get('/', verifyToken, notaryController.searchNotaries);
+notaryProfileRouter.get('/', optionalAuth, notaryController.searchNotaries);
 
 notaryProfileRouter.post(
   '/apply',
@@ -63,7 +63,7 @@ notaryProfileRouter.get(
   async (req, res) => {
     try {
       const NotaryProfile = require('../models/NotaryProfile.model');
-      const profile = await NotaryProfile.findOne({ user: req.user._id });
+      const profile = await NotaryProfile.findOne({ user: req.user.userId });
       if (!profile) return res.status(404).json({ error: 'NOT_FOUND', message: 'Profile not found' });
       res.json(profile);
     } catch (err) {
