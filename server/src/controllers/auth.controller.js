@@ -4,6 +4,7 @@ const bcrypt = require("bcryptjs");
 const { isEmail } = require("validator");
 const User = require("../models/User.model");
 const LawyerProfile = require("../models/LawyerProfile.model");
+const NotaryProfile = require("../models/NotaryProfile.model");
 const AuditLog = require("../models/AuditLog.model");
 const redisConfig = require("../config/redis");
 const { sendOTP } = require("../services/notification/smsService");
@@ -578,7 +579,14 @@ const getMe = asyncHandler(async (req, res) => {
       .lean();
   }
 
-  res.status(200).json({ user: { ...user, isSubscribed }, lawyerProfile });
+  let notaryProfile = null;
+  if (user.persona === PERSONA_MAP.NOTARY) {
+    notaryProfile = await NotaryProfile.findOne({ user: user._id })
+      .select("-ratings -verificationDocs -__v")
+      .lean();
+  }
+
+  res.status(200).json({ user: { ...user, isSubscribed }, lawyerProfile, notaryProfile });
 });
 
 // ─── updateMe ────────────────────────────────────────────────────────────────

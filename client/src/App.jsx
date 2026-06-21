@@ -52,6 +52,7 @@ import {
   selectUserPersona,
   selectAuthLoading,
   selectLawyerProfile,
+  selectNotaryProfile,
   getMe,
   forceLogout,
 } from "./store/slices/authSlice";
@@ -97,6 +98,7 @@ const ConsultationsPage = lazy(() => import("./pages/lawyer/ConsultationsPage"))
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const AdminUsers     = lazy(() => import('./pages/admin/AdminUsers'));
 const AdminLawyers   = lazy(() => import('./pages/admin/AdminLawyers'));
+const AdminNotaries  = lazy(() => import('./pages/admin/AdminNotaries'));
 const AdminTemplates = lazy(() => import('./pages/admin/AdminTemplates'));
 const AdminAuditLog  = lazy(() => import('./pages/admin/AdminAuditLog'));
 const LawSearch           = lazy(() => import('./pages/shared/LawSearch'));
@@ -104,6 +106,7 @@ const EmergencyHelpline   = lazy(() => import('./pages/citizen/EmergencyHelpline
 const LandingPage         = lazy(() => import('./pages/public/LandingPage'));
 
 // Notary
+const NotaryVerificationPending = lazy(() => import('./pages/notary/NotaryVerificationPending'));
 const NotaryHome            = lazy(() => import('./pages/notary/NotaryHome'));
 const NotaryDashboard       = lazy(() => import('./pages/notary/NotaryDashboard'));
 const NotarizationRequests  = lazy(() => import('./pages/notary/NotarizationRequests'));
@@ -251,6 +254,25 @@ function LawyerVerifiedGate() {
     return (
       <Suspense fallback={<PageLoader />}>
         <LawyerVerificationPending />
+      </Suspense>
+    );
+  }
+
+  return <Outlet />;
+}
+
+// ─── Notary verification gate ────────────────────────────────────────────────
+
+function NotaryVerifiedGate() {
+  const notaryProfile = useSelector(selectNotaryProfile);
+  const loading = useSelector(selectAuthLoading);
+
+  if (loading && !notaryProfile) return <PageLoader />;
+
+  if (!notaryProfile?.isVerified) {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <NotaryVerificationPending />
       </Suspense>
     );
   }
@@ -417,6 +439,14 @@ const router = createBrowserRouter([
         ),
       },
       {
+        path: "notaries",
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <AdminNotaries />
+          </Suspense>
+        ),
+      },
+      {
         path: "templates",
         element: (
           <Suspense fallback={<PageLoader />}>
@@ -445,32 +475,39 @@ const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <Navigate to="/notary/home" replace /> },
-      {
-        path: "home",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <NotaryHome />
-          </Suspense>
-        ),
-      },
-      {
-        path: "requests",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <NotarizationRequests />
-          </Suspense>
-        ),
-      },
-      {
-        path: "profile",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <NotaryDashboard />
-          </Suspense>
-        ),
-      },
+      // Settings is always accessible so an unverified notary can update their profile
       { path: "settings", element: <Settings /> },
-      { path: "calendar", element: <CalendarPage /> },
+      // Everything else requires verification
+      {
+        element: <NotaryVerifiedGate />,
+        children: [
+          {
+            path: "home",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <NotaryHome />
+              </Suspense>
+            ),
+          },
+          {
+            path: "requests",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <NotarizationRequests />
+              </Suspense>
+            ),
+          },
+          {
+            path: "profile",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <NotaryDashboard />
+              </Suspense>
+            ),
+          },
+          { path: "calendar", element: <CalendarPage /> },
+        ],
+      },
     ],
   },
 

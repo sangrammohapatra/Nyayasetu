@@ -47,6 +47,13 @@ router.post('/lawyers/:id/verify', adminController.verifyLawyer);
 router.post('/lawyers/:id/reject', adminController.rejectLawyer);
 
 /* ---------------------------------------------------------------------------
+ * Notary listing, verification, and rejection
+ * ------------------------------------------------------------------------ */
+router.get('/notaries', adminController.listNotaries);
+router.post('/notaries/:id/verify', adminController.verifyNotary);
+router.post('/notaries/:id/reject', adminController.rejectNotary);
+
+/* ---------------------------------------------------------------------------
  * Audit log
  * ------------------------------------------------------------------------ */
 router.get('/audit-logs', adminController.getAuditLogs);

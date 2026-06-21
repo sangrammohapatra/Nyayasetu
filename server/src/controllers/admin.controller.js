@@ -8,6 +8,7 @@ const mongoose = require('mongoose');
 
 const User = require('../models/User.model');
 const LawyerProfile = require('../models/LawyerProfile.model');
+const NotaryProfile = require('../models/NotaryProfile.model');
 const Document = require('../models/Document.model');
 const Payment = require('../models/Payment.model');
 const CaseTracker = require('../models/CaseTracker.model');
@@ -483,6 +484,216 @@ ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
 });
 
 /* ---------------------------------------------------------------------------
+ * listNotaries
+ * GET /v1/admin/notaries
+ * Query: status (pending|under_review|approved|rejected), search, page, limit
+ * ------------------------------------------------------------------------ */
+const listNotaries = asyncHandler(async (req, res) => {
+  const { status, search, page = 1, limit = 20 } = req.query;
+
+  const pageNum  = Math.max(1, parseInt(page,  10) || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+  const skip     = (pageNum - 1) * limitNum;
+
+  const filter = {};
+  if (status) filter.verificationStatus = status;
+
+  if (search) {
+    const esc = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const matchingUsers = await User.find({
+      persona: { $regex: /^notary$/i },
+      $or: [
+        { name:  { $regex: esc, $options: 'i' } },
+        { email: { $regex: esc, $options: 'i' } },
+        { phone: { $regex: esc, $options: 'i' } },
+      ],
+    }).select('_id').lean();
+
+    if (matchingUsers.length === 0) {
+      return res.json({ notaries: [], total: 0, page: pageNum, limit: limitNum, totalPages: 0 });
+    }
+    filter.user = { $in: matchingUsers.map((u) => u._id) };
+  }
+
+  try {
+    const [notaries, total] = await Promise.all([
+      NotaryProfile.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .populate('user', 'name email phone isActive')
+        .lean(),
+      NotaryProfile.countDocuments(filter),
+    ]);
+
+    return res.json({
+      notaries,
+      total,
+      page:       pageNum,
+      limit:      limitNum,
+      totalPages: Math.max(1, Math.ceil(total / limitNum)),
+    });
+  } catch (err) {
+    logger.error('[admin.controller] listNotaries failed', { error: err.message });
+    return res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Failed to load notaries' });
+  }
+});
+
+/* ---------------------------------------------------------------------------
+ * verifyNotary
+ * POST /v1/admin/notaries/:id/verify
+ * id = NotaryProfile._id
+ * ------------------------------------------------------------------------ */
+const verifyNotary = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid notary profile id' });
+  }
+
+  const profile = await NotaryProfile.findById(id).populate('user', 'name email phone whatsappOptIn whatsappNumber');
+  if (!profile) {
+    return res.status(404).json({ error: 'NOT_FOUND', message: 'Notary profile not found' });
+  }
+
+  if (profile.isVerified) {
+    return res.status(409).json({ error: 'ALREADY_VERIFIED', message: 'Notary is already verified' });
+  }
+
+  profile.isVerified = true;
+  profile.verificationStatus = 'approved';
+  profile.verifiedAt = new Date();
+  profile.verifiedBy = req.user.userId;
+  await profile.save();
+
+  const notaryUser = profile.user;
+
+  if (notaryUser && notaryUser.whatsappOptIn && notaryUser.whatsappNumber) {
+    try {
+      await whatsappService.sendMessage(
+        notaryUser.whatsappNumber,
+        `✅ *NyayaSetu* — Congratulations, ${notaryUser.name || ''}!\n\nYour notary profile has been verified. You are now live on the platform and can start accepting notarization requests.\n\nLog in at nyayasetu.in to complete your profile.`
+      );
+    } catch (err) {
+      logger.warn('[admin.controller] verifyNotary WA notify failed', { error: err.message });
+    }
+  }
+
+  if (notaryUser && notaryUser.email) {
+    try {
+      await emailService.sendEmail({
+        to: notaryUser.email,
+        subject: 'Your NyayaSetu notary profile is now verified ✅',
+        html: emailService.welcomeEmail(notaryUser.name || 'Notary'),
+      });
+    } catch (err) {
+      logger.warn('[admin.controller] verifyNotary email notify failed', { error: err.message });
+    }
+  }
+
+  try {
+    await Notification.createForUser({
+      userId: notaryUser._id,
+      type: 'notary_verified',
+      title: 'Your profile is verified',
+      body: 'Congratulations! Your notary profile has been verified. You are now visible to citizens on NyayaSetu.',
+      data: { notaryProfileId: profile._id },
+      actionUrl: '/notary/dashboard',
+      io: req.app.get('io'),
+    });
+  } catch (_) {}
+
+  logger.info('[admin.controller] Notary verified', {
+    notaryProfileId: profile._id,
+    adminUserId: req.user.userId,
+  });
+
+  return res.json({ ok: true, notaryProfileId: profile._id, isVerified: true });
+});
+
+/* ---------------------------------------------------------------------------
+ * rejectNotary
+ * POST /v1/admin/notaries/:id/reject
+ * id = NotaryProfile._id
+ * body: { reason?: string }
+ * ------------------------------------------------------------------------ */
+const rejectNotary = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid notary profile id' });
+  }
+
+  const profile = await NotaryProfile.findById(id).populate('user', 'name email phone whatsappOptIn whatsappNumber');
+  if (!profile) {
+    return res.status(404).json({ error: 'NOT_FOUND', message: 'Notary profile not found' });
+  }
+
+  if (profile.isVerified) {
+    return res.status(409).json({ error: 'ALREADY_VERIFIED', message: 'Cannot reject an already verified notary' });
+  }
+
+  profile.verificationStatus = 'rejected';
+  profile.rejectedAt = new Date();
+  profile.rejectedBy = req.user.userId;
+  if (reason) profile.rejectionReason = reason;
+  await profile.save();
+
+  const notaryUser = profile.user;
+
+  if (notaryUser && notaryUser.whatsappOptIn && notaryUser.whatsappNumber) {
+    try {
+      const reasonText = reason ? `\n\nReason: ${reason}` : '';
+      await whatsappService.sendMessage(
+        notaryUser.whatsappNumber,
+        `❌ *NyayaSetu* — Hi ${notaryUser.name || ''},\n\nWe were unable to verify your notary profile at this time.${reasonText}\n\nPlease log in at nyayasetu.in to update your documents and resubmit.`
+      );
+    } catch (err) {
+      logger.warn('[admin.controller] rejectNotary WA notify failed', { error: err.message });
+    }
+  }
+
+  if (notaryUser && notaryUser.email) {
+    try {
+      await emailService.sendEmail({
+        to: notaryUser.email,
+        subject: 'Update on your NyayaSetu notary profile verification',
+        html: `<p>Dear ${notaryUser.name || 'Notary'},</p>
+<p>We were unable to verify your notary profile at this time.</p>
+${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
+<p>Please log in to <a href="https://nyayasetu.in">nyayasetu.in</a>, update your documents, and resubmit for review.</p>
+<p>If you have questions, please contact support@nyayasetu.in</p>`,
+      });
+    } catch (err) {
+      logger.warn('[admin.controller] rejectNotary email notify failed', { error: err.message });
+    }
+  }
+
+  try {
+    await Notification.createForUser({
+      userId: notaryUser._id,
+      type: 'notary_rejected',
+      title: 'Profile verification update',
+      body: reason
+        ? `Your notary profile could not be verified. Reason: ${reason}`
+        : 'Your notary profile could not be verified at this time. Please update your documents and resubmit.',
+      data: { notaryProfileId: profile._id },
+      actionUrl: '/notary/settings',
+      io: req.app.get('io'),
+    });
+  } catch (_) {}
+
+  logger.info('[admin.controller] Notary rejected', {
+    notaryProfileId: profile._id,
+    adminUserId: req.user.userId,
+    reason,
+  });
+
+  return res.json({ ok: true, notaryProfileId: profile._id, verificationStatus: 'rejected' });
+});
+
+/* ---------------------------------------------------------------------------
  * toggleUserActive
  * PATCH /v1/admin/users/:id/toggle-active
  * Enables or disables a user account.
@@ -520,6 +731,9 @@ module.exports = {
   verifyLawyer,
   rejectLawyer,
   listLawyers,
+  verifyNotary,
+  rejectNotary,
+  listNotaries,
   toggleUserActive,
   getStats,
   listUsers,

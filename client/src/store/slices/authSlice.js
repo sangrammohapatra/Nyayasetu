@@ -154,6 +154,7 @@ export const deactivateAccount = createAsyncThunk(
 const initialState = {
   user: null,
   lawyerProfile: null,
+  notaryProfile: null,
   token: localStorage.getItem('nyayasetu_token') || null,
   refreshToken: localStorage.getItem('nyayasetu_refresh_token') || null,
   loading: false,
@@ -184,6 +185,8 @@ const authSlice = createSlice({
       state.user = null;
       state.token = null;
       state.refreshToken = null;
+      state.lawyerProfile = null;
+      state.notaryProfile = null;
       state.error = null;
       state.otpSent = false;
     },
@@ -270,6 +273,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.user = action.payload.user || action.payload;
         state.lawyerProfile = action.payload.lawyerProfile ?? state.lawyerProfile;
+        state.notaryProfile = action.payload.notaryProfile ?? state.notaryProfile;
       })
       .addCase(getMe.rejected, (state, action) => {
         state.loading = false;
@@ -297,6 +301,8 @@ const authSlice = createSlice({
         state.user = null;
         state.token = null;
         state.refreshToken = null;
+        state.lawyerProfile = null;
+        state.notaryProfile = null;
         state.error = null;
         state.otpSent = false;
       });
@@ -322,6 +328,7 @@ export const { clearError, setUser, setToken, forceLogout, resetOtpState } = aut
 
 export const selectUser = (state) => state.auth.user;
 export const selectLawyerProfile = (state) => state.auth.lawyerProfile;
+export const selectNotaryProfile = (state) => state.auth.notaryProfile;
 export const selectIsAuthenticated = (state) => !!state.auth.token && !!state.auth.user;
 export const selectUserPlan = (state) =>
   state.auth.user?.subscription?.plan || 'free';

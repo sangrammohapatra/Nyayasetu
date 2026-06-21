@@ -118,6 +118,8 @@ const notaryProfileSchema = new Schema(
       index: true,
     },
     rejectionReason: { type: String, trim: true },
+    rejectedAt: { type: Date },
+    rejectedBy: { type: Schema.Types.ObjectId, ref: 'User' },
 
     // ── Revenue ──────────────────────────────────────────────────────────────
     platformCommissionPercent: {
