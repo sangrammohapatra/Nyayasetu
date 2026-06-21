@@ -244,13 +244,35 @@ exports.verifyNotarizationPayment = async (req, res) => {
   try {
     const { requestId, razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
 
-    const isValid = razorpayService.verifySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
+    // Fetch the request first so signature is verified against the server-stored
+    // orderId, not the client-supplied one. This prevents an attacker from
+    // replaying a valid (orderId, paymentId, signature) tuple from any other
+    // Razorpay context against a different request.
+    const pending = await NotarizationRequest.findOne({
+      _id: requestId,
+      citizen: req.user.userId,
+      'payment.status': 'pending',
+    });
+
+    if (!pending) {
+      return res.status(404).json({ error: 'NOT_FOUND', message: 'Request not found' });
+    }
+
+    if (pending.payment.razorpayOrderId !== razorpayOrderId) {
+      return res.status(400).json({ error: 'ORDER_MISMATCH', message: 'Payment verification failed' });
+    }
+
+    const isValid = razorpayService.verifySignature(
+      pending.payment.razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+    );
     if (!isValid) {
       return res.status(400).json({ error: 'INVALID_SIGNATURE', message: 'Payment verification failed' });
     }
 
-    const notarizationReq = await NotarizationRequest.findOneAndUpdate(
-      { _id: requestId, citizen: req.user.userId, 'payment.razorpayOrderId': razorpayOrderId },
+    const notarizationReq = await NotarizationRequest.findByIdAndUpdate(
+      pending._id,
       {
         'payment.status': 'paid',
         'payment.razorpayPaymentId': razorpayPaymentId,
