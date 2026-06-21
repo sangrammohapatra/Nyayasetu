@@ -31,6 +31,41 @@ const voiceUpload = multer({
   },
 });
 
+// ─── Audio magic-bytes validator ──────────────────────────────────────────────
+// Clients can set any MIME type they like. After Multer stores the buffer we
+// read the first few bytes and confirm the file is actually audio data.
+//
+// Signatures checked:
+//   WAV   52 49 46 46 (RIFF)
+//   MP3   49 44 33   (ID3 tag)  or  FF FB / FF F3 / FF F2 / FF E3 (MPEG sync)
+//   OGG   4F 67 67 53 (OggS)
+//   WebM  1A 45 DF A3 (EBML)
+//   MP4/M4A  bytes 4-7 == 66 74 79 70 (ftyp box)
+function isValidAudioBuffer(buf) {
+  if (!buf || buf.length < 4) return false;
+  const b = buf;
+
+  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46) return true; // WAV (RIFF)
+  if (b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33)                   return true; // MP3 (ID3)
+  if (b[0] === 0xFF && (b[1] & 0xE0) === 0xE0)                           return true; // MP3 sync
+  if (b[0] === 0x4F && b[1] === 0x67 && b[2] === 0x67 && b[3] === 0x53) return true; // OGG
+  if (b[0] === 0x1A && b[1] === 0x45 && b[2] === 0xDF && b[3] === 0xA3) return true; // WebM
+  if (buf.length >= 8 &&
+      b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70) return true; // MP4/M4A (ftyp)
+
+  return false;
+}
+
+function validateAudioMagicBytes(req, res, next) {
+  if (!req.file) {
+    return res.status(400).json({ error: 'NO_FILE', message: 'No audio file provided' });
+  }
+  if (!isValidAudioBuffer(req.file.buffer)) {
+    return res.status(400).json({ error: 'INVALID_AUDIO_FORMAT', message: 'File is not a recognised audio format' });
+  }
+  next();
+}
+
 // ─── Validation helper ────────────────────────────────────────────────────────
 const validate = (checks) => [
   ...checks,
@@ -112,6 +147,7 @@ router.post(
   '/sessions/:id/voice',
   validate([param('id').isMongoId().withMessage('Invalid session ID')]),
   voiceUpload.single('audio'),
+  validateAudioMagicBytes,
   voiceMessage
 );
 
