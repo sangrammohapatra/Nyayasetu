@@ -57,7 +57,7 @@ async function checkRTIDeadlines(job, rtiAlertQueue) {
       }
 
       // Enqueue overdue alert if not already sent
-      if (!rti.alertSent?.day30) {
+      if (!rti.alertSent?.overdue) {
         const jobId = `rti_alert_overdue_${rti._id}`;
         try {
           await rtiAlertQueue.add('sendRTIAlert', {
@@ -115,8 +115,8 @@ async function checkRTIDeadlines(job, rtiAlertQueue) {
       }
     }
 
-    // ── Day 30 deadline alert (0-1 days left) ─────────────────────────────────
-    if (daysLeft <= 1 && daysLeft >= 0 && !rti.alertSent?.day30) {
+    // ── Day 30 deadline alert (0-2 days left) ─────────────────────────────────
+    if (daysLeft <= 2 && daysLeft >= 0 && !rti.alertSent?.day30) {
       const jobId = `rti_alert_day30_${rti._id}`;
       try {
         await rtiAlertQueue.add('sendRTIAlert', {

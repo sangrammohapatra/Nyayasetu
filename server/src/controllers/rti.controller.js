@@ -5,6 +5,7 @@ const AuditLog          = require('../models/AuditLog.model');
 const rtiAIService      = require('../services/ai/rtiAIService');
 const rtiPdfService     = require('../services/pdf/rtiPdfService');
 const { CENTRAL_MINISTRIES, STATE_DEPARTMENTS, CIC_INFO, searchMinistries } = require('../data/rtiMinistries');
+const { isEmail }       = require('validator');
 const asyncHandler      = require('../utils/asyncHandler');
 const { createError }   = require('../middleware/error.middleware');
 const logger            = require('../utils/logger');
@@ -126,6 +127,8 @@ const createRTI = asyncHandler(async (req, res) => {
   }
   if (!ministry) throw createError(400, 'MINISTRY_REQUIRED', 'Ministry/Department is required');
   if (!pioAddress) throw createError(400, 'ADDRESS_REQUIRED', 'PIO address is required');
+  if (pioEmail && !isEmail(pioEmail.trim())) throw createError(400, 'INVALID_EMAIL', 'PIO email address is invalid');
+  if (applicantEmail && !isEmail(applicantEmail.trim())) throw createError(400, 'INVALID_EMAIL', 'Applicant email address is invalid');
 
   const rti = await RTIApplication.create({
     user:             userId,

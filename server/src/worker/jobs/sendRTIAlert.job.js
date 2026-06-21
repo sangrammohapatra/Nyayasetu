@@ -71,7 +71,7 @@ async function sendRTIAlert(job) {
   }
 
   // Check if this specific alert type was already sent
-  const alertKey = alertType === 'day25' ? 'day25' : alertType === 'day30' ? 'day30' : 'day30';
+  const alertKey = alertType; // 'day25' | 'day30' | 'overdue' — each has its own flag
   if (rti.alertSent?.[alertKey]) {
     logger.info(`[sendRTIAlert] Alert ${alertType} already sent for RTI ${rtiId}, skipping`);
     return { skipped: true, reason: 'already_sent' };
@@ -123,7 +123,7 @@ async function sendRTIAlert(job) {
   }
 
   // ── Mark alert as sent in DB ───────────────────────────────────────────────
-  const alertField = alertType === 'day25' ? 'alertSent.day25' : 'alertSent.day30';
+  const alertField = `alertSent.${alertType}`;
   await RTIApplication.findByIdAndUpdate(rtiId, { $set: { [alertField]: true } });
 
   logger.info(`[sendRTIAlert] Alert ${alertType} marked as sent for RTI ${rtiId}`);

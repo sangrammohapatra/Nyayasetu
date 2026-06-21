@@ -2,6 +2,7 @@
 
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
+const { isEmail } = require('validator');
 
 // ─── RTI Status State Machine ──────────────────────────────────────────────────
 // drafted → filed → response_received (satisfactory) → closed
@@ -28,6 +29,7 @@ const alertSentSchema = new Schema(
   {
     day25:                 { type: Boolean, default: false },
     day30:                 { type: Boolean, default: false },
+    overdue:               { type: Boolean, default: false },
     firstAppealReminder:   { type: Boolean, default: false },
     cicReminder:           { type: Boolean, default: false },
   },
@@ -81,7 +83,12 @@ const rtiApplicationSchema = new Schema(
       trim: true,
       required: [true, 'PIO address is required'],
     },
-    pioEmail: { type: String, trim: true, lowercase: true },
+    pioEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      validate: { validator: (v) => !v || isEmail(v), message: 'Invalid PIO email address' },
+    },
     pioPhone: { type: String, trim: true },
 
     // ── RTI Questions ──────────────────────────────────────────────────────────
@@ -98,7 +105,12 @@ const rtiApplicationSchema = new Schema(
     applicantName: { type: String, trim: true },
     applicantAddress: { type: String, trim: true },
     applicantPhone: { type: String, trim: true },
-    applicantEmail: { type: String, trim: true, lowercase: true },
+    applicantEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      validate: { validator: (v) => !v || isEmail(v), message: 'Invalid applicant email address' },
+    },
     applicantBpl: { type: Boolean, default: false }, // BPL citizens are fee-exempt
 
     // ── Filing Details ─────────────────────────────────────────────────────────
