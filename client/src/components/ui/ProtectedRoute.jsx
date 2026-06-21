@@ -10,6 +10,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import { selectIsAuthenticated, selectUserPersona, selectAuthLoading } from '../../store/slices/authSlice';
+import tokenStore from '../../services/tokenStore';
 
 /**
  * @param {object}   props
@@ -27,7 +28,7 @@ function ProtectedRoute({ children, allowedPersonas }) {
   // from localStorage (e.g. on logout) but the Redux snapshot still carries the old
   // token + user, treat the session as expired immediately without waiting for an
   // effect to run.
-  const hasLiveToken = !!localStorage.getItem('nyayasetu_token');
+  const hasLiveToken = !!tokenStore.get();
   const effectiveAuth = isAuthenticated && hasLiveToken;
 
   // Block ONLY on the initial auth check: token exists but user hasn't loaded yet.
@@ -101,7 +102,7 @@ function ProtectedRoute({ children, allowedPersonas }) {
   if (allowedPersonas) {
     const allowed = Array.isArray(allowedPersonas) ? allowedPersonas : [allowedPersonas];
     if (!allowed.includes(persona)) {
-      return <Navigate to={`/${persona}/home`} replace />;
+      return <Navigate to={persona === 'admin' ? '/admin/dashboard' : `/${persona}/home`} replace />;
     }
   }
 
