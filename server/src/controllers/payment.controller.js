@@ -11,6 +11,7 @@
 
 'use strict';
 
+const mongoose = require('mongoose');
 const crypto = require('crypto');
 
 const User = require('../models/User.model');
@@ -602,53 +603,62 @@ async function handlePaymentCaptured(payload) {
   const razorpayOrderId = paymentEntity.order_id;
   const razorpayPaymentId = paymentEntity.id;
 
-  const payment = await Payment.findOne({ razorpayOrderId });
-  if (!payment) {
-    logger.warn('[payment.controller] handlePaymentCaptured: no Payment record', { razorpayOrderId });
-    return;
-  }
-  if (payment.status === 'paid') return; // idempotent
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const payment = await Payment.findOne({ razorpayOrderId }).session(session);
+      if (!payment) {
+        logger.warn('[payment.controller] handlePaymentCaptured: no Payment record', { razorpayOrderId });
+        return;
+      }
+      if (payment.status === 'paid') return; // idempotent
 
-  payment.status = 'paid';
-  payment.razorpayPaymentId = razorpayPaymentId;
-  payment.paidAt = new Date();
+      payment.status = 'paid';
+      payment.razorpayPaymentId = razorpayPaymentId;
+      payment.paidAt = new Date();
 
-  if (payment.type === 'consultation' && payment.relatedEntity) {
-    const consultation = await Consultation.findById(payment.relatedEntity)
-      .select('lawyer')
-      .lean();
-    if (consultation) {
-      const profile = await LawyerProfile.findById(consultation.lawyer)
-        .select('referralFeePercent')
-        .lean();
-      const referralFeePercent = profile?.referralFeePercent ?? 10;
-      payment.platformEarnings = Math.round(payment.amount * referralFeePercent / 100);
-      payment.lawyerEarnings   = payment.amount - payment.platformEarnings;
-    }
-  }
+      if (payment.type === 'consultation' && payment.relatedEntity) {
+        const consultation = await Consultation.findById(payment.relatedEntity)
+          .select('lawyer')
+          .session(session)
+          .lean();
+        if (consultation) {
+          const profile = await LawyerProfile.findById(consultation.lawyer)
+            .select('referralFeePercent')
+            .session(session)
+            .lean();
+          const referralFeePercent = profile?.referralFeePercent ?? 10;
+          payment.platformEarnings = Math.round(payment.amount * referralFeePercent / 100);
+          payment.lawyerEarnings   = payment.amount - payment.platformEarnings;
+        }
+      }
 
-  await payment.save();
+      await payment.save({ session });
 
-  if (payment.type === 'pay_per_doc' && payment.relatedEntity) {
-    await Document.findByIdAndUpdate(payment.relatedEntity, {
-      $set: {
-        isPaid: true,
-        accessType: 'pay_per_doc',
-        payment: payment._id,
-      },
+      if (payment.type === 'pay_per_doc' && payment.relatedEntity) {
+        await Document.findByIdAndUpdate(payment.relatedEntity, {
+          $set: {
+            isPaid: true,
+            accessType: 'pay_per_doc',
+            payment: payment._id,
+          },
+        }, { session });
+        logger.info('[payment.controller] handlePaymentCaptured: document unlocked', {
+          documentId: payment.relatedEntity,
+        });
+      }
+
+      if (payment.type === 'subscription') {
+        const sub = await Subscription.findOne({ razorpayOrderId }).session(session);
+        if (sub && !sub.isActive) {
+          sub.isActive = true;
+          sub.razorpayPaymentId = razorpayPaymentId;
+          await sub.save({ session });
+        }
+      }
     });
-    logger.info('[payment.controller] handlePaymentCaptured: document unlocked', {
-      documentId: payment.relatedEntity,
-    });
-  }
-
-  if (payment.type === 'subscription') {
-    const sub = await Subscription.findOne({ razorpayOrderId });
-    if (sub && !sub.isActive) {
-      sub.isActive = true;
-      sub.razorpayPaymentId = razorpayPaymentId;
-      await sub.save();
-    }
+  } finally {
+    await session.endSession();
   }
 }
 
@@ -657,28 +667,34 @@ async function handleSubscriptionActivated(payload) {
   if (!subEntity) return;
 
   const rzpSubId = subEntity.id;
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const subscription = await Subscription.findOne({ razorpaySubscriptionId: rzpSubId }).session(session);
+      if (!subscription) {
+        logger.warn('[payment.controller] handleSubscriptionActivated: no Subscription record', { rzpSubId });
+        return;
+      }
 
-  const subscription = await Subscription.findOne({ razorpaySubscriptionId: rzpSubId });
-  if (!subscription) {
-    logger.warn('[payment.controller] handleSubscriptionActivated: no Subscription record', { rzpSubId });
-    return;
-  }
+      if (!subscription.isActive) {
+        subscription.isActive = true;
+        await subscription.save({ session });
 
-  if (!subscription.isActive) {
-    subscription.isActive = true;
-    await subscription.save();
-
-    const limits = PLAN_LIMITS[subscription.plan] || PLAN_LIMITS.free;
-    await User.findByIdAndUpdate(subscription.user, {
-      $set: {
-        'subscription.plan': subscription.plan,
-        'subscription.validUntil': subscription.endDate,
-        'subscription.autoRenew': true,
-        'freeUsage.docsLimit': limits.docsLimit,
-        'freeUsage.casesLimit': limits.casesLimit,
-        'freeUsage.aiChatsLimit': limits.aiChatsLimit,
-      },
+        const limits = PLAN_LIMITS[subscription.plan] || PLAN_LIMITS.free;
+        await User.findByIdAndUpdate(subscription.user, {
+          $set: {
+            'subscription.plan': subscription.plan,
+            'subscription.validUntil': subscription.endDate,
+            'subscription.autoRenew': true,
+            'freeUsage.docsLimit': limits.docsLimit,
+            'freeUsage.casesLimit': limits.casesLimit,
+            'freeUsage.aiChatsLimit': limits.aiChatsLimit,
+          },
+        }, { session });
+      }
     });
+  } finally {
+    await session.endSession();
   }
 }
 
@@ -687,68 +703,82 @@ async function handleSubscriptionCharged(payload) {
   const paymentEntity = payload && payload.payment && payload.payment.entity;
   if (!subEntity || !paymentEntity) return;
 
-  const subscription = await Subscription.findOne({ razorpaySubscriptionId: subEntity.id });
-  if (!subscription) return;
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const subscription = await Subscription.findOne({ razorpaySubscriptionId: subEntity.id }).session(session);
+      if (!subscription) return;
 
-  // Extend validity by one billing cycle
-  const newValidUntil = getSubscriptionValidUntil(subscription.billingCycle);
-  subscription.endDate = newValidUntil;
-  subscription.isActive = true;
-  await subscription.save();
+      // Extend validity by one billing cycle
+      const newValidUntil = getSubscriptionValidUntil(subscription.billingCycle);
+      subscription.endDate = newValidUntil;
+      subscription.isActive = true;
+      await subscription.save({ session });
 
-  await User.findByIdAndUpdate(subscription.user, {
-    $set: { 'subscription.validUntil': newValidUntil },
-  });
+      await User.findByIdAndUpdate(subscription.user, {
+        $set: { 'subscription.validUntil': newValidUntil },
+      }, { session });
 
-  // Record the renewal payment
-  const existingPayment = await Payment.findOne({ razorpayPaymentId: paymentEntity.id });
-  if (!existingPayment) {
-    await Payment.create({
-      user: subscription.user,
-      type: 'subscription',
-      razorpayPaymentId: paymentEntity.id,
-      razorpayOrderId: paymentEntity.order_id || '',
-      amount: paymentEntity.amount,
-      currency: 'INR',
-      status: 'paid',
-      paidAt: new Date(),
-      relatedEntity: subscription._id,
-      relatedEntityType: 'Subscription',
-      platformEarnings: paymentEntity.amount,
-      lawyerEarnings: 0,
+      // Record the renewal payment
+      const existingPayment = await Payment.findOne({ razorpayPaymentId: paymentEntity.id }).session(session);
+      if (!existingPayment) {
+        await Payment.create([{
+          user: subscription.user,
+          type: 'subscription',
+          razorpayPaymentId: paymentEntity.id,
+          razorpayOrderId: paymentEntity.order_id || '',
+          amount: paymentEntity.amount,
+          currency: 'INR',
+          status: 'paid',
+          paidAt: new Date(),
+          relatedEntity: subscription._id,
+          relatedEntityType: 'Subscription',
+          platformEarnings: paymentEntity.amount,
+          lawyerEarnings: 0,
+        }], { session });
+      }
+
+      logger.info('[payment.controller] handleSubscriptionCharged: renewed', {
+        subscriptionId: subscription._id,
+        newValidUntil,
+      });
     });
+  } finally {
+    await session.endSession();
   }
-
-  logger.info('[payment.controller] handleSubscriptionCharged: renewed', {
-    subscriptionId: subscription._id,
-    newValidUntil,
-  });
 }
 
 async function handleSubscriptionCancelled(payload) {
   const subEntity = payload && payload.subscription && payload.subscription.entity;
   if (!subEntity) return;
 
-  const subscription = await Subscription.findOne({ razorpaySubscriptionId: subEntity.id });
-  if (!subscription) return;
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const subscription = await Subscription.findOne({ razorpaySubscriptionId: subEntity.id }).session(session);
+      if (!subscription) return;
 
-  subscription.isActive = false;
-  subscription.cancelledAt = new Date();
-  subscription.autoRenew = false;
-  await subscription.save();
+      subscription.isActive = false;
+      subscription.cancelledAt = new Date();
+      subscription.autoRenew = false;
+      await subscription.save({ session });
 
-  // Revert user to free plan
-  await User.findByIdAndUpdate(subscription.user, {
-    $set: {
-      'subscription.plan': 'free',
-      'subscription.autoRenew': false,
-      'freeUsage.docsLimit': PLAN_LIMITS.free.docsLimit,
-      'freeUsage.casesLimit': PLAN_LIMITS.free.casesLimit,
-      'freeUsage.aiChatsLimit': PLAN_LIMITS.free.aiChatsLimit,
-    },
-  });
+      // Revert user to free plan
+      await User.findByIdAndUpdate(subscription.user, {
+        $set: {
+          'subscription.plan': 'free',
+          'subscription.autoRenew': false,
+          'freeUsage.docsLimit': PLAN_LIMITS.free.docsLimit,
+          'freeUsage.casesLimit': PLAN_LIMITS.free.casesLimit,
+          'freeUsage.aiChatsLimit': PLAN_LIMITS.free.aiChatsLimit,
+        },
+      }, { session });
 
-  logger.info('[payment.controller] handleSubscriptionCancelled', { subscriptionId: subscription._id });
+      logger.info('[payment.controller] handleSubscriptionCancelled', { subscriptionId: subscription._id });
+    });
+  } finally {
+    await session.endSession();
+  }
 }
 
 async function handlePaymentFailed(payload) {

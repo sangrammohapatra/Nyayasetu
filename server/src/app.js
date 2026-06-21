@@ -28,6 +28,7 @@ const consultationChatRoutes = require('./routes/consultationChat.routes');
 const triageRoutes = require('./routes/triage.routes');
 const { notaryProfileRouter, notarizationRouter } = require('./routes/notary.routes');
 const rtiRoutes = require('./routes/rti.routes');
+const webhookRoutes = require('./routes/webhook.routes');
 // Error handler middleware
 const { errorHandler } = require('./middleware/error.middleware');
 
@@ -88,13 +89,10 @@ app.use(
 );
 
 app.use(
-  '/v1/webhooks/signdesk',
+  '/v1/webhooks',
   express.raw({ type: '*/*' }),
   (req, res, next) => { req.rawBody = req.body; next(); },
-  (() => {
-    const { signWebhook } = require('./controllers/document.controller');
-    return signWebhook;
-  })()
+  webhookRoutes
 );
 
 // ─── Body Parsing ─────────────────────────────────────────────────────────────

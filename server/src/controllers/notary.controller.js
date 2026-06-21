@@ -373,9 +373,9 @@ exports.getNotarizationRequest = async (req, res) => {
       .populate('notaryProfile', 'notaryRegistrationNumber registrationState averageRating')
       .populate('document', 'title template createdAt content');
 
-    if (!request) return res.status(404).json({ error: 'NOT_FOUND' });
+    if (!request) return res.status(404).json({ error: 'NOT_FOUND', message: 'Not found' });
     if (!request.citizen._id.equals(userId) && !request.notary._id.equals(userId)) {
-      return res.status(403).json({ error: 'FORBIDDEN' });
+      return res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied' });
     }
 
     res.json(request);
@@ -432,7 +432,7 @@ exports.acceptRequest = async (req, res) => {
     res.json({ message: 'Request accepted. Citizen will be prompted to pay.', request });
   } catch (err) {
     logger.error('acceptRequest error:', err);
-    res.status(500).json({ error: 'SERVER_ERROR' });
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An unexpected error occurred' });
   }
 };
 
@@ -490,7 +490,7 @@ exports.completeKYC = async (req, res) => {
       { status: 'kyc_completed', kycCompletedAt: new Date() },
       { new: true }
     );
-    if (!request) return res.status(404).json({ error: 'NOT_FOUND' });
+    if (!request) return res.status(404).json({ error: 'NOT_FOUND', message: 'Not found' });
 
     // Notify citizen that KYC is done and stamping is next
     try {
@@ -508,7 +508,7 @@ exports.completeKYC = async (req, res) => {
     res.json({ message: 'KYC completed. Ready to stamp.', request });
   } catch (err) {
     logger.error('completeKYC error:', err);
-    res.status(500).json({ error: 'SERVER_ERROR' });
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An unexpected error occurred' });
   }
 };
 
@@ -522,7 +522,7 @@ exports.stampDocument = async (req, res) => {
       status: 'kyc_completed',
     }).populate('document').populate('notaryProfile');
 
-    if (!request) return res.status(404).json({ error: 'NOT_FOUND' });
+    if (!request) return res.status(404).json({ error: 'NOT_FOUND', message: 'Not found' });
 
     const notaryProfile = request.notaryProfile;
     const notary = await User.findById(req.user.userId);
@@ -604,7 +604,7 @@ exports.rejectRequest = async (req, res) => {
       { status: 'rejected', rejectionReason: reason?.trim() },
       { new: true }
     );
-    if (!request) return res.status(404).json({ error: 'NOT_FOUND' });
+    if (!request) return res.status(404).json({ error: 'NOT_FOUND', message: 'Not found' });
 
     // Refund if payment was captured
     if (request.payment?.status === 'paid' && request.payment?.razorpayPaymentId) {
@@ -634,7 +634,7 @@ exports.rejectRequest = async (req, res) => {
     res.json({ message: 'Request rejected', request });
   } catch (err) {
     logger.error('rejectRequest error:', err);
-    res.status(500).json({ error: 'SERVER_ERROR' });
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An unexpected error occurred' });
   }
 };
 
@@ -648,11 +648,11 @@ exports.requestCourier = async (req, res) => {
       { courierRequested: true, courierAddress },
       { new: true }
     );
-    if (!request) return res.status(404).json({ error: 'NOT_FOUND' });
+    if (!request) return res.status(404).json({ error: 'NOT_FOUND', message: 'Not found' });
     res.json({ message: 'Courier dispatch requested', request });
   } catch (err) {
     logger.error('requestCourier error:', err);
-    res.status(500).json({ error: 'SERVER_ERROR' });
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An unexpected error occurred' });
   }
 };
 
@@ -670,7 +670,7 @@ exports.markDispatched = async (req, res) => {
       },
       { new: true }
     );
-    if (!request) return res.status(404).json({ error: 'NOT_FOUND' });
+    if (!request) return res.status(404).json({ error: 'NOT_FOUND', message: 'Not found' });
 
     // Notify citizen of dispatch
     try {
@@ -690,7 +690,7 @@ exports.markDispatched = async (req, res) => {
     res.json({ message: 'Marked as dispatched', request });
   } catch (err) {
     logger.error('markDispatched error:', err);
-    res.status(500).json({ error: 'SERVER_ERROR' });
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An unexpected error occurred' });
   }
 };
 
@@ -724,7 +724,7 @@ exports.rateNotary = async (req, res) => {
     res.json({ message: 'Rating submitted', request });
   } catch (err) {
     logger.error('rateNotary error:', err);
-    res.status(500).json({ error: 'SERVER_ERROR' });
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An unexpected error occurred' });
   }
 };
 
@@ -744,6 +744,6 @@ exports.getDocumentNotarizationStatus = async (req, res) => {
     res.json({ notarizationRequest: request || null });
   } catch (err) {
     logger.error('getDocumentNotarizationStatus error:', err);
-    res.status(500).json({ error: 'SERVER_ERROR' });
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An unexpected error occurred' });
   }
 };
