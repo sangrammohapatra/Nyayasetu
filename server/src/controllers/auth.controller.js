@@ -23,6 +23,7 @@ const {
   SUPPORTED_LANGUAGES,
   INDIAN_STATES,
   JWT,
+  OTP,
 } = require("../config/constants");
 
 const DEV_PHONE = CONFIG_DEV_PHONE || "+919999999999";
@@ -46,8 +47,8 @@ const LANGUAGE_LIST = SUPPORTED_LANGUAGES || [
   "ur",
 ];
 
-const OTP_TTL_SECONDS = 300; // 5 minutes
-const OTP_ATTEMPT_TTL_SECONDS = 900; // 15 minutes
+const OTP_TTL_SECONDS         = OTP.TTL_SECONDS;
+const OTP_ATTEMPT_TTL_SECONDS = OTP.ATTEMPT_TTL_SECONDS;
 
 // ── In-memory fallback store (used when Redis is unavailable) ──────────────────
 // Entries: { value, expiresAt: timestamp }
@@ -274,7 +275,7 @@ const sendOTPHandler = asyncHandler(async (req, res) => {
 
     return res.status(200).json({
       message: `OTP sent to ${maskEmail(email)}`,
-      expiresIn: 300,
+      expiresIn: OTP_TTL_SECONDS,
       isNewUser: !existingUser,
       ...(isDev && { _devOtp: otp }),
     });

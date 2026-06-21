@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
 const { v4: uuidv4 } = require('uuid');
+const { SHARE_TOKEN_DAYS } = require('../config/constants');
 
 // ─── Sub-schemas ───────────────────────────────────────────────────────────────
 
@@ -399,7 +400,7 @@ documentSchema.pre('save', function (next) {
  * generateShareToken — creates a share token with an expiry date.
  * @param {number} expiryDays — how many days the share link is valid (default: 30)
  */
-documentSchema.methods.generateShareToken = async function (expiryDays = 30) {
+documentSchema.methods.generateShareToken = async function (expiryDays = SHARE_TOKEN_DAYS) {
   this.shareToken = uuidv4();
   this.shareTokenExpiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
   this.isShareable = true;

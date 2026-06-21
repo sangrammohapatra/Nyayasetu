@@ -10,6 +10,7 @@
 
 const mongoose = require('mongoose');
 const mongooseEncryption = require('mongoose-field-encryption');
+const { SHARE_TOKEN_DAYS } = require('../config/constants');
 
 const ChatMessageSchema = new mongoose.Schema({
   role: { type: String, enum: ['user', 'assistant'], required: true },
@@ -216,7 +217,7 @@ ChatSessionSchema.statics.getDailyQuota = async function (userId, userPlan) {
 ChatSessionSchema.methods.generateShareToken = function () {
   const crypto = require('crypto');
   this.shareToken = crypto.randomBytes(16).toString('hex');
-  this.shareTokenExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+  this.shareTokenExpiry = new Date(Date.now() + SHARE_TOKEN_DAYS * 24 * 60 * 60 * 1000);
   return this.shareToken;
 };
 

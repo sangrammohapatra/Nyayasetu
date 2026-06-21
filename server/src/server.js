@@ -8,9 +8,28 @@ const logger = require('./utils/logger');
 
 const PORT = process.env.PORT || 5000;
 
+// ─── Startup env validation ────────────────────────────────────────────────────
+
+const REQUIRED_ENV_VARS = [
+  'JWT_SECRET',
+  'MONGO_URI',
+  'RAZORPAY_KEY_SECRET',
+];
+
+function validateEnv() {
+  const missing = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required environment variables:\n  ${missing.join('\n  ')}\n` +
+      'Set them in your .env file before starting the server.'
+    );
+  }
+}
+
 let server;
 
 async function startServer() {
+  validateEnv();
   try {
     // ── Connect to MongoDB ─────────────────────────────────────────────────
     await connectDB();

@@ -3,6 +3,11 @@ const helmet = require('helmet');
 const cors = require('cors');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const { randomUUID } = require('crypto');
+const { RATE_LIMITS } = require('./config/constants');
+
+const mongoose = require('mongoose');
+const { getRedisClient } = require('./config/redis');
 
 // Route imports
 const authRoutes = require('./routes/auth.routes');
@@ -26,6 +31,13 @@ const { notaryProfileRouter, notarizationRouter } = require('./routes/notary.rou
 const { errorHandler } = require('./middleware/error.middleware');
 
 const app = express();
+
+// ─── Request ID ───────────────────────────────────────────────────────────────
+// Attach a unique ID to every request so log lines can be correlated.
+app.use((req, _res, next) => {
+  req.id = req.headers['x-request-id'] || randomUUID();
+  next();
+});
 
 // ─── Security Headers ─────────────────────────────────────────────────────────
 // This is a JSON API server — it serves no HTML, stylesheets, or fonts.
@@ -90,46 +102,47 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ─── Request Logging ──────────────────────────────────────────────────────────
 if (process.env.NODE_ENV !== 'test') {
-  app.use(morgan('dev'));
+  morgan.token('req-id', (req) => req.id);
+  app.use(morgan(':req-id :method :url :status :res[content-length] - :response-time ms'));
 }
 
 // ─── Global Rate Limiter ──────────────────────────────────────────────────────
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
+  windowMs: RATE_LIMITS.general.windowMs,
+  max:      RATE_LIMITS.general.max,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
     error: 'TOO_MANY_REQUESTS',
     message: 'Too many requests from this IP. Please try again after 15 minutes.',
-    retryAfter: 900,
+    retryAfter: RATE_LIMITS.general.retryAfterSeconds,
   },
   skip: (req) => req.path === '/health',
 });
 
 // Strict limiter for AI endpoints (10 req/min)
 const aiLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 10,
+  windowMs: RATE_LIMITS.ai.windowMs,
+  max:      RATE_LIMITS.ai.max,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
     error: 'AI_RATE_LIMIT',
     message: 'AI request limit reached. Please wait a moment before sending another message.',
-    retryAfter: 60,
+    retryAfter: RATE_LIMITS.ai.retryAfterSeconds,
   },
 });
 
-// OTP limiter (3 requests per 15 minutes per IP)
+// OTP limiter (5 requests per 15 minutes per IP)
 const otpLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
+  windowMs: RATE_LIMITS.otp.windowMs,
+  max:      RATE_LIMITS.otp.max,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
     error: 'OTP_RATE_LIMIT',
     message: 'Too many OTP requests. Please wait 15 minutes before requesting another OTP.',
-    retryAfter: 900,
+    retryAfter: RATE_LIMITS.otp.retryAfterSeconds,
   },
 });
 
@@ -144,24 +157,24 @@ app.use('/v1/triage',                    aiLimiter);
 app.use('/v1/nyayabot/message',          aiLimiter);
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    service: 'nyayasetu-api',
-    timestamp: new Date().toISOString(),
+async function healthCheck(req, res) {
+  const mongoOk = mongoose.connection.readyState === 1;
+  const rc      = getRedisClient();
+  const redisOk = rc ? await rc.ping().then(() => true).catch(() => false) : false;
+  const status  = mongoOk && redisOk ? 'ok' : 'degraded';
+  res.status(status === 'ok' ? 200 : 503).json({
+    status,
+    service:     'nyayasetu-api',
+    timestamp:   new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    version: process.env.npm_package_version || '1.0.0',
+    version:     process.env.npm_package_version || '1.0.0',
+    mongo:       mongoOk,
+    redis:       redisOk,
   });
-});
+}
 
-app.get('/v1/health', (req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    service: 'nyayasetu-api',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-  });
-});
+app.get('/health',    healthCheck);
+app.get('/v1/health', healthCheck);
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
 app.use('/v1/auth', authRoutes);

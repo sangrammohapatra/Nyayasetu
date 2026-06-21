@@ -224,9 +224,16 @@ const sendMessage = asyncHandler(async (req, res) => {
   // ── Set SSE headers — from this point response is streaming ───────────────
   setSSEHeaders(res);
 
-  // Handle client disconnect
+  let activeStream   = null;
   let clientDisconnected = false;
-  req.on('close', () => { clientDisconnected = true; });
+
+  req.on('close', () => {
+    clientDisconnected = true;
+    if (activeStream) {
+      activeStream.return(undefined); // terminate the async generator
+    }
+    res.end();
+  });
 
   let fullAiResponse = '';
   let isComplete     = false;
@@ -234,16 +241,17 @@ const sendMessage = asyncHandler(async (req, res) => {
 
   try {
     const { stream, getExtractionResult } = await getNextQuestion(session, template, jurisdictionRule);
+    activeStream = stream;
 
     // ── Stream deltas to client ────────────────────────────────────────────
     for await (const delta of stream) {
-      if (clientDisconnected) break;
       fullAiResponse += delta;
       sseWrite(res, { delta, done: false });
     }
 
     if (clientDisconnected) {
       logger.warn(`[chat/sendMessage] Client disconnected mid-stream, session: ${sessionId}`);
+      return;
     }
 
     // ── Post-stream: extract fields and check completion ───────────────────

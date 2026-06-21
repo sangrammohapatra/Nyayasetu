@@ -1,6 +1,64 @@
 const axios  = require('axios');
 const logger = require('../../utils/logger');
 const { CNR_REGEX } = require('../../config/constants');
+const { getRedisClient } = require('../../config/redis');
+
+// ─── Redis cache helpers ───────────────────────────────────────────────────────
+
+const CACHE_TTL_SECONDS = 60 * 60; // 1 hour
+
+async function getCached(cnr) {
+  const rc = getRedisClient();
+  if (!rc) return null;
+  try {
+    const raw = await rc.get(`ecourts:${cnr}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+async function setCache(cnr, data) {
+  const rc = getRedisClient();
+  if (!rc) return;
+  try {
+    await rc.setEx(`ecourts:${cnr}`, CACHE_TTL_SECONDS, JSON.stringify(data));
+  } catch { /* cache write failure is non-fatal */ }
+}
+
+// ─── Circuit breaker (in-memory) ──────────────────────────────────────────────
+// States: closed (normal) → open (short-circuiting) → half-open (probing)
+
+const circuit = {
+  state:       'closed',
+  failures:    0,
+  lastFailure: null,
+  THRESHOLD:   5,            // open after 5 consecutive failures
+  RESET_MS:    60 * 1000,    // try again after 1 minute
+
+  isOpen() {
+    if (this.state === 'open') {
+      if (Date.now() - this.lastFailure > this.RESET_MS) {
+        this.state = 'half-open';
+        return false;
+      }
+      return true;
+    }
+    return false;
+  },
+
+  success() {
+    this.failures = 0;
+    this.state    = 'closed';
+  },
+
+  failure() {
+    this.failures++;
+    this.lastFailure = Date.now();
+    if (this.failures >= this.THRESHOLD) {
+      this.state = 'open';
+      logger.warn(`[ecourts] Circuit breaker OPEN after ${this.failures} failures`);
+    }
+  },
+};
 
 // ─── eCourts API config ────────────────────────────────────────────────────────
 
@@ -360,6 +418,20 @@ async function getCaseStatus(cnrNumber) {
 
   logger.info(`[ecourts] Fetching case status for CNR: ${cnr}`);
 
+  // ── Cache hit ─────────────────────────────────────────────────────────────
+  const cached = await getCached(cnr);
+  if (cached) {
+    logger.info(`[ecourts] Cache hit for CNR: ${cnr}`);
+    return cached;
+  }
+
+  // ── Circuit breaker check ─────────────────────────────────────────────────
+  if (circuit.isOpen()) {
+    logger.warn(`[ecourts] Circuit breaker OPEN — skipping API for CNR: ${cnr}`);
+    if (process.env.NODE_ENV === 'development') return getMockCaseData(cnr);
+    throw new Error('eCourts API is temporarily unavailable. Please try again later.');
+  }
+
   // ── Primary: eCourts JSON API (via proxy if configured) ──────────────────
   try {
     const config   = buildRequest(`${ECOURTS_BASE}/ecourtindiaHC/cases/case_no`, { cnr_no: cnr });
@@ -372,7 +444,10 @@ async function getCaseStatus(cnrNumber) {
 
     if (response.status === 200 && !hasCaptcha && (hasJson || typeof response.data === 'object')) {
       logger.info(`[ecourts] API returned JSON for CNR: ${cnr}`);
-      return parseCaseData(response.data, cnr);
+      const result = parseCaseData(response.data, cnr);
+      circuit.success();
+      await setCache(cnr, result);
+      return result;
     }
 
     if (hasCaptcha) {
@@ -380,8 +455,10 @@ async function getCaseStatus(cnrNumber) {
     } else {
       logger.warn(`[ecourts] Unexpected response status ${response.status} for CNR: ${cnr}`);
     }
+    circuit.failure();
   } catch (apiErr) {
     logger.warn(`[ecourts] Primary API error for CNR ${cnr}: ${apiErr.message}`);
+    circuit.failure();
   }
 
   // ── Fallback: NJDG scraper (prod only) ────────────────────────────────────
@@ -390,6 +467,8 @@ async function getCaseStatus(cnrNumber) {
       logger.info(`[ecourts] Trying NJDG scraper for CNR: ${cnr}`);
       const scraped = await scrapeNJDG(cnr);
       if (scraped && scraped.caseTitle) {
+        circuit.success();
+        await setCache(cnr, scraped);
         return scraped;
       }
     } catch (scrapeErr) {

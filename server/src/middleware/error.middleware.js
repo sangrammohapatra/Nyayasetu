@@ -104,6 +104,7 @@ function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-va
   // ── Server-side logging ────────────────────────────────────────────────────
   if (mapped.status >= 500) {
     logger.error('Server error', {
+      requestId: req.id,
       message: err.message,
       stack: err.stack,
       path: req.originalUrl,
@@ -114,6 +115,7 @@ function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-va
   } else if (mapped.status >= 400 && mapped.status !== 401) {
     // 401s are very common (session expiry) — log at debug to avoid noise
     logger.warn('Client error', {
+      requestId: req.id,
       code: mapped.code,
       message: mapped.message,
       path: req.originalUrl,
@@ -126,6 +128,7 @@ function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-va
   const response = {
     error: mapped.code,
     message: mapped.message,
+    requestId: req.id,
   };
 
   if (mapped.fields) response.fields = mapped.fields;

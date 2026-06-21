@@ -215,11 +215,23 @@ const PAGINATION = {
 // ─── Rate limits ──────────────────────────────────────────────────────────────
 
 const RATE_LIMITS = {
-  general: { windowMs: 15 * 60 * 1000, max: 100 }, // 100 req / 15 min
-  ai: { windowMs: 60 * 1000, max: 10 }, // 10 req / min (AI endpoints)
-  otp: { windowMs: 15 * 60 * 1000, max: 3 }, // 3 OTP requests / 15 min
-  webhook: { windowMs: 60 * 1000, max: 200 }, // webhooks higher limit
+  general: { windowMs: 15 * 60 * 1000, max: 100, retryAfterSeconds: 900 },
+  ai:      { windowMs: 60 * 1000,       max: 10,  retryAfterSeconds: 60  },
+  otp:     { windowMs: 15 * 60 * 1000, max: 5,   retryAfterSeconds: 900 },
+  webhook: { windowMs: 60 * 1000,       max: 200                         },
 };
+
+// ─── OTP settings ─────────────────────────────────────────────────────────────
+
+const OTP = {
+  TTL_SECONDS:         300, // 5 minutes — how long an OTP stays valid
+  ATTEMPT_TTL_SECONDS: 900, // 15 minutes — window for counting failed attempts
+  MAX_ATTEMPTS:        5,   // lockout after this many failed attempts
+};
+
+// ─── Share token defaults ─────────────────────────────────────────────────────
+
+const SHARE_TOKEN_DAYS = 30; // default lifetime for document/session share links
 
 // ─── JWT defaults ─────────────────────────────────────────────────────────────
 
@@ -293,6 +305,8 @@ const HEARING_ALERTS = {
 module.exports = {
   PLANS,
   PERSONAS,
+  OTP,
+  SHARE_TOKEN_DAYS,
   PAY_PER_DOC,
   NOTARIZATION_FEE,
   FREE_TIER_LIMITS,

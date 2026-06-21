@@ -53,7 +53,10 @@ const REDIS_OPTS = { redis: buildRedisOpts(REDIS_URL) };
 
 async function connectMongo() {
   try {
-    await mongoose.connect(MONGO_URI);
+    // Workers run as a separate process from the Express server.
+    // Keep the pool small (max 3) so both processes together stay well within
+    // Atlas M0's 500-connection limit even when running multiple worker instances.
+    await mongoose.connect(MONGO_URI, { maxPoolSize: 3, minPoolSize: 1 });
     logger.info('[worker] MongoDB connected', { uri: MONGO_URI.replace(/:\/\/[^@]+@/, '://***@') });
   } catch (err) {
     logger.error('[worker] MongoDB connection failed', { error: err.message });

@@ -9,6 +9,7 @@
  */
 
 const mongoose = require('mongoose');
+const { SHARE_TOKEN_DAYS } = require('../config/constants');
 
 // ─── Sub-schema: individual message ──────────────────────────────────────────
 const NyayaBotMessageSchema = new mongoose.Schema(
@@ -212,7 +213,7 @@ NyayaBotSessionSchema.statics.getQuotaConfig = function (persona, plan) {
 // ─── Methods ──────────────────────────────────────────────────────────────────
 
 /** Generate a cryptographically random share token */
-NyayaBotSessionSchema.methods.generateShareToken = function (expiryDays = 30) {
+NyayaBotSessionSchema.methods.generateShareToken = function (expiryDays = SHARE_TOKEN_DAYS) {
   const crypto = require('crypto');
   this.shareToken = crypto.randomBytes(20).toString('hex');
   this.shareTokenExpiry = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
