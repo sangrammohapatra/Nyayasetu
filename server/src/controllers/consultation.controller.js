@@ -191,6 +191,9 @@ const createConsultation = asyncHandler(async (req, res) => {
   }
 
   const feeInPaise = lawyerProfile.consultationFee; // stored in paise per Section 12 spec
+  if (!feeInPaise || feeInPaise < 100) {
+    return res.status(400).json({ error: 'Invalid consultation fee configured by this lawyer' });
+  }
 
   // Create Razorpay order first (atomic: if this fails, no consultation record is saved)
   // Receipt max length is 40 chars; last 8 chars of userId + base-36 timestamp = 21 chars total
@@ -231,17 +234,30 @@ const createConsultation = asyncHandler(async (req, res) => {
   });
 
   // Create Consultation record
-  const consultation = await Consultation.create({
-    citizen: citizenUserId,
-    lawyer: lawyerId,
-    mode,
-    scheduledAt: scheduledDate,
-    notes: notes || '',
-    status: 'requested',
-    fee: feeInPaise,
-    payment: payment._id,
-    ...(documentId ? { linkedDocument: documentId } : {}),
-  });
+  // lawyer stores User._id (ref: 'User'); lawyerProfile stores LawyerProfile._id (ref: 'LawyerProfile')
+  let consultation;
+  try {
+    consultation = await Consultation.create({
+      citizen: citizenUserId,
+      lawyer: lawyerProfile.user._id,
+      lawyerProfile: lawyerId,
+      mode,
+      scheduledAt: scheduledDate,
+      notes: notes || '',
+      status: 'requested',
+      fee: feeInPaise,
+      payment: payment._id,
+      ...(documentId ? { linkedDocument: documentId } : {}),
+    });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({
+        error: 'SLOT_TAKEN',
+        message: 'This slot was just booked by someone else. Please choose a different time.',
+      });
+    }
+    throw err;
+  }
 
   // Link payment back to consultation
   payment.relatedEntity = consultation._id;
@@ -293,7 +309,7 @@ const acceptConsultation = asyncHandler(async (req, res) => {
     return res.status(403).json({ error: 'Lawyer profile not found' });
   }
 
-  const consultation = await Consultation.findOne({ _id: id, lawyer: lawyerProfile._id });
+  const consultation = await Consultation.findOne({ _id: id, lawyer: lawyerUserId });
   if (!consultation) {
     return res.status(404).json({ error: 'Consultation not found' });
   }
@@ -361,7 +377,7 @@ const rejectConsultation = asyncHandler(async (req, res) => {
     return res.status(403).json({ error: 'Lawyer profile not found' });
   }
 
-  const consultation = await Consultation.findOne({ _id: id, lawyer: lawyerProfile._id });
+  const consultation = await Consultation.findOne({ _id: id, lawyer: lawyerUserId });
   if (!consultation) {
     return res.status(404).json({ error: 'Consultation not found' });
   }
@@ -369,12 +385,8 @@ const rejectConsultation = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: `Cannot reject a consultation with status '${consultation.status}'` });
   }
 
-  consultation.status = 'rejected';
-  consultation.rejectedAt = new Date();
-  if (reason) consultation.rejectionReason = reason;
-  await consultation.save();
-
-  // Initiate refund if payment was captured
+  // Attempt refund BEFORE committing rejection so we don't leave the citizen paid-and-rejected
+  // with no automatic retry path if Razorpay fails.
   const payment = await Payment.findById(consultation.payment);
   let refundInitiated = false;
   if (payment && payment.status === 'paid' && payment.razorpayPaymentId) {
@@ -392,8 +404,14 @@ const rejectConsultation = asyncHandler(async (req, res) => {
         paymentId: payment.razorpayPaymentId,
         error: err.message,
       });
+      return res.status(502).json({ error: 'Refund initiation failed — please try again' });
     }
   }
+
+  consultation.status = 'rejected';
+  consultation.rejectedAt = new Date();
+  if (reason) consultation.rejectionReason = reason;
+  await consultation.save();
 
   const citizenUser = await User.findById(consultation.citizen).select('name email phone whatsappOptIn whatsappNumber').lean();
   await notifyCitizen(citizenUser, consultation, 'rejected');
@@ -431,7 +449,7 @@ const completeConsultation = asyncHandler(async (req, res) => {
     return res.status(403).json({ error: 'Lawyer profile not found' });
   }
 
-  const consultation = await Consultation.findOne({ _id: id, lawyer: lawyerProfile._id });
+  const consultation = await Consultation.findOne({ _id: id, lawyer: lawyerUserId });
   if (!consultation) {
     return res.status(404).json({ error: 'Consultation not found' });
   }
@@ -512,25 +530,25 @@ const rateConsultation = asyncHandler(async (req, res) => {
   if (!consultation) {
     return res.status(404).json({ error: 'Consultation not found or not yet completed' });
   }
-  if (consultation.rating && consultation.rating.score) {
+  if (consultation.citizenRating && consultation.citizenRating.score) {
     return res.status(409).json({ error: 'You have already rated this consultation' });
   }
 
-  consultation.rating = {
+  consultation.citizenRating = {
     score: numScore,
     review: review ? String(review).substring(0, 1000) : '',
-    createdAt: new Date(),
+    ratedAt: new Date(),
   };
   await consultation.save();
 
   // Recompute lawyer's averageRating from ALL rated consultations
   const ratingAgg = await Consultation.aggregate([
-    { $match: { lawyer: consultation.lawyer, 'rating.score': { $exists: true, $ne: null } } },
-    { $group: { _id: null, avg: { $avg: '$rating.score' }, count: { $sum: 1 } } },
+    { $match: { lawyer: consultation.lawyer, 'citizenRating.score': { $exists: true, $ne: null } } },
+    { $group: { _id: null, avg: { $avg: '$citizenRating.score' }, count: { $sum: 1 } } },
   ]);
 
   if (ratingAgg.length > 0) {
-    await LawyerProfile.findByIdAndUpdate(consultation.lawyer, {
+    await LawyerProfile.findByIdAndUpdate(consultation.lawyerProfile, {
       $set: {
         averageRating: Math.round(ratingAgg[0].avg * 10) / 10,
         totalRatings: ratingAgg[0].count,
@@ -538,7 +556,7 @@ const rateConsultation = asyncHandler(async (req, res) => {
     });
   }
 
-  return res.json({ ok: true, rating: consultation.rating });
+  return res.json({ ok: true, rating: consultation.citizenRating });
 });
 
 /* ---------------------------------------------------------------------------
@@ -581,7 +599,8 @@ const listConsultations = asyncHandler(async (req, res) => {
         .skip(skip)
         .limit(limitNum)
         .populate('citizen', 'name phone email')
-        .populate('lawyer', 'specialisations averageRating consultationFee')
+        .populate('lawyer', 'name email phone avatar')
+        .populate('lawyerProfile', 'specialisations averageRating consultationFee')
         .lean(),
       Consultation.countDocuments(filter),
     ]);

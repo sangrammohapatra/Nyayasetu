@@ -160,6 +160,16 @@ consultationSchema.index({ citizen: 1, status: 1 });
 consultationSchema.index({ lawyer: 1, status: 1 });
 consultationSchema.index({ scheduledAt: 1 });
 consultationSchema.index({ status: 1, scheduledAt: 1 });
+// Bug #3: Prevents double-bookings for the same lawyer slot under concurrent requests.
+// Unique only for active statuses so rejected/cancelled slots can be re-booked.
+consultationSchema.index(
+  { lawyer: 1, scheduledAt: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: { $in: ['requested', 'accepted'] } },
+    name: 'unique_lawyer_slot_active',
+  }
+);
 
 // ─── Virtuals ─────────────────────────────────────────────────────────────────
 
