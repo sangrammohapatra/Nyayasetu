@@ -381,4 +381,39 @@ userSchema.statics.resetMonthlyQuotas = async function () {
   );
 };
 
+// ─── Post-delete Cascade ──────────────────────────────────────────────────────
+// Fires after User.findOneAndDelete() and User.findByIdAndDelete().
+// Lazy requires prevent circular-dependency issues at module load time.
+
+userSchema.post('findOneAndDelete', async function (doc) {
+  if (!doc) return;
+  const uid = doc._id;
+
+  const LawyerProfile   = require('./LawyerProfile.model');
+  const NotaryProfile   = require('./NotaryProfile.model');
+  const Document        = require('./Document.model');
+  const RTIApplication  = require('./RTIApplication.model');
+  const CaseTracker     = require('./CaseTracker.model');
+  const ChatSession     = require('./ChatSession.model');
+  const NyayaBotSession = require('./NyayaBotSession');
+  const Notification    = require('./Notification.model');
+  const Subscription    = require('./Subscription.model');
+  const Payment         = require('./Payment.model');
+
+  await Promise.all([
+    // Hard delete — records owned solely by this user
+    LawyerProfile.deleteMany({ user: uid }),
+    NotaryProfile.deleteMany({ user: uid }),
+    Document.deleteMany({ user: uid }),
+    RTIApplication.deleteMany({ user: uid }),
+    CaseTracker.deleteMany({ user: uid }),
+    ChatSession.deleteMany({ user: uid }),
+    NyayaBotSession.deleteMany({ user: uid }),
+    Notification.deleteMany({ user: uid }),
+    Subscription.deleteMany({ user: uid }),
+    // Anonymise — financial records must be retained; only the user ref is removed
+    Payment.updateMany({ user: uid }, { $unset: { user: '' } }),
+  ]);
+});
+
 module.exports = mongoose.model("User", userSchema);
