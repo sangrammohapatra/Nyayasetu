@@ -85,8 +85,18 @@ function mapError(err) {
  * errorHandler — the LAST middleware in app.js.
  * Catches everything passed via next(err) and returns a consistent JSON shape.
  *
- * Response shape:
- *   { error: 'CODE', message: 'human readable', [fields]: {...}, [stack]: '...' }
+ * Canonical error response schema:
+ *   {
+ *     error:    string           — machine-readable uppercase code (e.g. 'NOT_FOUND')
+ *     message:  string           — human-readable description
+ *     fields?:  Record<string, string>  — field-level validation messages
+ *     details?: Record<string, unknown> — domain-specific extras (upgradeUrl, quota info, etc.)
+ *     stack?:   string           — stack trace (development + 5xx only)
+ *   }
+ *
+ * Inline res.json() calls in controllers MUST use the same shape:
+ *   res.status(N).json({ error: 'ERROR_CODE', message: 'human text' })
+ * Never use { error: 'human text' } (no code) or { errorCode, errorMessage } (wrong keys).
  */
 function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-vars
   const mapped = mapError(err);

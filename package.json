@@ -5,18 +5,17 @@
   "private": true,
   "workspaces": [
     "client",
-    "server",
-    "worker"
+    "server"
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "npm run dev --workspace=server",
     "dev:client": "npm run dev --workspace=client",
-    "dev:worker": "npm run dev --workspace=worker",
+    "dev:worker": "npm run worker:dev --workspace=server",
     "dev:all": "concurrently \"npm run dev:server\" \"npm run dev:client\" \"npm run dev:worker\"",
     "build": "npm run build --workspace=client",
     "start:server": "npm run start --workspace=server",
-    "start:worker": "npm run start --workspace=worker",
+    "start:worker": "npm run worker --workspace=server",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "seed": "node scripts/seed.js"

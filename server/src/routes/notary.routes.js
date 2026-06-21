@@ -1,12 +1,17 @@
 'use strict';
 
 /**
- * Notary routes
+ * Notary routes — two routers exported for explicit mounting in app.js:
  *
+ *   notaryProfileRouter  → app.use('/v1/notaries', notaryProfileRouter)
+ *   notarizationRouter   → app.use('/v1/notarizations', notarizationRouter)
+ *
+ * Resulting paths:
  *   GET    /v1/notaries                           searchNotaries
  *   GET    /v1/notaries/:id                       getNotaryProfile
  *   POST   /v1/notaries/apply                     applyAsNotary
  *   PUT    /v1/notaries/profile                   updateNotaryProfile
+ *   GET    /v1/notaries/me/profile                own profile (notary dashboard)
  *
  *   POST   /v1/notarizations                      createNotarizationRequest (citizen)
  *   POST   /v1/notarizations/verify-payment       verifyNotarizationPayment (citizen)
@@ -24,33 +29,35 @@
  */
 
 const express = require('express');
-const router = express.Router();
 
 const notaryController = require('../controllers/notary.controller');
 const { verifyToken, requirePersona } = require('../middleware/auth.middleware');
 const { PERSONAS } = require('../config/constants');
 
-// ─── Notary Profile ────────────────────────────────────────────────────────────
+// ─── Notary Profile Router ────────────────────────────────────────────────────
+// Mount at: app.use('/v1/notaries', notaryProfileRouter)
 
-router.get('/notaries', verifyToken, notaryController.searchNotaries);
+const notaryProfileRouter = express.Router();
 
-router.post(
-  '/notaries/apply',
+notaryProfileRouter.get('/', verifyToken, notaryController.searchNotaries);
+
+notaryProfileRouter.post(
+  '/apply',
   verifyToken,
   notaryController.uploadCertificate,
   notaryController.applyAsNotary
 );
 
-router.put(
-  '/notaries/profile',
+notaryProfileRouter.put(
+  '/profile',
   verifyToken,
   requirePersona(PERSONAS.NOTARY),
   notaryController.updateNotaryProfile
 );
 
-// GET /v1/notaries/me/profile — own profile for the notary dashboard
-router.get(
-  '/notaries/me/profile',
+// Must be before /:id
+notaryProfileRouter.get(
+  '/me/profile',
   verifyToken,
   requirePersona(PERSONAS.NOTARY),
   async (req, res) => {
@@ -65,90 +72,92 @@ router.get(
   }
 );
 
-// Must be after /notaries/apply, /notaries/profile, /notaries/me/profile
-router.get('/notaries/:id', verifyToken, notaryController.getNotaryProfile);
+notaryProfileRouter.get('/:id', verifyToken, notaryController.getNotaryProfile);
 
-// ─── Notarization Requests ────────────────────────────────────────────────────
+// ─── Notarization Request Router ──────────────────────────────────────────────
+// Mount at: app.use('/v1/notarizations', notarizationRouter)
 
-router.post(
-  '/notarizations',
+const notarizationRouter = express.Router();
+
+notarizationRouter.post(
+  '/',
   verifyToken,
   requirePersona(PERSONAS.CITIZEN),
   notaryController.createNotarizationRequest
 );
 
-router.post(
-  '/notarizations/verify-payment',
+notarizationRouter.post(
+  '/verify-payment',
   verifyToken,
   requirePersona(PERSONAS.CITIZEN),
   notaryController.verifyNotarizationPayment
 );
 
-router.get('/notarizations', verifyToken, notaryController.listNotarizationRequests);
+notarizationRouter.get('/', verifyToken, notaryController.listNotarizationRequests);
 
 // Static sub-path must be before /:id
-router.get(
-  '/notarizations/document/:documentId',
+notarizationRouter.get(
+  '/document/:documentId',
   verifyToken,
   notaryController.getDocumentNotarizationStatus
 );
 
-router.get('/notarizations/:id', verifyToken, notaryController.getNotarizationRequest);
+notarizationRouter.get('/:id', verifyToken, notaryController.getNotarizationRequest);
 
-router.patch(
-  '/notarizations/:id/accept',
+notarizationRouter.patch(
+  '/:id/accept',
   verifyToken,
   requirePersona(PERSONAS.NOTARY),
   notaryController.acceptRequest
 );
 
-router.patch(
-  '/notarizations/:id/schedule-kyc',
+notarizationRouter.patch(
+  '/:id/schedule-kyc',
   verifyToken,
   requirePersona(PERSONAS.NOTARY),
   notaryController.scheduleKYC
 );
 
-router.patch(
-  '/notarizations/:id/complete-kyc',
+notarizationRouter.patch(
+  '/:id/complete-kyc',
   verifyToken,
   requirePersona(PERSONAS.NOTARY),
   notaryController.completeKYC
 );
 
-router.patch(
-  '/notarizations/:id/stamp',
+notarizationRouter.patch(
+  '/:id/stamp',
   verifyToken,
   requirePersona(PERSONAS.NOTARY),
   notaryController.stampDocument
 );
 
-router.patch(
-  '/notarizations/:id/reject',
+notarizationRouter.patch(
+  '/:id/reject',
   verifyToken,
   requirePersona(PERSONAS.NOTARY),
   notaryController.rejectRequest
 );
 
-router.patch(
-  '/notarizations/:id/request-courier',
+notarizationRouter.patch(
+  '/:id/request-courier',
   verifyToken,
   requirePersona(PERSONAS.CITIZEN),
   notaryController.requestCourier
 );
 
-router.patch(
-  '/notarizations/:id/dispatch',
+notarizationRouter.patch(
+  '/:id/dispatch',
   verifyToken,
   requirePersona(PERSONAS.NOTARY),
   notaryController.markDispatched
 );
 
-router.post(
-  '/notarizations/:id/rate',
+notarizationRouter.post(
+  '/:id/rate',
   verifyToken,
   requirePersona(PERSONAS.CITIZEN),
   notaryController.rateNotary
 );
 
-module.exports = router;
+module.exports = { notaryProfileRouter, notarizationRouter };

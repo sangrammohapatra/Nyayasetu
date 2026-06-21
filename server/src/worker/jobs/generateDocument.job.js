@@ -18,8 +18,18 @@
 // Load env before anything else (worker is a standalone process)
 
 
-const mongoose   = require('mongoose');
-const logger     = require('../../utils/logger');
+const mongoose      = require('mongoose');
+const sanitizeHtml  = require('sanitize-html');
+const logger        = require('../../utils/logger');
+
+// Allowlist used when sanitizing AI-generated HTML before storage (defense-in-depth).
+// textToHtml already escapes all content via escapeHtml(), but an explicit allowlist
+// ensures any future code path that bypasses escapeHtml cannot store XSS payloads.
+const SANITIZE_OPTIONS = {
+  allowedTags: ['h3', 'p', 'br'],
+  allowedAttributes: { h3: ['class'], p: ['class'] },
+  disallowedTagsMode: 'discard',
+};
 
 // ─── Lazy DB connection (only connect once per worker process) ─────────────────
 
@@ -101,7 +111,7 @@ module.exports = async function processGenerateDocument(job) {
 
     // ── 3. Update Document with AI content ────────────────────────────────────
     document.content            = documentText;
-    document.contentHtml        = textToHtml(documentText);
+    document.contentHtml        = sanitizeHtml(textToHtml(documentText), SANITIZE_OPTIONS);
     document.legalCitations     = legalCitations;
     document.clauseExplanations = clauseExplanations;
     document.nextSteps          = nextSteps;

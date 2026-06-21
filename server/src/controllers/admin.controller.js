@@ -29,16 +29,16 @@ const verifyLawyer = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ error: 'Invalid lawyer profile id' });
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid lawyer profile id' });
   }
 
   const profile = await LawyerProfile.findById(id).populate('user', 'name email phone whatsappOptIn whatsappNumber');
   if (!profile) {
-    return res.status(404).json({ error: 'Lawyer profile not found' });
+    return res.status(404).json({ error: 'NOT_FOUND', message: 'Lawyer profile not found' });
   }
 
   if (profile.isVerified) {
-    return res.status(409).json({ error: 'Lawyer is already verified' });
+    return res.status(409).json({ error: 'ALREADY_VERIFIED', message: 'Lawyer is already verified' });
   }
 
   profile.isVerified = true;
@@ -140,7 +140,7 @@ const getStats = asyncHandler(async (req, res) => {
     });
   } catch (err) {
     logger.error('[admin.controller] getStats failed', { error: err.message });
-    return res.status(500).json({ error: 'Failed to load stats' });
+    return res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Failed to load stats' });
   }
 });
 
@@ -196,7 +196,7 @@ const listUsers = asyncHandler(async (req, res) => {
     });
   } catch (err) {
     logger.error('[admin.controller] listUsers failed', { error: err.message });
-    return res.status(500).json({ error: 'Failed to load users' });
+    return res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Failed to load users' });
   }
 });
 
@@ -209,7 +209,7 @@ const getUser = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ error: 'Invalid user id' });
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid user id' });
   }
 
   try {
@@ -228,7 +228,7 @@ const getUser = asyncHandler(async (req, res) => {
     ]);
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'NOT_FOUND', message: 'User not found' });
     }
 
     return res.json({
@@ -240,7 +240,7 @@ const getUser = asyncHandler(async (req, res) => {
     });
   } catch (err) {
     logger.error('[admin.controller] getUser failed', { id, error: err.message });
-    return res.status(500).json({ error: 'Failed to load user' });
+    return res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Failed to load user' });
   }
 });
 
@@ -289,7 +289,7 @@ const getAuditLogs = asyncHandler(async (req, res) => {
     });
   } catch (err) {
     logger.error('[admin.controller] getAuditLogs failed', { error: err.message });
-    return res.status(500).json({ error: 'Failed to load audit logs' });
+    return res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Failed to load audit logs' });
   }
 });
 
@@ -310,10 +310,10 @@ const createTemplate = asyncHandler(async (req, res) => {
     return res.status(201).json({ template });
   } catch (err) {
     if (err.code === 11000) {
-      return res.status(409).json({ error: 'A template with this slug already exists' });
+      return res.status(409).json({ error: 'DUPLICATE_KEY', message: 'A template with this slug already exists' });
     }
     logger.error('[admin.controller] createTemplate failed', { error: err.message });
-    return res.status(400).json({ error: err.message });
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: err.message });
   }
 });
 
@@ -321,7 +321,7 @@ const updateTemplate = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ error: 'Invalid template id' });
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid template id' });
   }
 
   try {
@@ -330,11 +330,11 @@ const updateTemplate = asyncHandler(async (req, res) => {
       { $set: req.body },
       { new: true, runValidators: true }
     );
-    if (!template) return res.status(404).json({ error: 'Template not found' });
+    if (!template) return res.status(404).json({ error: 'NOT_FOUND', message: 'Template not found' });
     return res.json({ template });
   } catch (err) {
     logger.error('[admin.controller] updateTemplate failed', { id, error: err.message });
-    return res.status(400).json({ error: err.message });
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: err.message });
   }
 });
 
@@ -349,16 +349,16 @@ const rejectLawyer = asyncHandler(async (req, res) => {
   const { reason } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ error: 'Invalid lawyer profile id' });
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid lawyer profile id' });
   }
 
   const profile = await LawyerProfile.findById(id).populate('user', 'name email phone whatsappOptIn whatsappNumber');
   if (!profile) {
-    return res.status(404).json({ error: 'Lawyer profile not found' });
+    return res.status(404).json({ error: 'NOT_FOUND', message: 'Lawyer profile not found' });
   }
 
   if (profile.isVerified) {
-    return res.status(409).json({ error: 'Cannot reject an already verified lawyer' });
+    return res.status(409).json({ error: 'ALREADY_VERIFIED', message: 'Cannot reject an already verified lawyer' });
   }
 
   profile.verificationStatus = 'rejected';
@@ -432,17 +432,17 @@ const toggleUserActive = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ error: 'Invalid user id' });
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid user id' });
   }
 
   const user = await User.findById(id).select('name email phone isActive persona');
   if (!user) {
-    return res.status(404).json({ error: 'User not found' });
+    return res.status(404).json({ error: 'NOT_FOUND', message: 'User not found' });
   }
 
   // Prevent admins from deactivating other admins
   if (user.persona === 'admin') {
-    return res.status(403).json({ error: 'Cannot toggle active status of admin accounts' });
+    return res.status(403).json({ error: 'FORBIDDEN', message: 'Cannot toggle active status of admin accounts' });
   }
 
   user.isActive = !user.isActive;

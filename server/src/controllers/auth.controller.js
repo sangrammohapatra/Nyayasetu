@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
+const { isEmail } = require("validator");
 const User = require("../models/User.model");
 const LawyerProfile = require("../models/LawyerProfile.model");
 const AuditLog = require("../models/AuditLog.model");
@@ -20,6 +21,7 @@ const {
   PERSONAS,
   MAX_REFRESH_TOKENS,
   SUPPORTED_LANGUAGES,
+  INDIAN_STATES,
   JWT,
 } = require("../config/constants");
 
@@ -66,7 +68,7 @@ setInterval(() => {
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function isEmailIdentifier(value) {
-  return typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+  return typeof value === "string" && isEmail(value.trim());
 }
 
 function maskEmail(email) {
@@ -89,6 +91,14 @@ function normalizePhone(raw) {
 
 function generateOTP() {
   return String(crypto.randomInt(100000, 999999));
+}
+
+// Case-insensitive match against the canonical INDIAN_STATES list.
+// Returns the correctly-capitalised state name, or null if unrecognised.
+function normalizeState(raw) {
+  if (!raw) return null;
+  const lower = raw.trim().toLowerCase();
+  return INDIAN_STATES.find((s) => s.toLowerCase() === lower) || null;
 }
 
 function getRedisClient() {
@@ -488,10 +498,19 @@ const register = asyncHandler(async (req, res) => {
 
   const passwordHash = password ? await bcrypt.hash(password, 12) : undefined;
 
+  const normalizedState = state ? normalizeState(state) : undefined;
+  if (state && !normalizedState) {
+    throw createError(
+      400,
+      "INVALID_STATE",
+      `'${state}' is not a recognised Indian state or union territory`,
+    );
+  }
+
   const updates = {
     name: name.trim(),
     persona: selectedPersona,
-    ...(state && { state: state.trim() }),
+    ...(normalizedState && { state: normalizedState }),
     ...(district && { district: district.trim() }),
     ...(pincode && { pincode: pincode.trim() }),
     ...(email && { email: email.toLowerCase().trim() }),
@@ -514,8 +533,8 @@ const register = asyncHandler(async (req, res) => {
         user: userId,
         experience: 0,
         barCouncilNumber: `PENDING-${userId}`,
-        barCouncilState: state || "Pending",
-        practicingStates: state ? [state] : [],
+        barCouncilState: normalizedState || "Pending",
+        practicingStates: normalizedState ? [normalizedState] : [],
         isVerified: false,
         verificationStatus: "pending",
       });
