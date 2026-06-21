@@ -88,7 +88,7 @@ function normalizePhone(raw) {
   if (digits.length === 12 && digits.startsWith("91")) return `+${digits}`;
   if (digits.length === 13 && digits.startsWith("091"))
     return `+91${digits.slice(3)}`;
-  return raw;
+  return null; // unrecognised format — callers must check for null / INDIAN_PHONE_REGEX
 }
 
 function generateOTP() {

@@ -383,7 +383,7 @@ router.post(
   '/whatsapp-entry',
   whatsappEntryLimiter,
   validate([
-    body('phone').notEmpty().withMessage('Phone is required'),
+    phoneValidator,
     body('wa_token').notEmpty().withMessage('WhatsApp entry token is required'),
   ]),
   whatsappEntry
