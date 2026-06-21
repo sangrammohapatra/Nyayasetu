@@ -21,13 +21,14 @@ import {
   Outlet,
   useLocation,
 } from "react-router-dom";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
 
 import store, { persistor } from "./store/store";
+import tokenStore from "./services/tokenStore";
 import { TYPOGRAPHY } from "./theme/tokens";
 import NyayaThemeProvider from "./theme/ThemeProvider";
 import ProtectedRoute from "./components/ui/ProtectedRoute";
@@ -128,7 +129,7 @@ function RootRedirect() {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const persona = useSelector(selectUserPersona)?.toLowerCase();
   const loading = useSelector(selectAuthLoading);
-  const hasLiveToken = !!localStorage.getItem('nyayasetu_token');
+  const hasLiveToken = !!tokenStore.get();
 
   if (loading && hasLiveToken) return <PageLoader />;
   if (!isAuthenticated || !hasLiveToken) return <Navigate to="/login" replace />;
@@ -142,7 +143,7 @@ function SettingsRedirect() {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const persona = useSelector(selectUserPersona);
   const loading = useSelector(selectAuthLoading);
-  const hasLiveToken = !!localStorage.getItem('nyayasetu_token');
+  const hasLiveToken = !!tokenStore.get();
 
   if (loading && hasLiveToken) return <PageLoader />;
   if (!isAuthenticated || !hasLiveToken) {
@@ -186,11 +187,11 @@ function AppLayout() {
           }}
         >
           <AnimatePresence mode="wait" initial={false}>
-            <React.Fragment key={location.pathname}>
+            <motion.div key={location.pathname} style={{ width: '100%', minWidth: 0 }}>
               <Suspense fallback={<PageLoader />}>
                 <Outlet />
               </Suspense>
-            </React.Fragment>
+            </motion.div>
           </AnimatePresence>
         </Box>
       </Box>
@@ -518,18 +519,18 @@ function AppBootstrap() {
   // Fetch user profile on load if token exists; otherwise purge any stale
   // redux-persist rehydration so protected routes immediately redirect to login.
   useEffect(() => {
-    const token = localStorage.getItem("nyayasetu_token");
+    const token = tokenStore.get();
     if (token) {
       dispatch(getMe());
     } else {
       dispatch(forceLogout());
-      localStorage.removeItem('nyayasetu_auth');
+      tokenStore.clear();
     }
   }, [dispatch]);
 
   // Connect / disconnect socket based on auth state
   useEffect(() => {
-    const token = localStorage.getItem("nyayasetu_token");
+    const token = tokenStore.get();
     if (isAuthenticated && token) {
       socketService.connect(token);
 

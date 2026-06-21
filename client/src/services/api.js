@@ -10,6 +10,7 @@
  */
 
 import axios from 'axios';
+import tokenStore from './tokenStore';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/v1';
 
@@ -23,29 +24,14 @@ const api = axios.create({
 });
 
 /* ---------------------------------------------------------------------------
- * Helpers — kept outside the store import to avoid circular dependencies.
+ * Helpers — thin wrappers over tokenStore to avoid circular dependencies.
  * The store is imported lazily inside the interceptor callbacks.
  * ------------------------------------------------------------------------ */
 
-function getAccessToken() {
-  return localStorage.getItem('nyayasetu_token');
-}
-
-function getRefreshToken() {
-  return localStorage.getItem('nyayasetu_refresh_token');
-}
-
-function setAccessToken(token) {
-  localStorage.setItem('nyayasetu_token', token);
-}
-
-function clearAuthStorage() {
-  localStorage.removeItem('nyayasetu_token');
-  localStorage.removeItem('nyayasetu_refresh_token');
-  // Also clear the redux-persist auth snapshot so stale tokens
-  // aren't rehydrated into the store on the next page load.
-  localStorage.removeItem('nyayasetu_auth');
-}
+const getAccessToken  = () => tokenStore.get();
+const getRefreshToken = () => tokenStore.getRefresh();
+const setAccessToken  = (t) => tokenStore.set(t);
+const clearAuthStorage = () => tokenStore.clear();
 
 /* ---------------------------------------------------------------------------
  * Helpers — token expiry check (no library needed, JWT payload is base64)
@@ -73,7 +59,7 @@ async function proactiveRefresh(token) {
     );
     const { accessToken: newToken, refreshToken: newRefreshToken } = response.data;
     setAccessToken(newToken);
-    if (newRefreshToken) localStorage.setItem('nyayasetu_refresh_token', newRefreshToken);
+    if (newRefreshToken) tokenStore.setRefresh(newRefreshToken);
     import('../store/store').then(({ default: store }) => {
       import('../store/slices/authSlice').then(({ setToken }) => {
         store.dispatch(setToken({ token: newToken }));

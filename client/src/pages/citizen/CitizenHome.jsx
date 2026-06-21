@@ -22,6 +22,7 @@ import Button from "@mui/material/Button";
 import LinearProgress from "@mui/material/LinearProgress";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
+import Skeleton from "@mui/material/Skeleton";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 
@@ -468,11 +469,15 @@ function CitizenHome() {
   const documents = useSelector(selectDocuments);
   const cases = useSelector(selectCases);
   const freeUsage = useSelector(selectFreeUsage);
+  const [loading, setLoading] = React.useState(true);
 
   useEffect(() => {
-    dispatch(listDocuments({ limit: 3 }));
-    dispatch(listCases({ limit: 5 }));
-    dispatch(getCurrentSubscription());
+    setLoading(true);
+    Promise.all([
+      dispatch(listDocuments({ limit: 3 })),
+      dispatch(listCases({ limit: 5 })),
+      dispatch(getCurrentSubscription()),
+    ]).finally(() => setLoading(false));
   }, [dispatch]);
 
   const nextHearingCase = cases?.find((c) =>
@@ -589,7 +594,7 @@ function CitizenHome() {
             >
               {greeting}, {firstName} &nbsp; 
               <lord-icon
-                src={"https://cdn.lordicon.com/zubhquzc.json"}
+                src={"/icons/zubhquzc.json"}
                 trigger="loop"
                 delay="500"
                 target=".ns-nav-item"
@@ -738,7 +743,17 @@ function CitizenHome() {
         <UsageMeter freeUsage={freeUsage} plan={plan} />
 
         {/* Upcoming hearing alert */}
-        <HearingCard hearingCase={nextHearingCase} />
+        {loading ? (
+          <Box sx={{ borderRadius: `${RADIUS.lg}px`, border: '1px solid var(--color-border)', p: 2, mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
+            <Skeleton variant="rounded" width={48} height={48} />
+            <Box sx={{ flex: 1 }}>
+              <Skeleton variant="text" width="40%" height={20} />
+              <Skeleton variant="text" width="65%" height={16} sx={{ mt: 0.5 }} />
+            </Box>
+          </Box>
+        ) : (
+          <HearingCard hearingCase={nextHearingCase} />
+        )}
 
         {/* Quick actions */}
         <motion.div
@@ -838,7 +853,18 @@ function CitizenHome() {
 
           <Box sx={{ px: 1.5, py: 1 }}>
             <AnimatePresence>
-              {recentDocs?.length > 0 ? (
+              {loading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 1.5, borderBottom: '1px solid var(--color-border)' }}>
+                    <Skeleton variant="rounded" width={40} height={40} />
+                    <Box sx={{ flex: 1 }}>
+                      <Skeleton variant="text" width="50%" height={18} />
+                      <Skeleton variant="text" width="30%" height={14} sx={{ mt: 0.5 }} />
+                    </Box>
+                    <Skeleton variant="rounded" width={56} height={20} />
+                  </Box>
+                ))
+              ) : recentDocs?.length > 0 ? (
                 recentDocs?.map((doc, i) => (
                   <DocumentRow key={doc._id} doc={doc} delay={0.1 + i * 0.08} />
                 ))

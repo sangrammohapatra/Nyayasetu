@@ -14,6 +14,9 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@mui/material/styles';
 import { motion, useReducedMotion } from 'framer-motion';
+import PeopleAltRounded from '@mui/icons-material/PeopleAltRounded';
+import GavelRounded from '@mui/icons-material/GavelRounded';
+import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded';
 
 import Drawer from '@mui/material/Drawer';
 import Box from '@mui/material/Box';
@@ -33,24 +36,26 @@ const SIDEBAR_FULL = 248;
 const SIDEBAR_COLLAPSED = 72;
 const LS_KEY = 'ns-sidebar-collapsed';
 
-// ─── Lordicon CDN icon URLs ───────────────────────────────────────────────────
+// ─── Sidebar icons — served from /public/icons/ (same-origin, no CDN dep.) ───
+// Values are either a local JSON path string (Lordicon) or an MUI icon component
+// for the 3 IDs that returned 404 on Lordicon's CDN.
 
 const IC = {
-  home:          'https://cdn.lordicon.com/wmwqvixz.json',
-  newDoc:        'https://cdn.lordicon.com/mubdgyyw.json',
-  myDocs:        'https://cdn.lordicon.com/jqqjtvlf.json',
-  caseTracker:   'https://cdn.lordicon.com/warimioc.json',
-  findLawyer:    'https://cdn.lordicon.com/kkvxgpti.json',
-  pricing:       'https://cdn.lordicon.com/qhviklyi.json',
-  clients:       'https://cdn.lordicon.com/oqjlkyvy.json',
-  cases:         'https://cdn.lordicon.com/gjjvytyq.json',
-  consultations: 'https://cdn.lordicon.com/slduhdil.json',
-  earnings:      'https://cdn.lordicon.com/rfbqeber.json',
-  dashboard:     'https://cdn.lordicon.com/dxoycpzg.json',
-  users:         'https://cdn.lordicon.com/oqjlkyvy.json',
-  templates:     'https://cdn.lordicon.com/wloilxuq.json',
-  lawyers:       'https://cdn.lordicon.com/mxxgldoo.json',
-  calendar:      'https://cdn.lordicon.com/abvsilmk.json',
+  home:          '/icons/wmwqvixz.json',
+  newDoc:        '/icons/mubdgyyw.json',
+  myDocs:        '/icons/jqqjtvlf.json',
+  caseTracker:   '/icons/warimioc.json',
+  findLawyer:    '/icons/kkvxgpti.json',
+  pricing:       '/icons/qhviklyi.json',
+  clients:       PeopleAltRounded,    // oqjlkyvy.json → 404 on CDN
+  cases:         '/icons/gjjvytyq.json',
+  consultations: '/icons/slduhdil.json',
+  earnings:      '/icons/rfbqeber.json',
+  dashboard:     '/icons/dxoycpzg.json',
+  users:         PeopleAltRounded,    // oqjlkyvy.json → 404 on CDN
+  templates:     '/icons/wloilxuq.json',
+  lawyers:       GavelRounded,        // mxxgldoo.json → 404 on CDN
+  calendar:      CalendarMonthRounded, // abvsilmk.json → 404 on CDN
 };
 
 // ─── Nav definitions per persona — grouped by section ────────────────────────
@@ -147,19 +152,25 @@ function NavItem({ icon, label, path, collapsed, isActive }) {
           } : {},
         }}
       >
-        <lord-icon
-          src={icon}
-          trigger="loop-on-hover"
-          delay="500"
-          target=".ns-nav-item"
-          style={{
-            width: 22,
-            height: 22,
-            flexShrink: 0,
-            '--lord-icon-primary': 'currentColor',
-            '--lord-icon-secondary': 'currentColor',
-          }}
-        />
+        {typeof icon === 'string' ? (
+          <lord-icon
+            src={icon}
+            trigger="loop-on-hover"
+            delay="500"
+            target=".ns-nav-item"
+            style={{
+              width: 22,
+              height: 22,
+              flexShrink: 0,
+              '--lord-icon-primary': 'currentColor',
+              '--lord-icon-secondary': 'currentColor',
+            }}
+          />
+        ) : (
+          React.createElement(icon, {
+            sx: { width: 22, height: 22, flexShrink: 0, color: 'inherit', fontSize: 22 },
+          })
+        )}
         {!collapsed && (
           <Typography variant="body2" sx={{ fontWeight: isActive ? 700 : 500, whiteSpace: 'nowrap' }}>
             {label}
