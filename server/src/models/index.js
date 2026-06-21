@@ -28,6 +28,7 @@ const CaseTracker      = require('./CaseTracker.model');      // Refs User, Docu
 const Subscription     = require('./Subscription.model');     // Refs User
 const Payment          = require('./Payment.model');          // Refs User (polymorphic entity)
 const Consultation     = require('./Consultation.model');     // Refs User, LawyerProfile, Document, Payment
+const RTIApplication   = require('./RTIApplication.model');   // Refs User
 
 module.exports = {
   User,
@@ -43,4 +44,5 @@ module.exports = {
   LegalAct,
   Notification,
   AuditLog,
+  RTIApplication,
 };

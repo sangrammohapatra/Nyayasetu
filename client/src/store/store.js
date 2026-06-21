@@ -30,6 +30,7 @@ import errorReducer from "./slices/errorSlice";
 import nyayabotReducer from './slices/nyayabotSlice';
 import consultationChatReducer from './slices/consultationChatSlice';
 import notaryReducer from './slices/notarySlice';
+import rtiReducer from './slices/rtiSlice';
 // ─── Persist configs ─────────────────────────────────────────────────────────
 
 const authPersistConfig = {
@@ -59,6 +60,7 @@ const rootReducer = combineReducers({
   lawyer: lawyerReducer,
   consultationChat: consultationChatReducer,
   notary: notaryReducer,
+  rti: rtiReducer,
 });
 
 // ─── Store ───────────────────────────────────────────────────────────────────

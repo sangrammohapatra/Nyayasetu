@@ -518,12 +518,20 @@ function CitizenHome() {
       delay: 0.29,
     },
     {
+      icon: "📋",
+      title: t("home.rti_tracker", "RTI Tracker"),
+      description: t("home.rti_tracker_desc", "File & track RTI applications with auto-deadline alerts"),
+      path: "/citizen/rti",
+      color: "rgba(13,71,161,0.1)",
+      delay: 0.36,
+    },
+    {
       icon: "📖",
       title: t("home.legal_faq", "Legal FAQ"),
       description: t("home.legal_faq_desc", "Know your rights under Indian law"),
       path: "/laws/search",
       color: "rgba(1,121,111,0.1)",
-      delay: 0.36,
+      delay: 0.43,
     },
   ];
 
@@ -775,7 +783,7 @@ function CitizenHome() {
 
         <Grid container spacing={2} sx={{ mb: 4 }}>
           {QUICK_ACTIONS.map((action) => (
-            <Grid item xs={6} sm={3} key={action.path}>
+            <Grid item xs={6} sm={4} md={2.4} key={action.path}>
               <QuickActionCard {...action} />
             </Grid>
           ))}

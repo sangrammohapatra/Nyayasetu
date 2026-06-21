@@ -70,6 +70,7 @@ const hearingAlertQueue = new Bull('hearingAlerts',  REDIS_OPTS);
 const documentQueue     = new Bull('documents',       REDIS_OPTS);
 const subscriptionQueue = new Bull('subscriptions',   REDIS_OPTS);
 const notificationQueue = new Bull('notifications',   REDIS_OPTS);
+const rtiDeadlineQueue  = new Bull('rtiDeadlines',   REDIS_OPTS);
 
 // ─── Job processors (lazy-required to give Mongoose time to connect first) ────
 
@@ -79,10 +80,16 @@ function loadProcessors() {
   const { sendHearingAlert }  = require('./jobs/sendHearingAlert.job');
   const generateDocumentJob   = require('./jobs/generateDocument.job'); // exports fn directly
   const resetFreeQuotaJob     = require('./jobs/resetFreeQuota');       // exports { process }
+  const { checkRTIDeadlines } = require('./jobs/checkRTIDeadlines.job');
+  const { sendRTIAlert }      = require('./jobs/sendRTIAlert.job');
 
   // ── Hearing alerts ─────────────────────────────────────────────────────────
   hearingAlertQueue.process('checkHearingDates', 1, checkHearingDates);
   hearingAlertQueue.process('sendHearingAlert',  5, sendHearingAlert);
+
+  // ── RTI deadlines ──────────────────────────────────────────────────────────
+  rtiDeadlineQueue.process('checkRTIDeadlines', 1, (job) => checkRTIDeadlines(job, rtiDeadlineQueue));
+  rtiDeadlineQueue.process('sendRTIAlert',      5, sendRTIAlert);
 
   // ── Document generation ────────────────────────────────────────────────────
   documentQueue.process('generateDocument', 3, generateDocumentJob);
@@ -143,8 +150,23 @@ async function scheduleCronJobs() {
     }
   );
 
+  // checkRTIDeadlines — 7:00 AM IST every day = 01:30 UTC
+  await rtiDeadlineQueue.add(
+    'checkRTIDeadlines',
+    { scheduledAt: new Date().toISOString() },
+    {
+      repeat: { cron: '30 1 * * *', tz: 'UTC' },
+      jobId: 'cron_checkRTIDeadlines',
+      removeOnComplete: true,
+      removeOnFail: 100,
+      attempts: 2,
+      backoff: { type: 'fixed', delay: 5 * 60 * 1000 },
+    }
+  );
+
   logger.info('[worker] Cron jobs scheduled', {
     checkHearingDates:  '00:30 UTC daily (06:00 AM IST)',
+    checkRTIDeadlines:  '01:30 UTC daily (07:00 AM IST)',
     resetFreeQuota:     '18:30 UTC daily — self-guarded monthly reset',
     sendMonthlyReminder:'03:30 UTC on 1st of month (09:00 AM IST)',
   });
@@ -190,6 +212,7 @@ function startBullBoard() {
       new BullAdapter(documentQueue),
       new BullAdapter(subscriptionQueue),
       new BullAdapter(notificationQueue),
+      new BullAdapter(rtiDeadlineQueue),
     ],
     serverAdapter,
   });
@@ -221,6 +244,7 @@ async function shutdown(signal) {
       documentQueue.close(),
       subscriptionQueue.close(),
       notificationQueue.close(),
+      rtiDeadlineQueue.close(),
     ]);
     await mongoose.disconnect();
     logger.info('[worker] All queues closed, MongoDB disconnected');
@@ -248,7 +272,7 @@ async function boot() {
 
   await connectMongo();
 
-  const queues = [hearingAlertQueue, documentQueue, subscriptionQueue, notificationQueue];
+  const queues = [hearingAlertQueue, documentQueue, subscriptionQueue, notificationQueue, rtiDeadlineQueue];
   queues.forEach(wireQueueEvents);
 
   loadProcessors();
@@ -263,4 +287,4 @@ boot().catch((err) => {
   process.exit(1);
 });
 
-module.exports = { hearingAlertQueue, documentQueue, subscriptionQueue, notificationQueue };
+module.exports = { hearingAlertQueue, documentQueue, subscriptionQueue, notificationQueue, rtiDeadlineQueue };

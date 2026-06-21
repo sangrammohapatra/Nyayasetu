@@ -46,8 +46,8 @@ function useBottomNavItems(persona, t, unread) {
     { icon: IC.home,          label: t('nav.home',          'Home'),     path: '/citizen/home' },
     { icon: IC.newDoc,        label: t('nav.new_doc',        'New Doc'),  path: '/citizen/documents/new' },
     { icon: IC.caseTracker,   label: t('nav.cases',          'Cases'),    path: '/citizen/cases' },
+    { icon: IC.caseTracker,   label: t('nav.rti',            'RTI'),      path: '/citizen/rti' },
     { icon: IC.findLawyer,    label: t('nav.lawyers',        'Lawyers'),  path: '/citizen/lawyers' },
-    { icon: IC.notifications, label: t('nav.alerts',         'Alerts'),   path: '/notifications', badge: unread },
   ];
 
   const lawyer = [

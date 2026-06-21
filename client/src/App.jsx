@@ -111,6 +111,11 @@ const NotaryHome            = lazy(() => import('./pages/notary/NotaryHome'));
 const NotaryDashboard       = lazy(() => import('./pages/notary/NotaryDashboard'));
 const NotarizationRequests  = lazy(() => import('./pages/notary/NotarizationRequests'));
 
+// RTI Tracker
+const RTITracker = lazy(() => import('./pages/citizen/RTITracker'));
+const NewRTI     = lazy(() => import('./pages/citizen/NewRTI'));
+const RTIDetail  = lazy(() => import('./pages/citizen/RTIDetail'));
+
 // ─── Page loading fallback ────────────────────────────────────────────────────
 
 function PageLoader() {
@@ -365,6 +370,9 @@ const router = createBrowserRouter([
       { path: "settings", element: <Settings /> },
       { path: "helpline", element: <EmergencyHelpline /> },
       { path: "calendar", element: <CalendarPage /> },
+      { path: "rti",      element: <RTITracker /> },
+      { path: "rti/new",  element: <NewRTI /> },
+      { path: "rti/:id",  element: <RTIDetail /> },
     ],
   },
 

@@ -45,6 +45,7 @@ const IC = {
   newDoc:        '/icons/mubdgyyw.json',
   myDocs:        '/icons/jqqjtvlf.json',
   caseTracker:   '/icons/warimioc.json',
+  rtiTracker:    '/icons/warimioc.json', // reuse case tracker icon
   findLawyer:    '/icons/kkvxgpti.json',
   pricing:       '/icons/qhviklyi.json',
   clients:       PeopleAltRounded,    // oqjlkyvy.json → 404 on CDN
@@ -69,6 +70,7 @@ function useNavItems(persona, t) {
       { icon: IC.myDocs,      label: t('sidebar.myDocs',      'My Documents'),  path: '/citizen/documents' },
       { section: t('sidebar.section_legal', 'Legal') },
       { icon: IC.caseTracker, label: t('sidebar.caseTracker', 'Case Tracker'),  path: '/citizen/cases' },
+      { icon: IC.rtiTracker,  label: t('sidebar.rtiTracker',  'RTI Tracker'),   path: '/citizen/rti' },
       { icon: IC.findLawyer,  label: t('sidebar.findLawyer',  'Find Lawyer'),   path: '/citizen/lawyers' },
       { icon: IC.calendar,    label: t('sidebar.calendar',    'Calendar'),      path: '/citizen/calendar' },
       { section: t('sidebar.section_account', 'Account') },
