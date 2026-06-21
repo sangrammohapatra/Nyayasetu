@@ -87,11 +87,23 @@ class AITriageService {
 
     let parsed;
     try {
-      const raw = await aiProvider.generate(
-        `${SYSTEM_PROMPT}\n\n${userPrompt}`,
-        true
+      // Use chat() so SYSTEM_PROMPT is placed in the provider's native system role
+      // (Anthropic `system` param / Gemini `systemInstruction`). The user description
+      // is in the user message — structurally isolated and unable to override the
+      // system instructions regardless of what the user writes.
+      const raw = await aiProvider.chat(
+        [{ role: 'user', content: userPrompt }],
+        SYSTEM_PROMPT,
+        false, // stream
+        true   // jsonMode — Gemini sets responseMimeType; Claude relies on system prompt
       );
-      parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      const text = typeof raw === 'string' ? raw : JSON.stringify(raw);
+      const cleaned = text
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/, '')
+        .replace(/```\s*$/, '')
+        .trim();
+      parsed = JSON.parse(cleaned);
     } catch (err) {
       logger.error('[AITriageService] AI call or parse failed:', err.message);
       throw err;

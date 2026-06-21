@@ -48,34 +48,45 @@ const analyzeSituation = asyncHandler(async (req, res) => {
     });
   }
 
-  // ── Daily quota check ──────────────────────────────────────────────────────
-  const user = await User.findById(userId)
-    .select('freeUsage.triageUsed freeUsage.triageResetDate')
-    .lean();
-
-  if (!user) throw createError(401, 'USER_NOT_FOUND', 'User not found');
-
+  // ── Atomic daily quota check-and-increment ────────────────────────────────
+  // Two-step approach prevents double-spending under concurrent requests:
+  //   1. Conditionally reset the day counter (idempotent: second concurrent
+  //      request won't match because the first already advanced triageResetDate).
+  //   2. Atomically consume one slot — null return means quota exhausted.
   const limit      = getDailyLimit(plan);
   const todayStart = getTodayStart();
-  const lastReset  = user.freeUsage?.triageResetDate
-    ? new Date(user.freeUsage.triageResetDate)
-    : null;
+  const now        = new Date();
 
-  const isNewDay   = !lastReset || lastReset < todayStart;
-  const usedToday  = isNewDay ? 0 : (user.freeUsage?.triageUsed ?? 0);
+  await User.updateOne(
+    {
+      _id: userId,
+      $or: [
+        { 'freeUsage.triageResetDate': { $lt: todayStart } },
+        { 'freeUsage.triageResetDate': { $exists: false } },
+      ],
+    },
+    { $set: { 'freeUsage.triageUsed': 0, 'freeUsage.triageResetDate': now } }
+  );
 
-  if (usedToday >= limit) {
+  const slotGranted = await User.findOneAndUpdate(
+    { _id: userId, 'freeUsage.triageUsed': { $lt: limit } },
+    { $inc: { 'freeUsage.triageUsed': 1 } },
+    { new: true, select: 'freeUsage' }
+  );
+
+  if (!slotGranted) {
     const tomorrow = new Date(todayStart);
     tomorrow.setDate(tomorrow.getDate() + 1);
     return res.status(403).json({
       error: 'TRIAGE_QUOTA_EXCEEDED',
       message: `You have used all ${limit} free triage${limit === 1 ? '' : 's'} for today. Upgrade for more.`,
-      used:       usedToday,
       limit,
       resetsAt:   tomorrow.toISOString(),
       upgradeUrl: '/pricing',
     });
   }
+
+  const usedNow = slotGranted.freeUsage.triageUsed;
 
   // ── AI triage ──────────────────────────────────────────────────────────────
   const resolvedState    = stateCode || req.user.stateCode || null;
@@ -89,21 +100,13 @@ const analyzeSituation = asyncHandler(async (req, res) => {
     language:     resolvedLanguage,
   });
 
-  // ── Increment usage ────────────────────────────────────────────────────────
-  const now = new Date();
-  const updateOp = isNewDay
-    ? { $set: { 'freeUsage.triageUsed': 1, 'freeUsage.triageResetDate': now } }
-    : { $inc: { 'freeUsage.triageUsed': 1 } };
-
-  await User.findByIdAndUpdate(userId, updateOp);
-
   res.json({
     success: true,
     triage:  result,
     usage: {
-      used:      usedToday + 1,
+      used:      usedNow,
       limit,
-      remaining: Math.max(0, limit - usedToday - 1),
+      remaining: Math.max(0, limit - usedNow),
     },
   });
 });
@@ -186,6 +189,20 @@ const publicAnalyzeSituation = asyncHandler(async (req, res) => {
       limit:      GUEST_DAILY_LIMIT,
       signupUrl:  '/register',
       pricingUrl: '/pricing',
+    });
+  }
+
+  // ── Global daily budget guard ──────────────────────────────────────────────
+  // Per-email and per-IP limits block single-actor abuse; this cap limits the
+  // total AI spend from rotating IPs/emails. Configurable via env so ops can
+  // adjust without a deploy.
+  const DAILY_PUBLIC_BUDGET = parseInt(process.env.PUBLIC_TRIAGE_DAILY_BUDGET || '200', 10);
+  const todayTotalUsed = await PublicTriage.countDocuments({ dateKey });
+  if (todayTotalUsed >= DAILY_PUBLIC_BUDGET) {
+    return res.status(503).json({
+      error: 'CAPACITY_REACHED',
+      message: 'Daily public triage capacity has been reached. Sign up for unlimited access.',
+      signupUrl: '/register',
     });
   }
 
