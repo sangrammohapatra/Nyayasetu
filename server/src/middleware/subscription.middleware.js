@@ -1,6 +1,7 @@
 const User = require('../models/User.model');
 const { createError } = require('./error.middleware');
 const asyncHandler = require('../utils/asyncHandler');
+const { getRedisClient } = require('../config/redis');
 
 // ─── Feature Map ───────────────────────────────────────────────────────────────
 
@@ -34,6 +35,47 @@ function buildFeatureLookup(features, hier) {
 
 const FEATURE_MAP = buildFeatureLookup(planFeatures, hierarchies);
 
+// ─── Subscription cache ────────────────────────────────────────────────────────
+
+const SUB_CACHE_TTL_SECONDS = 300; // 5-minute staleness is industry-standard for plan state
+
+/**
+ * Returns { plan, validUntil } for the user.
+ * Tries Redis first (5-min TTL); falls back to MongoDB on miss or Redis outage.
+ * Cache writes are best-effort — a Redis failure degrades to the previous
+ * (always-DB) behaviour rather than breaking the request.
+ */
+async function getSubscription(userId) {
+  const redis   = getRedisClient();
+  const cacheKey = `sub:${userId}`;
+
+  if (redis && redis.status === 'ready') {
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) return JSON.parse(cached);
+    } catch (_) {}
+  }
+
+  const user = await User.findById(userId)
+    .select('subscription.plan subscription.validUntil')
+    .lean();
+
+  if (!user) return null;
+
+  const sub = {
+    plan:       user.subscription?.plan       ?? 'free',
+    validUntil: user.subscription?.validUntil ?? null,
+  };
+
+  if (redis && redis.status === 'ready') {
+    try {
+      await redis.set(cacheKey, JSON.stringify(sub), 'EX', SUB_CACHE_TTL_SECONDS);
+    } catch (_) {}
+  }
+
+  return sub;
+}
+
 // ─── checkFeatureAccess ────────────────────────────────────────────────────────
 
 /**
@@ -63,12 +105,15 @@ function checkFeatureAccess(feature) {
 
     const featureConfig = FEATURE_MAP[feature];
 
-    // Unknown feature key — fail open (don't block, but log)
     if (!featureConfig) {
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NODE_ENV !== 'production') {
+        // In dev/test: warn and pass through so new routes can be exercised
+        // before their feature key is added to featureFlags.json.
         console.warn(`[subscription] checkFeatureAccess: unknown feature "${feature}"`);
+        return next();
       }
-      return next();
+      // In production: unknown key means a misconfigured gate — fail closed.
+      return next(createError(500, 'CONFIG_ERROR', `Unknown feature gate: "${feature}"`));
     }
 
     const personaKey = persona;
@@ -77,21 +122,18 @@ function checkFeatureAccess(feature) {
     // Free-tier features are always accessible — no DB hit needed
     if (allowedPlans.includes('free')) return next();
 
-    // Paid features: read current subscription from DB so a plan change
-    // (purchase, cancellation, expiry) takes effect within the access-token
-    // window without requiring a re-login.
-    const user = await User.findById(userId)
-      .select('subscription.plan subscription.validUntil')
-      .lean();
+    // Paid features: resolve subscription via Redis cache (5-min TTL) so a plan
+    // change takes effect quickly without a DB hit on every protected request.
+    const sub = await getSubscription(userId);
 
-    if (!user) {
+    if (!sub) {
       return next(createError(401, 'USER_NOT_FOUND', 'User not found'));
     }
 
     const now = new Date();
     const activePlan =
-      user.subscription?.validUntil && now < new Date(user.subscription.validUntil)
-        ? user.subscription.plan
+      sub.validUntil && now < new Date(sub.validUntil)
+        ? sub.plan
         : 'free';
 
     if (!allowedPlans.includes(activePlan)) {
