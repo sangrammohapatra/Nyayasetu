@@ -40,8 +40,9 @@ router.get('/users/:id', adminController.getUser);
 router.patch('/users/:id/toggle-active', adminController.toggleUserActive);
 
 /* ---------------------------------------------------------------------------
- * Lawyer verification / rejection
+ * Lawyer listing, verification, and rejection
  * ------------------------------------------------------------------------ */
+router.get('/lawyers', adminController.listLawyers);
 router.post('/lawyers/:id/verify', adminController.verifyLawyer);
 router.post('/lawyers/:id/reject', adminController.rejectLawyer);
 

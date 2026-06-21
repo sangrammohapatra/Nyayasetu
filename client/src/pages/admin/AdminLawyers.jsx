@@ -19,7 +19,10 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import Skeleton from '@mui/material/Skeleton';
-import Tooltip from '@mui/material/Tooltip';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GlassCard from '../../components/ui/GlassCard';
@@ -27,50 +30,79 @@ import GradientHeading from '../../components/ui/GradientHeading';
 import api from '../../services/api';
 import { RADIUS, TYPOGRAPHY } from '../../theme/tokens';
 
+const STATUS_COLORS = {
+  approved:     { bg: 'rgba(46,125,50,0.12)',  color: '#2e7d32', label: 'Approved' },
+  pending:      { bg: 'rgba(237,108,2,0.12)',  color: '#ed6c02', label: 'Pending' },
+  under_review: { bg: 'rgba(2,136,209,0.12)',  color: '#0288d1', label: 'Under Review' },
+  rejected:     { bg: 'rgba(211,47,47,0.12)',  color: '#d32f2f', label: 'Rejected' },
+};
+
 export default function AdminLawyers() {
-  const [lawyers, setLawyers] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(0);
+  const [lawyers, setLawyers]       = useState([]);
+  const [total, setTotal]           = useState(0);
+  const [page, setPage]             = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [search, setSearch] = useState('');
-  const [verifiedFilter, setVerifiedFilter] = useState('');
-  const [verifying, setVerifying] = useState(null);
-  const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState(null);
+  const [search, setSearch]         = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [actionId, setActionId]     = useState(null); // LawyerProfile._id being acted on
+  const [snack, setSnack]           = useState({ open: false, msg: '', severity: 'success' });
+
+  // Reject dialog
+  const [rejectDialog, setRejectDialog] = useState({ open: false, lawyerId: null, name: '' });
+  const [rejectReason, setRejectReason] = useState('');
 
   const fetchLawyers = useCallback(() => {
     setLoading(true);
     const params = new URLSearchParams({
-      page: page + 1,
+      page:  page + 1,
       limit: rowsPerPage,
-      persona: 'lawyer',
-      ...(search && { search }),
+      ...(search       && { search }),
+      ...(statusFilter && { status: statusFilter }),
     });
-    api.get(`/admin/users?${params}`)
+    api.get(`/admin/lawyers?${params}`)
       .then(({ data }) => {
-        let list = data.users || [];
-        if (verifiedFilter === 'verified') list = list.filter((u) => u.lawyerProfile?.isVerified);
-        if (verifiedFilter === 'pending') list = list.filter((u) => !u.lawyerProfile?.isVerified);
-        setLawyers(list);
-        setTotal(data.pagination?.total || 0);
+        setLawyers(data.lawyers || []);
+        setTotal(data.total || 0);
       })
       .catch((err) => setError(err.response?.data?.message || 'Failed to load lawyers'))
       .finally(() => setLoading(false));
-  }, [page, rowsPerPage, search, verifiedFilter]);
+  }, [page, rowsPerPage, search, statusFilter]);
 
   useEffect(() => { fetchLawyers(); }, [fetchLawyers]);
 
-  const handleVerify = async (lawyerId, name) => {
-    setVerifying(lawyerId);
+  const handleVerify = async (lawyerProfileId, name) => {
+    setActionId(lawyerProfileId);
     try {
-      await api.post(`/admin/lawyers/${lawyerId}/verify`);
-      setSnack({ open: true, msg: `${name} has been verified successfully.`, severity: 'success' });
+      await api.post(`/admin/lawyers/${lawyerProfileId}/verify`);
+      setSnack({ open: true, msg: `${name} verified successfully.`, severity: 'success' });
       fetchLawyers();
     } catch (err) {
       setSnack({ open: true, msg: err.response?.data?.message || 'Verification failed.', severity: 'error' });
     } finally {
-      setVerifying(null);
+      setActionId(null);
+    }
+  };
+
+  const openRejectDialog = (lawyerProfileId, name) => {
+    setRejectDialog({ open: true, lawyerId: lawyerProfileId, name });
+    setRejectReason('');
+  };
+
+  const handleReject = async () => {
+    const { lawyerId, name } = rejectDialog;
+    setRejectDialog((d) => ({ ...d, open: false }));
+    setActionId(lawyerId);
+    try {
+      await api.post(`/admin/lawyers/${lawyerId}/reject`, { reason: rejectReason || undefined });
+      setSnack({ open: true, msg: `${name}'s profile rejected.`, severity: 'info' });
+      fetchLawyers();
+    } catch (err) {
+      setSnack({ open: true, msg: err.response?.data?.message || 'Rejection failed.', severity: 'error' });
+    } finally {
+      setActionId(null);
+      setRejectReason('');
     }
   };
 
@@ -78,24 +110,30 @@ export default function AdminLawyers() {
     <AnimatedPage>
       <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 1200, mx: 'auto' }}>
         <GradientHeading variant="h5" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 3 }}>
-          👨‍⚖️ Lawyers
+          Lawyers
         </GradientHeading>
 
         {/* Filters */}
         <GlassCard sx={{ p: 2, mb: 2 }}>
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
             <TextField
-              size="small" placeholder="Search name, email…"
-              value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+              size="small" placeholder="Search name, email, phone…"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(0); }}
               sx={{ flex: '1 1 200px', '& .MuiOutlinedInput-root': { borderRadius: `${RADIUS.md}px` } }}
             />
-            <FormControl size="small" sx={{ minWidth: 140 }}>
-              <InputLabel>Verification</InputLabel>
-              <Select label="Verification" value={verifiedFilter} onChange={(e) => { setVerifiedFilter(e.target.value); setPage(0); }}
-                sx={{ borderRadius: `${RADIUS.md}px` }}>
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel>Status</InputLabel>
+              <Select
+                label="Status" value={statusFilter}
+                onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
+                sx={{ borderRadius: `${RADIUS.md}px` }}
+              >
                 <MenuItem value="">All</MenuItem>
-                <MenuItem value="verified">Verified</MenuItem>
                 <MenuItem value="pending">Pending</MenuItem>
+                <MenuItem value="under_review">Under Review</MenuItem>
+                <MenuItem value="approved">Approved</MenuItem>
+                <MenuItem value="rejected">Rejected</MenuItem>
               </Select>
             </FormControl>
           </Box>
@@ -111,10 +149,10 @@ export default function AdminLawyers() {
                   <TableCell>Name</TableCell>
                   <TableCell>Email</TableCell>
                   <TableCell>Plan</TableCell>
-                  <TableCell>Bar ID</TableCell>
-                  <TableCell>Specialisation</TableCell>
+                  <TableCell>Bar Council No.</TableCell>
+                  <TableCell>Specialisations</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell align="right">Action</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -126,54 +164,70 @@ export default function AdminLawyers() {
                         ))}
                       </TableRow>
                     ))
-                  : lawyers.map((u) => {
-                      const lp = u.lawyerProfile || {};
-                      const isVerified = lp.isVerified;
+                  : lawyers.map((lp) => {
+                      const u      = lp.user || {};
+                      const vstatus = lp.verificationStatus || (lp.isVerified ? 'approved' : 'pending');
+                      const colors  = STATUS_COLORS[vstatus] || STATUS_COLORS.pending;
+                      const busy    = actionId === lp._id;
+                      const canVerify = vstatus !== 'approved';
+                      const canReject = vstatus !== 'rejected';
+
                       return (
-                        <TableRow key={u._id} sx={{ '& td': { borderBottom: '1px solid var(--color-border)', py: 1 } }}>
+                        <TableRow key={lp._id} sx={{ '& td': { borderBottom: '1px solid var(--color-border)', py: 1 } }}>
                           <TableCell>
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--color-text)' }}>{u.name}</Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--color-text)' }}>{u.name || '—'}</Typography>
                           </TableCell>
                           <TableCell>
-                            <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>{u.email}</Typography>
+                            <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>{u.email || '—'}</Typography>
                           </TableCell>
                           <TableCell>
-                            <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>{u.plan || 'free'}</Typography>
+                            <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>{lp.lawyerPlan || 'free'}</Typography>
                           </TableCell>
                           <TableCell>
                             <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', fontFamily: 'monospace' }}>
-                              {lp.barCouncilId || '—'}
+                              {lp.barCouncilNumber || '—'}
                             </Typography>
                           </TableCell>
                           <TableCell>
                             <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
-                              {lp.specialisation?.slice(0, 2).join(', ') || '—'}
+                              {lp.specialisations?.slice(0, 2).join(', ') || '—'}
                             </Typography>
                           </TableCell>
                           <TableCell>
-                            {isVerified ? (
-                              <Chip label="Verified" size="small" sx={{ height: 20, fontSize: '0.68rem', fontWeight: 700, background: 'rgba(46,125,50,0.12)', color: '#2e7d32' }} />
-                            ) : (
-                              <Chip label="Pending" size="small" sx={{ height: 20, fontSize: '0.68rem', fontWeight: 700, background: 'rgba(237,108,2,0.12)', color: '#ed6c02' }} />
-                            )}
+                            <Chip
+                              label={colors.label} size="small"
+                              sx={{ height: 20, fontSize: '0.68rem', fontWeight: 700, background: colors.bg, color: colors.color }}
+                            />
                           </TableCell>
                           <TableCell align="right">
-                            {!isVerified && (
-                              <Button
-                                size="small" variant="contained"
-                                disabled={verifying === u._id}
-                                onClick={() => handleVerify(u._id, u.name)}
-                                sx={{
-                                  fontSize: '0.7rem', py: 0.4, px: 1.5,
-                                  borderRadius: `${RADIUS.md}px`,
-                                  background: 'var(--color-primary)',
-                                  minWidth: 80,
-                                  '&:hover': { background: 'var(--color-primary-dark, var(--color-primary))' },
-                                }}
-                              >
-                                {verifying === u._id ? <CircularProgress size={12} sx={{ color: '#fff' }} /> : 'Verify'}
-                              </Button>
-                            )}
+                            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                              {canVerify && (
+                                <Button
+                                  size="small" variant="contained"
+                                  disabled={busy}
+                                  onClick={() => handleVerify(lp._id, u.name)}
+                                  sx={{
+                                    fontSize: '0.7rem', py: 0.4, px: 1.5,
+                                    borderRadius: `${RADIUS.md}px`,
+                                    background: 'var(--color-primary)',
+                                    minWidth: 72,
+                                    '&:hover': { background: 'var(--color-primary-dark, var(--color-primary))' },
+                                  }}
+                                >
+                                  {busy ? <CircularProgress size={12} sx={{ color: '#fff' }} /> : 'Approve'}
+                                </Button>
+                              )}
+                              {canReject && (
+                                <Button
+                                  size="small" variant="outlined" color="error"
+                                  disabled={busy}
+                                  onClick={() => openRejectDialog(lp._id, u.name)}
+                                  sx={{ fontSize: '0.7rem', py: 0.4, px: 1.5, borderRadius: `${RADIUS.md}px`, minWidth: 72 }}
+                                >
+                                  Reject
+                                </Button>
+                              )}
+                            </Box>
                           </TableCell>
                         </TableRow>
                       );
@@ -201,8 +255,29 @@ export default function AdminLawyers() {
         </GlassCard>
       </Box>
 
-      <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+      {/* Reject reason dialog */}
+      <Dialog open={rejectDialog.open} onClose={() => setRejectDialog((d) => ({ ...d, open: false }))} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Reject {rejectDialog.name}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus fullWidth multiline rows={3}
+            label="Reason (optional)"
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ pb: 2, px: 3 }}>
+          <Button onClick={() => setRejectDialog((d) => ({ ...d, open: false }))}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={handleReject}>Reject</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={snack.open} autoHideDuration={4000}
+        onClose={() => setSnack((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
         <Alert severity={snack.severity} onClose={() => setSnack((s) => ({ ...s, open: false }))} sx={{ borderRadius: 2 }}>
           {snack.msg}
         </Alert>

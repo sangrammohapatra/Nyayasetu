@@ -51,6 +51,7 @@ import {
   selectIsAuthenticated,
   selectUserPersona,
   selectAuthLoading,
+  selectLawyerProfile,
   getMe,
   forceLogout,
 } from "./store/slices/authSlice";
@@ -75,6 +76,7 @@ const CaseDashboard = lazy(() => import("./pages/citizen/CaseDashboard"));
 const LawyerProfile = lazy(() => import("./pages/citizen/LawyerProfile"));
 
 // Lawyer
+const LawyerVerificationPending = lazy(() => import("./pages/lawyer/LawyerVerificationPending"));
 const LawyerHome = lazy(() => import("./pages/lawyer/LawyerHome"));
 const LawyerDashboard = lazy(() => import("./pages/lawyer/LawyerDashboard"));
 const ClientList = lazy(() => import("./pages/lawyer/ClientList"));
@@ -234,6 +236,28 @@ function NotFound() {
   );
 }
 
+// ─── Lawyer verification gate ────────────────────────────────────────────────
+// Renders the normal Outlet when the lawyer is verified; otherwise shows the
+// pending page. Settings remains accessible regardless so lawyers can update
+// their profile while waiting.
+
+function LawyerVerifiedGate() {
+  const lawyerProfile = useSelector(selectLawyerProfile);
+  const loading = useSelector(selectAuthLoading);
+
+  if (loading && !lawyerProfile) return <PageLoader />;
+
+  if (!lawyerProfile?.isVerified) {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <LawyerVerificationPending />
+      </Suspense>
+    );
+  }
+
+  return <Outlet />;
+}
+
 // ─── Router definition ────────────────────────────────────────────────────────
 
 const router = createBrowserRouter([
@@ -332,22 +356,29 @@ const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <Navigate to="/lawyer/home" replace /> },
-      { path: "home", element: <LawyerHome /> },
-      { path: "profile", element: <LawyerDashboard /> },
-      { path: "clients", element: <ClientList /> },
-      { path: "clients/:userId", element: <ClientDetail /> },
-      { path: "cases", element: <CaseManagement /> },
-      {
-        path: "consultations",
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <ConsultationsPage />
-          </Suspense>
-        ),
-      },
-      { path: "earnings", element: <EarningsPanel /> },
+      // Settings is always accessible so an unverified lawyer can update their profile
       { path: "settings", element: <Settings /> },
-      { path: "calendar", element: <CalendarPage /> },
+      // Everything else requires verification
+      {
+        element: <LawyerVerifiedGate />,
+        children: [
+          { path: "home", element: <LawyerHome /> },
+          { path: "profile", element: <LawyerDashboard /> },
+          { path: "clients", element: <ClientList /> },
+          { path: "clients/:userId", element: <ClientDetail /> },
+          { path: "cases", element: <CaseManagement /> },
+          {
+            path: "consultations",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <ConsultationsPage />
+              </Suspense>
+            ),
+          },
+          { path: "earnings", element: <EarningsPanel /> },
+          { path: "calendar", element: <CalendarPage /> },
+        ],
+      },
     ],
   },
 

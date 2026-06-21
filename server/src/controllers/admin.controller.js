@@ -42,6 +42,7 @@ const verifyLawyer = asyncHandler(async (req, res) => {
   }
 
   profile.isVerified = true;
+  profile.verificationStatus = 'approved';
   profile.verifiedAt = new Date();
   profile.verifiedBy = req.user.userId;
   await profile.save();
@@ -339,6 +340,64 @@ const updateTemplate = asyncHandler(async (req, res) => {
 });
 
 /* ---------------------------------------------------------------------------
+ * listLawyers
+ * GET /v1/admin/lawyers
+ * Query: status (pending|under_review|approved|rejected), search, page, limit
+ * Returns LawyerProfile documents with user populated — IDs returned are
+ * LawyerProfile._id, which the verify/reject routes expect.
+ * ------------------------------------------------------------------------ */
+const listLawyers = asyncHandler(async (req, res) => {
+  const { status, search, page = 1, limit = 20 } = req.query;
+
+  const pageNum  = Math.max(1, parseInt(page,  10) || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+  const skip     = (pageNum - 1) * limitNum;
+
+  const filter = {};
+  if (status) filter.verificationStatus = status;
+
+  if (search) {
+    const esc = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const matchingUsers = await User.find({
+      persona: 'lawyer',
+      $or: [
+        { name:  { $regex: esc, $options: 'i' } },
+        { email: { $regex: esc, $options: 'i' } },
+        { phone: { $regex: esc, $options: 'i' } },
+      ],
+    }).select('_id').lean();
+
+    if (matchingUsers.length === 0) {
+      return res.json({ lawyers: [], total: 0, page: pageNum, limit: limitNum, totalPages: 0 });
+    }
+    filter.user = { $in: matchingUsers.map((u) => u._id) };
+  }
+
+  try {
+    const [lawyers, total] = await Promise.all([
+      LawyerProfile.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .populate('user', 'name email phone isActive')
+        .lean(),
+      LawyerProfile.countDocuments(filter),
+    ]);
+
+    return res.json({
+      lawyers,
+      total,
+      page:       pageNum,
+      limit:      limitNum,
+      totalPages: Math.max(1, Math.ceil(total / limitNum)),
+    });
+  } catch (err) {
+    logger.error('[admin.controller] listLawyers failed', { error: err.message });
+    return res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Failed to load lawyers' });
+  }
+});
+
+/* ---------------------------------------------------------------------------
  * rejectLawyer
  * POST /v1/admin/lawyers/:id/reject
  * id = LawyerProfile._id
@@ -460,6 +519,7 @@ const toggleUserActive = asyncHandler(async (req, res) => {
 module.exports = {
   verifyLawyer,
   rejectLawyer,
+  listLawyers,
   toggleUserActive,
   getStats,
   listUsers,
