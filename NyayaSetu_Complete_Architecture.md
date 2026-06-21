@@ -1,5 +1,5 @@
 # NyayaSetu — Complete Technical Architecture
-**Version 3.0 | As-Built (June 2026) — Actual Implementation State**
+**Version 4.0 | As-Built (June 2026) — Actual Implementation State**
 
 > This document reflects the **actual codebase** as it exists today, not the aspirational design.
 > Gaps between planned and implemented are called out explicitly.
@@ -36,10 +36,10 @@
 |-------|-----------|---------|-------|
 | Frontend | React (Vite) | 18.x | PWA-ready |
 | UI Library | MUI v6 | 6.x | Custom theme system |
-| State | Redux Toolkit + redux-persist | latest | 12 slices |
+| State | Redux Toolkit + redux-persist | latest | 13 slices in store |
 | Animations | Framer Motion | latest | Page transitions, stagger |
 | Backend | Node.js + Express | 18+ / 4.x | CommonJS |
-| Database | MongoDB + Mongoose | Atlas M0 | 16 models |
+| Database | MongoDB + Mongoose | Atlas M0 | 19 active models |
 | Cache/Queue | Redis (ioredis) | Upstash free | With in-memory fallback |
 | Real-time | Socket.IO | 4.x | Consultation chat + notifications |
 | Monorepo | npm workspaces | — | client / server / worker |
@@ -78,10 +78,10 @@ STORAGE_PROVIDER=s3          →  AWS S3 (prod)
 ```
 Personas:
   citizen    — normal user / applicant
-  lawyer     — verified advocate
+  lawyer     — verified advocate (LawyerVerifiedGate in router)
   paralegal  — assistant to lawyer (access via /lawyer/* routes)
   admin      — platform admin
-  notary     — document notarization officer (NEW — added post-v2)
+  notary     — document notarization officer (NotaryVerifiedGate in router)
 
 Subscription Tiers:
   citizen:   free | basic (₹99/mo) | pro (₹199/mo)
@@ -95,8 +95,8 @@ Subscription Tiers:
 ```
 Browser → Vite Dev / Vercel CDN
          → React Router v6 (createBrowserRouter)
-         → ProtectedRoute (persona-gated)
-         → AppLayout (Navbar + Sidebar + BottomNav)
+         → ProtectedRoute (persona-gated) → VerifiedGate (lawyer/notary)
+         → AppLayout (Navbar + Sidebar + BottomNav + NyayaBotWidget)
          → Lazy-loaded page component
          → Axios api.js → Express /v1/* routes
          → Auth middleware → Controller → MongoDB
@@ -139,7 +139,7 @@ nyayasetu/                               # npm workspace root
 │       │   └── slices/
 │       │       ├── authSlice.js
 │       │       ├── chatSlice.js
-│       │       ├── chatBotSlice.js
+│       │       ├── chatBotSlice.js     # ⚠ exists but NOT wired into store.js
 │       │       ├── nyayabotSlice.js
 │       │       ├── documentSlice.js
 │       │       ├── caseSlice.js
@@ -149,18 +149,21 @@ nyayasetu/                               # npm workspace root
 │       │       ├── lawyerSlice.js
 │       │       ├── consultationChatSlice.js
 │       │       ├── notarySlice.js
+│       │       ├── rtiSlice.js         # RTI Tracker — async thunks + selectors
 │       │       └── errorSlice.js
 │       ├── hooks/
 │       │   ├── useAuth.js
 │       │   ├── useChat.js
 │       │   ├── useNyayaBot.js
 │       │   ├── useCaseTracker.js
+│       │   ├── useCalendarEvents.js    # Calendar event aggregation hook
 │       │   ├── useDocumentStream.js    # SSE streaming hook
 │       │   ├── useFeatureAccess.js     # tier feature gate
 │       │   └── useErrorHandling.jsx
 │       ├── services/
 │       │   ├── api.js                  # Axios instance + auth interceptors
 │       │   ├── socket.js               # Socket.IO client singleton
+│       │   ├── tokenStore.js           # Centralised JWT token read/write
 │       │   └── razorpay.js             # Razorpay checkout handler
 │       ├── utils/
 │       │   └── featureFlags.js         # tier → features map (must stay in sync with server)
@@ -168,7 +171,7 @@ nyayasetu/                               # npm workspace root
 │       │   ├── layout/
 │       │   │   ├── Navbar.jsx
 │       │   │   ├── Sidebar.jsx         # Persona-aware; lordicon icons via CDN
-│       │   │   ├── BottomNav.jsx
+│       │   │   ├── BottomNav.jsx       # Citizen: Home|NewDoc|Cases|RTI|Lawyers (5 items)
 │       │   │   └── ThemeSwitcher.jsx   # ⚠ Commented out in AppLayout
 │       │   ├── ui/
 │       │   │   ├── AnimatedPage.jsx
@@ -182,6 +185,10 @@ nyayasetu/                               # npm workspace root
 │       │   │   ├── ScrollProgressBar.jsx
 │       │   │   ├── LordIcon.jsx
 │       │   │   └── LanguageSelector.jsx
+│       │   ├── calendar/
+│       │   │   ├── CalendarView.jsx    # Month grid calendar
+│       │   │   ├── DayView.jsx         # Single-day event list
+│       │   │   └── DayEventsPanel.jsx  # Side panel for day events
 │       │   ├── chat/
 │       │   │   ├── ChatWindow.jsx
 │       │   │   ├── MessageBubble.jsx
@@ -203,6 +210,9 @@ nyayasetu/                               # npm workspace root
 │       │   ├── notary/
 │       │   │   ├── NotarySearch.jsx
 │       │   │   └── NotarizationBooking.jsx
+│       │   ├── rti/
+│       │   │   ├── RTIStatusBadge.jsx  # MUI Chip for 10-state RTI machine
+│       │   │   └── RTITimeline.jsx     # Visual stage-by-stage timeline
 │       │   └── nyayabot/
 │       │       ├── NyayaBotWidget.jsx  # Floating chat button
 │       │       ├── NyayaBotWindow.jsx
@@ -215,16 +225,19 @@ nyayasetu/                               # npm workspace root
 │           ├── public/
 │           │   └── LandingPage.jsx
 │           ├── citizen/
-│           │   ├── CitizenHome.jsx
+│           │   ├── CitizenHome.jsx     # Dashboard with 5 quick action cards
 │           │   ├── NewDocument.jsx     # Template picker
 │           │   ├── ChatFlow.jsx        # Conversational document creation
 │           │   ├── DocumentPreview.jsx
 │           │   ├── MyDocuments.jsx
 │           │   ├── CaseDashboard.jsx
-│           │   ├── CitizenProfile.jsx
 │           │   ├── LawyerProfile.jsx   # View a specific lawyer's profile
-│           │   └── EmergencyHelpline.jsx
+│           │   ├── EmergencyHelpline.jsx
+│           │   ├── RTITracker.jsx      # RTI list + filter + urgency countdown
+│           │   ├── NewRTI.jsx          # 4-step wizard: Describe→Review→Details→Preview
+│           │   └── RTIDetail.jsx       # RTI detail + state machine actions + PDF download
 │           ├── lawyer/
+│           │   ├── LawyerVerificationPending.jsx  # Shown via LawyerVerifiedGate
 │           │   ├── LawyerHome.jsx
 │           │   ├── LawyerDashboard.jsx # Profile management
 │           │   ├── ClientList.jsx
@@ -233,6 +246,7 @@ nyayasetu/                               # npm workspace root
 │           │   ├── ConsultationsPage.jsx
 │           │   └── EarningsPanel.jsx
 │           ├── notary/
+│           │   ├── NotaryVerificationPending.jsx  # Shown via NotaryVerifiedGate
 │           │   ├── NotaryHome.jsx
 │           │   ├── NotaryDashboard.jsx
 │           │   └── NotarizationRequests.jsx
@@ -240,13 +254,14 @@ nyayasetu/                               # npm workspace root
 │           │   ├── AdminDashboard.jsx
 │           │   ├── AdminUsers.jsx
 │           │   ├── AdminLawyers.jsx
+│           │   ├── AdminNotaries.jsx   # Notary management panel
 │           │   ├── AdminTemplates.jsx
 │           │   └── AdminAuditLog.jsx
 │           ├── shared/
 │           │   ├── Pricing.jsx
 │           │   ├── Settings.jsx
 │           │   ├── SharedDocumentView.jsx
-│           │   ├── CalendarPage.jsx   # ⚠ File exists; hook/page newly added
+│           │   ├── CalendarPage.jsx    # Shared calendar for citizen/lawyer/notary
 │           │   └── LawSearch.jsx
 │           └── NyayaBotPage.jsx
 │
@@ -276,9 +291,10 @@ nyayasetu/                               # npm workspace root
 │       │   ├── LegalAct.model.js
 │       │   ├── NyayaBotSession.js       # AI triage chatbot session
 │       │   ├── PublicTriage.model.js    # Emergency triage log
-│       │   ├── NotaryProfile.model.js   # ⚠ NEW — Notary persona
-│       │   ├── NotarizationRequest.model.js # ⚠ NEW — Notary requests
-│       │   ├── Chat.js                  # ⚠ Legacy/parallel chat model
+│       │   ├── NotaryProfile.model.js   # Notary persona profile
+│       │   ├── NotarizationRequest.model.js # Notary request + ₹199 Video KYC
+│       │   ├── RTIApplication.model.js  # RTI Tracker — 10-state machine
+│       │   ├── Chat.js                  # ⚠ Legacy/parallel chat model (unused)
 │       │   └── index.js                 # Barrel export
 │       ├── routes/
 │       │   ├── auth.routes.js           → /v1/auth/*
@@ -286,7 +302,7 @@ nyayasetu/                               # npm workspace root
 │       │   ├── chat.routes.js           → /v1/chat/*
 │       │   ├── document.routes.js       → /v1/documents/*
 │       │   ├── case.routes.js           → /v1/cases/*
-│       │   ├── lawyer.routes.js         → /v1/lawyers/* & /v1/consultations/*
+│       │   ├── lawyer.routes.js         → /v1/* (lawyers + consultations)
 │       │   ├── payment.routes.js        → /v1/payments/*
 │       │   ├── subscription.routes.js   → /v1/subscriptions/*
 │       │   ├── whatsapp.routes.js       → /v1/whatsapp/*
@@ -296,9 +312,9 @@ nyayasetu/                               # npm workspace root
 │       │   ├── profile.routes.js        → /v1/profile/*
 │       │   ├── consultationChat.routes.js → /v1/consultations/*
 │       │   ├── triage.routes.js         → /v1/triage/*
-│       │   ├── notary.routes.js         → /v1/* (inconsistently mounted)
-│       │   ├── nyayabotRoutes.js        → /v1/nyayabot/* (duplicate mount!)
-│       │   └── chatRoutes.js            # ⚠ STALE — duplicate of chat.routes.js
+│       │   ├── notary.routes.js         → notaryProfileRouter:/v1/notaries, notarizationRouter:/v1/notarizations
+│       │   ├── nyayabotRoutes.js        → /v1/nyayabot/*
+│       │   └── rti.routes.js            → /v1/rti/*
 │       ├── controllers/
 │       │   ├── auth.controller.js
 │       │   ├── template.controller.js
@@ -312,9 +328,10 @@ nyayasetu/                               # npm workspace root
 │       │   ├── whatsapp.controller.js
 │       │   ├── notification.controller.js
 │       │   ├── triage.controller.js
-│       │   ├── admin.controller.js      # ⚠ Likely thin/stub
-│       │   ├── nyayabotController.js    # ⚠ Non-standard naming
-│       │   └── chatController.js        # ⚠ STALE — duplicate
+│       │   ├── admin.controller.js
+│       │   ├── notary.controller.js
+│       │   ├── rti.controller.js        # RTI CRUD + AI drafts + PDF download
+│       │   └── nyayabotController.js    # ⚠ Non-standard naming
 │       ├── services/
 │       │   ├── ai/
 │       │   │   ├── aiProvider.js        # Switch: gemini | claude
@@ -325,7 +342,8 @@ nyayasetu/                               # npm workspace root
 │       │   │   ├── clauseExplainer.js   # Clause plain-language prompts
 │       │   │   ├── aiChatService.js     # General chat orchestration
 │       │   │   ├── aiNyayaBotService.js # NyayaBot triage AI
-│       │   │   └── aiTriageService.js   # Public emergency triage AI
+│       │   │   ├── aiTriageService.js   # Public emergency triage AI
+│       │   │   └── rtiAIService.js      # RTI drafting: application/first appeal/CIC appeal
 │       │   ├── ecourts/
 │       │   │   ├── ecourtsClient.js     # HTTP client for NJDG API
 │       │   │   └── ecourtsService.js    # Business logic wrapper
@@ -333,7 +351,8 @@ nyayasetu/                               # npm workspace root
 │       │   │   └── kanoonClient.js
 │       │   ├── pdf/
 │       │   │   ├── pdfGenerator.js      # PDFKit document generation
-│       │   │   └── notaryStamp.js       # Notarization stamp overlay
+│       │   │   ├── notaryStamp.js       # Notarization stamp overlay
+│       │   │   └── rtiPdfService.js     # RTI Application/First Appeal/CIC Appeal PDFs
 │       │   ├── storage/
 │       │   │   ├── storageProvider.js   # Switch: cloudinary | s3
 │       │   │   ├── cloudinaryService.js
@@ -365,16 +384,19 @@ nyayasetu/                               # npm workspace root
 │       │   ├── asyncHandler.js
 │       │   └── logger.js               # Winston logger
 │       ├── data/
-│       │   └── legalAidCenters.js      # Static legal aid center data
+│       │   ├── legalAidCenters.js      # Static legal aid center data
+│       │   └── rtiMinistries.js        # 20 central ministries + 22 state depts + CIC_INFO
 │       └── worker/                     # ⚠ Worker code lives inside server/src!
-│           ├── worker.js
+│           ├── worker.js               # 5 Bull queues + Bull Board on port 5001
 │           └── jobs/
 │               ├── checkHearingDates.job.js
 │               ├── generateDocument.job.js
 │               ├── resetFreeQuota.js
-│               └── sendHearingAlert.job.js
+│               ├── sendHearingAlert.job.js
+│               ├── checkRTIDeadlines.job.js  # Daily cron 01:30 UTC (7AM IST)
+│               └── sendRTIAlert.job.js        # Per-RTI deadline email alerts
 │
-└── worker/                              # ⚠ Separate workspace (near-empty)
+└── worker/                              # ⚠ Separate workspace (near-empty stub)
     ├── package.json
     └── src/
         └── worker.js                    # ⚠ References ../server jobs (wrong path)
@@ -388,7 +410,7 @@ nyayasetu/                               # npm workspace root
 
 Key fields (as in `User.model.js`):
 - **Identity:** `phone` (sparse, E.164), `email` (sparse, lowercase), `name`, `avatar`
-- **Persona:** `enum ['citizen','lawyer','paralegal','admin','notary']` (notary added)
+- **Persona:** `enum ['citizen','lawyer','paralegal','admin','notary']`
 - **Location:** `state`, `district`, `pincode`
 - **Preferences:** `preferredLanguage`, `preferredTheme`
 - **Subscription:** embedded `subscriptionSchema` (plan, validUntil, autoRenew, billingCycle)
@@ -422,8 +444,23 @@ Key fields (as in `User.model.js`):
 | AuditLog | `AuditLog.model.js` | action, resourceType, resourceId, userId, IP, success |
 | NyayaBotSession | `NyayaBotSession.js` | AI triage bot conversation state |
 | PublicTriage | `PublicTriage.model.js` | Anonymous emergency triage submissions |
-| NotaryProfile | `NotaryProfile.model.js` | ⚠ NEW persona — notary officer details |
-| NotarizationRequest | `NotarizationRequest.model.js` | ⚠ NEW — doc notarization workflow, ₹199 Video KYC |
+| NotaryProfile | `NotaryProfile.model.js` | Notary officer details, isVerified |
+| NotarizationRequest | `NotarizationRequest.model.js` | Doc notarization workflow, ₹199 Video KYC |
+| RTIApplication | `RTIApplication.model.js` | 10-state machine; pre-save auto-computes responseDeadline (+30d) and firstAppealDeadline (+60d) from filedDate; static alert-finding methods |
+
+### 4.3 RTIApplication State Machine
+
+```
+drafted → filed → response_received
+                → first_appeal_due → first_appeal_filed → first_appeal_decided
+                                                         → cic_filed → cic_decided
+                                                                     → closed
+                                                                     → withdrawn
+```
+
+**Key fields:** `user`, `title`, `govLevel` (central/state), `ministry`, `pioAddress`, `subjects[]`, `filedDate`, `responseDeadline`, `firstAppealDeadline`, `status` (enum 10 values), `alertSent.{day25, day30, firstAppealReminder, cicReminder}`
+
+**Virtuals:** `daysUntilDeadline`, `isOverdue`, `deadlineUrgency`
 
 ---
 
@@ -439,7 +476,7 @@ Key fields (as in `User.model.js`):
 | POST | `/verify-otp` | Public | **⚠ OTP CHECK BYPASSED** — issues JWT without validating OTP |
 | POST | `/login` | Public | Password-based login |
 | POST | `/register` | Auth | Complete profile (name, state, persona) |
-| GET | `/me` | Auth | Get current user + lawyerProfile |
+| GET | `/me` | Auth | Get current user + lawyerProfile + notaryProfile |
 | PATCH | `/me` | Auth | Update profile/preferences |
 | POST | `/refresh` | Public | Rotate refresh token |
 | POST | `/logout` | Auth | Revoke refresh token |
@@ -504,8 +541,29 @@ Key fields (as in `User.model.js`):
 ### Payments & Subscriptions
 | Route Prefix | Key Endpoints |
 |---|---|
-| `/v1/payments` | create-order, verify, history, webhook (raw body) |
+| `/v1/payments` | create-order, verify, history, webhook (raw body, HMAC verified) |
 | `/v1/subscriptions` | create, verify, current, cancel |
+
+### Notary — `/v1/notaries`, `/v1/notarizations`
+| Method | Path | Notes |
+|--------|------|-------|
+| GET/POST | `/notaries/...` | Notary profile CRUD |
+| GET/POST/PATCH | `/notarizations/...` | Notarization request workflow, PDF stamp |
+
+### RTI Tracker — `/v1/rti`
+| Method | Path | Auth | Notes |
+|--------|------|------|-------|
+| GET | `/` | Auth | List RTIs (filter, paginate, urgency enriched) |
+| GET | `/ministries` | Auth | Central ministries list |
+| POST | `/ai-draft` | Auth | AI draft RTI (no DB save) |
+| POST | `/` | Auth | Create RTI application |
+| GET | `/:id` | Auth | RTI detail (ownership check) |
+| PATCH | `/:id/file` | Auth | Mark as filed (triggers deadline computation) |
+| PATCH | `/:id/status` | Auth | Advance state machine (validated transitions) |
+| POST | `/:id/draft-first-appeal` | Auth | AI-draft First Appeal content |
+| POST | `/:id/draft-cic-appeal` | Auth | AI-draft CIC Appeal content |
+| GET\|POST | `/:id/download/:docType` | Auth | Download PDF (application/first-appeal/cic-appeal) |
+| DELETE | `/:id` | Auth | Soft delete (isActive=false) |
 
 ### Other Routes
 | Prefix | Purpose |
@@ -516,9 +574,10 @@ Key fields (as in `User.model.js`):
 | `/v1/admin` | Users list, stats, lawyer verify, template CRUD |
 | `/v1/profile` | Extended profile operations |
 | `/v1/triage` | Emergency AI triage (public + authenticated) |
-| `/v1/nyayabot` | NyayaBot AI chat (duplicate mount — app.js:138 + 174) |
-| `/v1/` + notary | Notarization endpoints (poorly scoped mount) |
+| `/v1/nyayabot` | NyayaBot AI chat |
 | `/v1/consultations` | Consultation chat messages (Socket.IO backed) |
+| `/health`, `/v1/health` | Health check (Mongo + Redis status) |
+| `/v1/webhooks/signdesk` | SignDesk signature webhook (raw body, inline handler) |
 
 ---
 
@@ -557,6 +616,7 @@ module.exports = provider === 'claude' ? require('./claudeClient') : require('./
 | `aiChatService.js` | General Q&A chat orchestration |
 | `aiNyayaBotService.js` | NyayaBot floating widget AI |
 | `aiTriageService.js` | Emergency helpline triage AI |
+| `rtiAIService.js` | RTI draft generation: `draftApplication()`, `draftFirstAppeal()`, `draftCICAppeal()` |
 
 ---
 
@@ -650,7 +710,7 @@ All component colors use CSS vars (`var(--color-primary)`, etc.) — zero hardco
 
 ### RTL
 
-- Urdu (`ur`) triggers `document.documentElement.dir = 'rtl'`
+- Urdu (`ur`) and Arabic (`ar`) trigger `document.documentElement.dir = 'rtl'`
 - ⚠ MUI RTL transform (`jss-rtl`/`stylis-plugin-rtl`) not yet configured
 
 ---
@@ -675,7 +735,7 @@ All component colors use CSS vars (`var(--color-primary)`, etc.) — zero hardco
 
 - Orders API for pay-per-doc + subscription creation
 - Webhook at `/v1/payments/webhook` (raw body captured, HMAC verified)
-- SignDesk webhook at `/v1/webhooks/signdesk` (raw body captured)
+- SignDesk webhook at `/v1/webhooks/signdesk` (raw body captured, inline handler in app.js)
 
 ### Twilio
 
@@ -713,7 +773,7 @@ All component colors use CSS vars (`var(--color-primary)`, etc.) — zero hardco
 
 - ₹199 flat fee for Video KYC notarization
 - Managed via `NotarizationRequest` model
-- PDF stamp via `notaryStamp.js`
+- PDF stamp overlay via `notaryStamp.js`
 
 ### Flow
 
@@ -738,7 +798,7 @@ Frontend: razorpay.js opens Razorpay checkout
 
 **Auth:** JWT token sent on connection; server verifies before allowing events.
 
-**Frontend:** `client/src/services/socket.js` — singleton, connect/disconnect on auth state change.
+**Frontend:** `client/src/services/socket.js` — singleton, connect/disconnect on auth state change via `AppBootstrap` in `App.jsx`.
 
 ---
 
@@ -746,16 +806,28 @@ Frontend: razorpay.js opens Razorpay checkout
 
 **Location:** `server/src/worker/` (inside server workspace — **not** the separate `worker/` workspace)
 
+**Queues (5 total):**
+
+| Queue | Bull name | Purpose |
+|-------|-----------|---------|
+| `hearingAlertQueue` | `hearingAlerts` | Hearing date checks + alert delivery |
+| `documentQueue` | `documents` | Async PDF generation |
+| `subscriptionQueue` | `subscriptions` | Monthly quota reset |
+| `notificationQueue` | `notifications` | Monthly reminder emails |
+| `rtiDeadlineQueue` | `rtiDeadlines` | RTI deadline scanning + alert delivery |
+
 **Jobs:**
 
-| Job | Trigger | Purpose |
-|-----|---------|---------|
-| `checkHearingDates.job.js` | Scheduled (Bull cron) | Poll eCourts for upcoming hearings |
-| `sendHearingAlert.job.js` | Triggered by above | Send WhatsApp/email hearing reminders |
-| `generateDocument.job.js` | Enqueued by document controller | Async PDF generation |
-| `resetFreeQuota.js` | 1st of month cron | Reset free-tier usage counters |
+| Job | Queue | Trigger | Purpose |
+|-----|-------|---------|---------|
+| `checkHearingDates.job.js` | hearingAlerts | Cron 00:30 UTC (6AM IST) | Poll eCourts for upcoming hearings |
+| `sendHearingAlert.job.js` | hearingAlerts | Enqueued by above | Send WhatsApp/email hearing reminders |
+| `generateDocument.job.js` | documents | Enqueued by document controller | Async PDF generation (concurrency: 3) |
+| `resetFreeQuota.js` | subscriptions | Cron 18:30 UTC daily (self-guarded monthly) | Reset free-tier usage counters |
+| `checkRTIDeadlines.job.js` | rtiDeadlines | Cron 01:30 UTC (7AM IST) | Scan filed RTIs; auto-transition overdue; enqueue day25/day30 alerts with dedup jobIds |
+| `sendRTIAlert.job.js` | rtiDeadlines | Enqueued by above | Send deadline alert emails (day25/day30/overdue); update alertSent flags |
 
-**Queue:** Bull.js over Redis (Upstash)
+**Bull Board UI:** http://localhost:5001/admin/queues (protected by `WORKER_UI_TOKEN` in production)
 
 ⚠ The root-level `worker/` workspace is a near-empty stub that references server paths incorrectly. All working job code is in `server/src/worker/`.
 
@@ -771,14 +843,24 @@ Frontend: razorpay.js opens Razorpay checkout
 4. `POST /auth/refresh` — rotating refresh tokens (reuse detection: revoke all on reuse)
 5. Multi-device: max `MAX_REFRESH_TOKENS` (defined in constants) active per user
 
+### Token Storage (Frontend)
+
+JWT is managed by `client/src/services/tokenStore.js` — a centralised module for reading/writing the access token, used by `api.js` interceptors and `AppBootstrap`. Avoids scattered `localStorage` access.
+
+### Verification Gates (Frontend Router)
+
+- **LawyerVerifiedGate** — Renders `LawyerVerificationPending` page instead of child routes if `lawyerProfile.isVerified` is false. Settings route bypasses the gate so unverified lawyers can update their profile.
+- **NotaryVerifiedGate** — Same pattern for notaries using `notaryProfile.isVerified`.
+
 ### Security Middleware
 
-- **helmet** — CSP, HSTS, X-Frame-Options, etc.
+- **helmet** — CSP, HSTS, X-Frame-Options, etc. (JSON API policy: `defaultSrc: none`, `scriptSrc: self`)
 - **cors** — allowlist: CLIENT_URL + localhost:5173/3000
 - **express-rate-limit** — global (100/15min), AI (10/min), OTP (5/15min)
 - **auth.middleware.js** — JWT verify → `req.user = { userId, persona, plan }`
 - **subscription.middleware.js** — `requireFeature(feature)` → 403 if plan lacks it
 - **verifyTwilioSignature** — validates X-Twilio-Signature header on WhatsApp webhook
+- **Request ID** — every request gets `req.id` (from `x-request-id` header or `randomUUID()`) for log correlation
 
 ### In-Memory OTP Fallback
 
@@ -790,16 +872,30 @@ When Redis is unavailable, OTPs are stored in a `Map` in process memory. ⚠ No 
 
 ### Routing
 
-`createBrowserRouter` (React Router v6) with persona-gated route trees:
+`createBrowserRouter` (React Router v6) with persona-gated and verification-gated route trees:
+
 - `/` → `LandingPage` (public)
+- `/app` → `RootRedirect` (persona-aware: `/admin/dashboard` or `/<persona>/home`)
+- `/settings` → `SettingsRedirect` (redirects to `/<persona>/settings`)
 - `/login`, `/register` → auth pages (no layout)
-- `/citizen/*` → `ProtectedRoute(allowedPersonas=['citizen'])` → `AppLayout`
-- `/lawyer/*` → `ProtectedRoute(allowedPersonas=['lawyer','paralegal'])` → `AppLayout`
-- `/admin/*` → `ProtectedRoute(allowedPersonas=['admin'])` → `AppLayout`
-- `/notary/*` → `ProtectedRoute(allowedPersonas=['notary'])` → `AppLayout`
+- `/pricing`, `/shared/:shareToken` → public pages (no auth)
+- `/citizen/*` → `ProtectedRoute(citizen)` → `AppLayout`
+- `/lawyer/*` → `ProtectedRoute(lawyer)` → `AppLayout` → **`LawyerVerifiedGate`** (wraps most child routes)
+- `/admin/*` → `ProtectedRoute(admin)` → `AppLayout`
+- `/notary/*` → `ProtectedRoute(notary)` → `AppLayout` → **`NotaryVerifiedGate`** (wraps most child routes)
 - `/laws/search` → `ProtectedRoute` (any persona)
-- `/shared/:shareToken` → public document view
-- `/pricing` → public
+
+**Citizen child routes:**
+`home`, `documents`, `documents/new`, `chat/:templateSlug`, `documents/:documentId`, `cases`, `lawyers`, `lawyers/:lawyerId`, `settings`, `helpline`, `calendar`, `rti`, `rti/new`, `rti/:id`
+
+**Lawyer child routes (behind LawyerVerifiedGate):**
+`home`, `profile`, `clients`, `clients/:userId`, `cases`, `consultations`, `earnings`, `calendar`
+
+**Admin child routes:**
+`dashboard`, `users`, `lawyers`, `notaries`, `templates`, `audit-logs`
+
+**Notary child routes (behind NotaryVerifiedGate):**
+`home`, `requests`, `profile`, `calendar`
 
 All pages are lazy-loaded with `Suspense` + `PageLoader` fallback.
 
@@ -807,27 +903,29 @@ All pages are lazy-loaded with `Suspense` + `PageLoader` fallback.
 
 | Slice | Persisted | Purpose |
 |-------|-----------|---------|
-| authSlice | ✓ | User, tokens, loading |
+| authSlice | ✓ | User, tokens, loading, lawyerProfile, notaryProfile |
 | uiSlice | ✓ | Theme, language, sidebar, snackbars |
 | subscriptionSlice | ✓ | Active plan, free usage counters |
 | documentSlice | ✗ | Document list, current document |
 | caseSlice | ✗ | Case list |
 | chatSlice | ✗ | Active chat session |
 | nyayabotSlice | ✗ | NyayaBot widget state |
-| chatBotSlice | ✗ | (Likely legacy/duplicate of nyayabotSlice) |
 | lawyerSlice | ✗ | Lawyer search results |
-| notificationSlice | ✗ | In-app notifications |
+| notificationSlice | ✗ | In-app notifications + unread count |
 | consultationChatSlice | ✗ | Consultation chat messages + unread |
 | notarySlice | ✗ | Notary-specific state |
+| rtiSlice | ✗ | RTI list, currentRTI, aiDraft, ministries, appeal loading |
 | errorSlice | ✗ | Global error state |
+
+**Not in store:** `chatBotSlice.js` (file exists, ⚠ not imported — legacy/duplicate of nyayabotSlice)
 
 ### AppBootstrap (App.jsx)
 
 On mount:
-1. If `nyayasetu_token` in localStorage → dispatch `getMe()` to hydrate user
-2. If authenticated → connect Socket.IO, register event handlers
-3. Set `document.dir` for RTL languages
-4. Register service worker (PROD only)
+1. If token in `tokenStore` → dispatch `getMe()` to hydrate user; else `forceLogout()` + clear token
+2. If authenticated → connect Socket.IO, register `consultation:message`, `consultation:new_message`, `notification` handlers
+3. Set `document.dir` / `document.lang` for language (RTL for `ur`, `ar`)
+4. Register service worker (PROD only); emit `nyayasetu:ready` event
 
 ---
 
@@ -910,6 +1008,10 @@ EMAIL_FROM="NyayaSetu <noreply@nyayasetu.in>"
 # Security
 FIELD_ENCRYPTION_KEY=32-char-hex
 
+# Worker
+WORKER_BOARD_PORT=5001             # Bull Board UI port
+WORKER_UI_TOKEN=...                # Protects Bull Board in production
+
 # Dev shortcuts
 DEV_PHONE=+919999999999
 DEV_OTP=123456
@@ -938,7 +1040,7 @@ Docker Compose: available for full local stack (MongoDB + Redis + server + clien
 
 ### Critical (Blocks Production)
 
-- [ ] **OTP verification bypassed** — `auth.controller.js` lines 317–404 are commented out
+- [ ] **OTP verification bypassed** — `auth.controller.js` OTP check commented out for dev
 - [ ] **Feature flags not synced** — `featureFlags.js` (client) vs `subscription.middleware.js` (server) can diverge
 - [ ] **Lawyer auto-verified in dev** — `register()` sets `isVerified: process.env.NODE_ENV === 'development'`
 
@@ -946,23 +1048,27 @@ Docker Compose: available for full local stack (MongoDB + Redis + server + clien
 
 - [ ] Video consultation provider (`videoProvider.js` is a stub)
 - [ ] 9 language translation files (only EN + HI exist)
-- [ ] MUI RTL support for Urdu
-- [ ] ThemeSwitcher widget (commented out in AppLayout)
-- [ ] Admin controller (thin — most admin operations not fully implemented)
-- [ ] `worker/` workspace (outer) references wrong paths
+- [ ] MUI RTL support for Urdu (`stylis-plugin-rtl` not configured)
+- [ ] ThemeSwitcher widget (component exists but commented out in AppLayout)
+- [ ] `chatBotSlice.js` — file exists but not wired into store.js (dead code or legacy)
+- [ ] `worker/` workspace (outer) references wrong paths; all real job code is in `server/src/worker/`
+- [ ] `sendMonthlyReminder` job — processor not yet implemented (cron is scheduled but handler omitted)
+
+### RTI Feasibility Constraint
+
+- Cannot automate actual filing on rtionline.gov.in (CAPTCHA + login required). Solution in place: generate properly formatted PDF, guide user to portal, user manually marks as "filed" in the app to start deadline tracking.
 
 ### Structural Issues
 
-- [ ] Duplicate files: `chatRoutes.js`, `chatController.js`, `emailService.js` (root)
-- [ ] `nyayabotRoutes` mounted twice in `app.js` (lines 138 + 174)
-- [ ] `notaryRoutes` mounted at `/v1` root instead of `/v1/notary`
-- [ ] Worker code split between `server/src/worker/` and `worker/` workspace
+- [ ] `Chat.js` — legacy model file, likely unused; no controller references it
+- [ ] `lawyer.routes.js` mounted at `/v1` root (not `/v1/lawyers`) — works but non-obvious
+- [ ] Admin controller is thin; some admin operations (bulk actions, export) not implemented
 
 ### Not Yet Built (from v2 Architecture)
 
-- [ ] Pay-per-doc flow in frontend (UI exists, full payment gate missing)
+- [ ] Pay-per-doc full frontend payment gate (UI exists, Razorpay checkout not wired for docs)
 - [ ] Paralegal persona pages (routes exist but no dedicated pages)
 - [ ] Document versioning UI
-- [ ] WhatsApp state machine (backend stub, not fully wired)
-- [ ] Admin: lawyer approval workflow (frontend + backend)
+- [ ] WhatsApp state machine (backend partially stubbed, not fully wired)
+- [ ] Admin: lawyer approval workflow (admin can verify but no email notification sent)
 - [ ] Subscription renewal / cancellation flow in UI
