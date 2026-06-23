@@ -21,7 +21,6 @@ import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 
 import {
-  updateNotaryProfile as updateNotaryProfileAction,
   selectNotaryError,
   selectNotaryLoading,
 } from '../../store/slices/notarySlice';

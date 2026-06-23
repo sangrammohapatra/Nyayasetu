@@ -52,7 +52,7 @@ import {
   clearAIDraft,
 } from '../../store/slices/rtiSlice';
 import { selectUser } from '../../store/slices/authSlice';
-import { showSnackbar } from '../../store/slices/uiSlice';
+import { pushSnackbar } from '../../store/slices/uiSlice';
 
 const STEPS = ['Describe', 'Review Questions', 'Your Details', 'Preview'];
 
@@ -524,7 +524,7 @@ export default function NewRTI() {
     const payload = { ...form, subjects: form.subjects.filter(Boolean) };
     const result = await dispatch(createRTI(payload));
     if (!result.error) {
-      dispatch(showSnackbar({ message: 'RTI application saved!', severity: 'success' }));
+      dispatch(pushSnackbar({ message: 'RTI application saved!', severity: 'success' }));
       navigate(`/citizen/rti/${result.payload.rti._id}`);
     }
   };

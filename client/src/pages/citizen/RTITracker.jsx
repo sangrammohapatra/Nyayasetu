@@ -34,7 +34,7 @@ import {
   selectRTILoading,
   selectRTITotal,
 } from '../../store/slices/rtiSlice';
-import { showSnackbar } from '../../store/slices/uiSlice';
+import { pushSnackbar } from '../../store/slices/uiSlice';
 
 // ─── Countdown chip ────────────────────────────────────────────────────────────
 
@@ -268,7 +268,7 @@ export default function RTITracker() {
   const handleDelete = async (rtiId) => {
     if (!window.confirm('Delete this RTI draft?')) return;
     await dispatch(deleteRTI(rtiId));
-    dispatch(showSnackbar({ message: 'RTI draft deleted', severity: 'info' }));
+    dispatch(pushSnackbar({ message: 'RTI draft deleted', severity: 'info' }));
   };
 
   const urgentCount = rtis.filter((r) => ['overdue', 'critical'].includes(r.deadlineUrgency) || r.status === 'first_appeal_due').length;

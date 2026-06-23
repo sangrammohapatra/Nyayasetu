@@ -1108,7 +1108,6 @@ function LiveHelplineSection() {
                       onChange={(e) => setEmail(e.target.value)}
                       error={!!emailError}
                       helperText={emailError}
-                      autoFocus
                       sx={{
                         mb: 2,
                         '& .MuiOutlinedInput-root': {
@@ -1161,7 +1160,7 @@ function LiveHelplineSection() {
                   </Typography>
                   <form onSubmit={handleSubmit}>
                     <TextField
-                      fullWidth multiline minRows={5} autoFocus
+                      fullWidth multiline minRows={5}
                       placeholder="Example: मेरे मकान मालिक ने बिना नोटिस के मुझे घर से निकाल दिया..."
                       value={description}
                       onChange={(e) => { if (e.target.value.length <= 2000) setDescription(e.target.value); }}

@@ -55,7 +55,7 @@ import {
   selectRTIAppealLoading,
   selectRTIError,
 } from '../../store/slices/rtiSlice';
-import { showSnackbar } from '../../store/slices/uiSlice';
+import { pushSnackbar } from '../../store/slices/uiSlice';
 import api from '../../services/api';
 
 // ─── Utility ──────────────────────────────────────────────────────────────────
@@ -273,7 +273,7 @@ export default function RTIDetail() {
   const handleMarkFiled = async (payload) => {
     const result = await dispatch(markRTIAsFiled({ rtiId: id, ...payload }));
     if (!result.error) {
-      dispatch(showSnackbar({ message: 'RTI marked as filed — 30-day countdown started!', severity: 'success' }));
+      dispatch(pushSnackbar({ message: 'RTI marked as filed — 30-day countdown started!', severity: 'success' }));
       closeDialog('filed');
     }
   };
@@ -282,7 +282,7 @@ export default function RTIDetail() {
     const result = await dispatch(updateRTIStatus({ rtiId: id, ...payload }));
     if (!result.error) {
       const msg = payload.isResponseSatisfactory ? 'Response recorded as satisfactory.' : 'Response recorded — you can now file a First Appeal.';
-      dispatch(showSnackbar({ message: msg, severity: 'success' }));
+      dispatch(pushSnackbar({ message: msg, severity: 'success' }));
       closeDialog('response');
     }
   };
@@ -298,7 +298,7 @@ export default function RTIDetail() {
   const handleMarkFirstAppealFiled = async (payload) => {
     const result = await dispatch(updateRTIStatus({ rtiId: id, ...payload }));
     if (!result.error) {
-      dispatch(showSnackbar({ message: 'First Appeal filed — FAA has 30 days to respond.', severity: 'success' }));
+      dispatch(pushSnackbar({ message: 'First Appeal filed — FAA has 30 days to respond.', severity: 'success' }));
       closeDialog('firstAppeal');
     }
   };
@@ -313,19 +313,19 @@ export default function RTIDetail() {
 
   const handleMarkFirstAppealDecided = async (isGoodResult) => {
     await dispatch(updateRTIStatus({ rtiId: id, status: isGoodResult ? 'closed' : 'first_appeal_decided' }));
-    dispatch(showSnackbar({ message: isGoodResult ? 'Matter closed.' : 'First appeal decided — you can now file a CIC appeal.', severity: 'success' }));
+    dispatch(pushSnackbar({ message: isGoodResult ? 'Matter closed.' : 'First appeal decided — you can now file a CIC appeal.', severity: 'success' }));
   };
 
   const handleClose = async () => {
     if (!window.confirm('Mark this RTI as closed (resolved)?')) return;
     await dispatch(updateRTIStatus({ rtiId: id, status: 'closed' }));
-    dispatch(showSnackbar({ message: 'RTI marked as closed.', severity: 'success' }));
+    dispatch(pushSnackbar({ message: 'RTI marked as closed.', severity: 'success' }));
   };
 
   const handleWithdraw = async () => {
     if (!window.confirm('Withdraw this RTI application?')) return;
     await dispatch(updateRTIStatus({ rtiId: id, status: 'withdrawn' }));
-    dispatch(showSnackbar({ message: 'RTI withdrawn.', severity: 'info' }));
+    dispatch(pushSnackbar({ message: 'RTI withdrawn.', severity: 'info' }));
   };
 
   const handleDelete = async () => {
@@ -614,7 +614,7 @@ export default function RTIDetail() {
             <Button variant="contained" disabled={loading}
               onClick={async () => {
                 await dispatch(updateRTIStatus({ rtiId: id, status: 'cic_filed', cicFiledDate: new Date().toISOString() }));
-                dispatch(showSnackbar({ message: 'CIC appeal marked as filed.', severity: 'success' }));
+                dispatch(pushSnackbar({ message: 'CIC appeal marked as filed.', severity: 'success' }));
                 closeDialog('cic');
               }}
               sx={{ background: '#B71C1C', borderRadius: `${RADIUS.md}px`, fontWeight: 700 }}>
