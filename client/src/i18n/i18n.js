@@ -33,9 +33,19 @@ import HttpBackend from 'i18next-http-backend';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import enLang from '../../public/locales/en/translation.json';
 import hiLang from '../../public/locales/hi/translation.json';
+import bnLang from '../../public/locales/bn/translation.json';
+import mrLang from '../../public/locales/mr/translation.json';
+import taLang from '../../public/locales/ta/translation.json';
+import teLang from '../../public/locales/te/translation.json';
+import guLang from '../../public/locales/gu/translation.json';
+import knLang from '../../public/locales/kn/translation.json';
+import mlLang from '../../public/locales/ml/translation.json';
+import paLang from '../../public/locales/pa/translation.json';
+import urLang from '../../public/locales/ur/translation.json';
+import odLang from '../../public/locales/od/translation.json';
 // ─── Supported language codes ─────────────────────────────────────────────────
 
-export const SUPPORTED_LANGUAGES = ['en', 'hi', 'bn', 'mr', 'ta', 'te', 'gu', 'kn', 'ml', 'pa', 'ur'];
+export const SUPPORTED_LANGUAGES = ['en', 'hi', 'bn', 'mr', 'ta', 'te', 'gu', 'kn', 'ml', 'pa', 'ur', 'od'];
 
 // RTL languages — ThemeProvider uses this to set dir="rtl" on <html>
 export const RTL_LANGUAGES = ['ur', 'ar'];
@@ -54,6 +64,7 @@ export const LANGUAGE_META = {
   ml: { label: 'Malayalam', native: 'മലയാളം',       flag: '🇮🇳', dir: 'ltr' },
   pa: { label: 'Punjabi',   native: 'ਪੰਜਾਬੀ',      flag: '🇮🇳', dir: 'ltr' },
   ur: { label: 'Urdu',      native: 'اردو',         flag: '🇵🇰', dir: 'rtl' },
+  od: { label: 'Odia',      native: 'ଓଡ଼ିଆ',         flag: '🇮🇳', dir: 'ltr' },
 };
 
 // ─── i18next initialisation ────────────────────────────────────────────────────
@@ -86,6 +97,36 @@ i18n
       },
       hi: {
         translation: hiLang,
+      },
+      bn: {
+        translation: bnLang,
+      },
+      mr: {
+        translation: mrLang,
+      },
+      ta: {
+        translation: taLang,
+      },
+      te: {
+        translation: teLang,
+      },
+      gu: {
+        translation: guLang,
+      },
+      kn: {
+        translation: knLang,
+      },
+      ml: {
+        translation: mlLang,
+      },
+      pa: {
+        translation: paLang,
+      },
+      ur: {
+        translation: urLang,
+      },
+      od: {
+        translation: odLang,
       },
     },
 

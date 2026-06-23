@@ -52,6 +52,7 @@ const UI_LANGUAGES = [
   { code: 'mr', label: 'मराठी' },
   { code: 'ta', label: 'தமிழ்' },
   { code: 'te', label: 'తెలుగు' },
+  { code: "od", label: "ଓଡ଼ିଆ" },
 ];
 
 const ALL_LANGUAGES = [
@@ -66,6 +67,7 @@ const ALL_LANGUAGES = [
   { code: 'ml', label: 'മലയാളം' },
   { code: 'pa', label: 'ਪੰਜਾਬੀ' },
   { code: 'ur', label: 'اردو' },
+  { code: 'od', label: 'ଓଡ଼ିଆ' },
 ];
 
 const THEMES = [
