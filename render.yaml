@@ -21,9 +21,9 @@ services:
       - key: PORT
         value: 5000
       - key: CLIENT_URL
-        value: https://YOUR_NETLIFY_SITE.netlify.app   # Update after Netlify deploy
+        value: https://nyayasetu-client.netlify.app   # Update after Netlify deploy
       - key: SERVER_URL
-        value: https://nyayasetu-api.onrender.com      # Update to your actual URL
+        value: https://nyayasetu-server.onrender.com      # Update to your actual URL
 
       # Database (same Atlas cluster — already configured)
       - key: MONGO_URI
