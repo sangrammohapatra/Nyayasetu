@@ -1,0 +1,225 @@
+# render.yaml — NyayaSetu Infrastructure as Code
+# Upload this file when creating services on Render (optional — you can also configure manually)
+# Docs: https://render.com/docs/infrastructure-as-code
+
+services:
+  # ── 1. Express API Web Service ──────────────────────────────────────────────
+  - type: web
+    name: nyayasetu-api
+    env: node
+    region: singapore        # Closest to India
+    plan: free               # Upgrade to starter ($7/mo) to avoid cold starts
+    rootDir: server
+    buildCommand: npm ci --production
+    startCommand: node src/server.js
+    healthCheckPath: /health
+    autoDeploy: true
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: CLIENT_URL
+        value: https://YOUR_NETLIFY_SITE.netlify.app   # Update after Netlify deploy
+      - key: SERVER_URL
+        value: https://nyayasetu-api.onrender.com      # Update to your actual URL
+
+      # Database (same Atlas cluster — already configured)
+      - key: MONGO_URI
+        sync: false   # Set manually in Render dashboard (keep secret)
+      - key: REDIS_URL
+        sync: false   # Set manually — must use rediss:// (TLS)
+
+      # JWT (copy from your .env)
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d            # Increase to 7d for production UX
+
+      # AI Provider
+      - key: AI_PROVIDER
+        value: gemini        # Switch to 'claude' when you have Anthropic credits
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+      # Voice
+      - key: VOICE_PROVIDER
+        value: huggingface
+      - key: HF_API_KEY
+        sync: false
+      - key: HF_WHISPER_MODEL
+        value: openai/whisper-large-v3
+
+      # SMS
+      - key: SMS_PROVIDER
+        value: fast2sms       # Switch to msg91 when you have MSG91 account
+      - key: FAST2SMS_API_KEY
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_SMS_FROM
+        sync: false
+
+      # WhatsApp
+      - key: ENABLE_WHATSAPP
+        value: "true"
+      - key: TWILIO_WHATSAPP_FROM
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: META_VERIFY_TOKEN
+        sync: false
+
+      # Email
+      - key: EMAIL_PROVIDER
+        value: gmail          # Switch to 'sendgrid' with SENDGRID_API_KEY for volume
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false           # Must be a Gmail App Password, not account password
+      - key: EMAIL_FROM
+        value: NyayaSetu <noreply@nyayasetu.in>
+      - key: SENDGRID_API_KEY
+        sync: false
+
+      # Storage
+      - key: STORAGE_PROVIDER
+        value: cloudinary     # Switch to 's3' with AWS keys for production scale
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+      # Payments
+      - key: RAZORPAY_KEY_ID
+        sync: false           # Use rzp_live_ keys for production
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+
+      # Security
+      - key: FIELD_ENCRYPTION_KEY
+        sync: false           # NEVER change this after first deployment (data loss)
+      - key: SESSION_SECRET
+        sync: false
+
+      # External APIs
+      - key: ECOURTS_API_BASE
+        value: https://services.ecourts.gov.in
+      - key: INDIANKANOON_API_KEY
+        sync: false
+      - key: SCRAPER_API_KEY
+        sync: false
+
+      # Feature flags
+      - key: ENABLE_LAWYER_PORTAL
+        value: "true"
+      - key: ENABLE_VOICE_INPUT
+        value: "true"
+      - key: PUBLIC_TRIAGE_DAILY_BUDGET
+        value: "200"
+
+      # Video
+      - key: DAILY_API_KEY
+        sync: false
+
+      # Worker board (disabled in web service — Bull Board runs in worker)
+      - key: WORKER_UI_TOKEN
+        sync: false
+
+      # eSignature (optional)
+      - key: SIGNDESK_API_KEY
+        sync: false
+      - key: SIGNDESK_APP_ID
+        sync: false
+      - key: SIGNDESK_BASE_URL
+        sync: false
+      - key: SIGNDESK_CLIENT_ID
+        sync: false
+      - key: SIGNDESK_WEBHOOK_SECRET
+        sync: false
+
+  # ── 2. Bull Background Worker ────────────────────────────────────────────────
+  - type: worker
+    name: nyayasetu-worker
+    env: node
+    region: singapore
+    plan: free
+    rootDir: server
+    buildCommand: npm ci --production
+    startCommand: node src/worker/worker.js
+    autoDeploy: true
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Worker needs the same DB + Redis as the API
+      - key: MONGO_URI
+        sync: false
+      - key: REDIS_URL
+        sync: false           # Must use rediss:// (TLS)
+
+      # Bull Board monitoring UI (accessible at worker's internal port)
+      - key: WORKER_BOARD_PORT
+        value: "10000"        # Render assigns port via PORT env var; use 10000 as default
+      - key: WORKER_UI_TOKEN
+        sync: false           # Set a strong random token to protect /admin/queues
+
+      # Email (worker sends RTI deadline alerts and hearing alerts)
+      - key: EMAIL_PROVIDER
+        value: gmail
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: EMAIL_FROM
+        value: NyayaSetu <noreply@nyayasetu.in>
+      - key: SENDGRID_API_KEY
+        sync: false
+
+      # SMS/WhatsApp (worker sends hearing and RTI alerts)
+      - key: SMS_PROVIDER
+        value: fast2sms
+      - key: FAST2SMS_API_KEY
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_WHATSAPP_FROM
+        sync: false
+      - key: ENABLE_WHATSAPP
+        value: "true"
+
+      # External APIs (worker calls eCourts for hearing dates)
+      - key: ECOURTS_API_BASE
+        value: https://services.ecourts.gov.in
+      - key: INDIANKANOON_API_KEY
+        sync: false
+      - key: SCRAPER_API_KEY
+        sync: false
+
+      # Security (field decryption in worker jobs)
+      - key: FIELD_ENCRYPTION_KEY
+        sync: false           # Must match the API service exactly
