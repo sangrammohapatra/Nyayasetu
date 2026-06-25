@@ -158,11 +158,8 @@ const slideVariants = {
 // ─── Step progress indicator (register) ──────────────────────────────────────
 
 function RegStepIndicator({ step }) {
-  // BYPASS: 'Verify Phone' step removed while OTP is disabled — restore when live
-  // const labels = ['Personal Info', 'Verify Phone', 'Your Role', 'Preferences'];
-  const labels = ['Personal Info', 'Your Role', 'Preferences'];
-  // BYPASS: remap step numbers to label indices (step 1 is skipped)
-  const displayStep = step === 0 ? 0 : step - 1;
+  const labels = ['Personal Info', 'Verify Phone', 'Your Role', 'Preferences'];
+  const displayStep = step;
   return (
     <Box sx={{ mb: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
@@ -319,24 +316,7 @@ function Login() {
     if (identifierIsPhone && identifier.length !== 10) return;
     if (identifierIsEmail && !identifier.includes('@')) return;
     dispatch(clearError());
-
-    // BYPASS: Skip OTP sending — re-enable when verification is live
-    // await dispatch(sendOTP(loginIdentifierForApi));
-
-    // BYPASS: Directly verify (server skips OTP check)
-    const result = await dispatch(verifyOTP(
-      identifierIsEmail
-        ? { email: identifier, otp: '000000' }
-        : { phone: loginIdentifierForApi, otp: '000000' }
-    ));
-    if (result.meta.requestStatus === 'fulfilled') {
-      if (result.payload.isNewUser) {
-        navigate('/register', { state: { phone: identifierIsPhone ? loginIdentifierForApi : undefined, email: identifierIsEmail ? identifier : undefined } });
-      } else {
-        const userPersona = (result.payload.user?.persona || 'citizen').toLowerCase();
-        navigate(userPersona === 'admin' ? '/admin/dashboard' : `/${userPersona}/home`);
-      }
-    }
+    await dispatch(sendOTP(loginIdentifierForApi));
   };
 
   const handleVerifyOTP = async (e) => {
@@ -408,24 +388,14 @@ function Login() {
     setRegLoading(true);
     setRegError(null);
 
-    // BYPASS: Skip OTP sending + verification step — re-enable when live
-    // const result = await dispatch(sendOTP(`+91${regData.phone}`));
-    // if (result.meta.requestStatus === 'fulfilled') {
-    //   setRegOtpSent(true);
-    //   setRegCountdown(30);
-    //   setRegDirection(1);
-    //   setRegStep(1);
-    // } else {
-    //   setRegError(result.payload || 'Failed to send OTP. Please check the phone number.');
-    // }
-
-    // BYPASS: Create account directly, skip to role selection
-    const result = await dispatch(verifyOTP({ phone: `+91${regData.phone}`, otp: '000000' }));
+    const result = await dispatch(sendOTP(`+91${regData.phone}`));
     if (result.meta.requestStatus === 'fulfilled') {
+      setRegOtpSent(true);
+      setRegCountdown(30);
       setRegDirection(1);
-      setRegStep(2);
+      setRegStep(1);
     } else {
-      setRegError(result.payload || 'Failed to create account. Please try again.');
+      setRegError(result.payload || 'Failed to send OTP. Please check the phone number.');
     }
     setRegLoading(false);
   };
@@ -601,8 +571,7 @@ function Login() {
                             <Button fullWidth variant="contained" type="submit"
                               disabled={loading || (identifierIsPhone && identifier.length !== 10) || (identifierIsEmail && !identifier.includes('@')) || (!identifier)}
                               sx={primaryBtnSx}>
-                              {/* BYPASS: renamed from 'Send OTP' — restore when verification is live */}
-                              {loading ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : t('auth.continue', 'Continue →')}
+                              {loading ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : t('auth.send_otp', 'Send OTP')}
                             </Button>
                           </motion.div>
                         </motion.div>
@@ -844,22 +813,37 @@ function Login() {
                       </motion.div>
                     )}
 
-                    {/* BYPASS: Step 1 (Verify Phone) hidden while OTP is disabled — restore when live */}
-                    {/* {regStep === 1 && (
+                    {/* Step 1 — Verify Phone */}
+                    {regStep === 1 && (
                       <motion.div key="reg-1" custom={prefersReducedMotion ? 0 : regDirection} variants={slideVariants} initial={prefersReducedMotion ? false : "enter"} animate="center" exit={prefersReducedMotion ? undefined : "exit"}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
                           <Box>
-                            <Typography variant="h5">Verify Your Phone</Typography>
-                            <Typography variant="body2">Code sent to +91 {regData.phone}</Typography>
+                            <Typography variant="h5" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.5 }}>
+                              {t('register.verify_phone_title', 'Verify Your Phone')}
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
+                              {t('register.verify_phone_subtitle', 'Code sent to')}{' '}
+                              <strong style={{ color: 'var(--color-primary)' }}>+91 {regData.phone}</strong>
+                            </Typography>
                           </Box>
                           <OTPInput value={regOtp} onChange={setRegOtp} disabled={regLoading || loading} />
-                          {regCountdown > 0
-                            ? <Typography variant="body2">Resend in {regCountdown}s</Typography>
-                            : <Button onClick={handleRegResend}>Resend OTP</Button>
-                          }
+                          <Box sx={{ textAlign: 'center' }}>
+                            {regCountdown > 0 ? (
+                              <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
+                                {t('auth.resend_in', 'Resend OTP in')} {regCountdown}s
+                              </Typography>
+                            ) : (
+                              <Button variant="text" size="small" onClick={handleRegResend} sx={{ color: 'var(--color-primary)', fontWeight: 600 }}>
+                                {t('auth.resend_otp', 'Resend OTP')}
+                              </Button>
+                            )}
+                          </Box>
+                          {regError && (
+                            <Alert severity="error" sx={{ borderRadius: `${RADIUS.md}px` }} onClose={() => setRegError(null)}>{regError}</Alert>
+                          )}
                         </Box>
                       </motion.div>
-                    )} */}
+                    )}
 
                     {/* Step 2 — Choose Role */}
                     {regStep === 2 && (
@@ -991,7 +975,7 @@ function Login() {
 
                 {/* Register navigation buttons */}
                 <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-                  {regStep > 0 && (
+                  {(regStep === 1 || regStep === 3) && (
                     <Button variant="outlined"
                       onClick={() => { setRegDirection(-1); setRegStep((s) => s - 1); }}
                       disabled={regLoading || loading}
@@ -1008,12 +992,11 @@ function Login() {
                     </Button>
                   )}
 
-                  {/* BYPASS: Step 1 verify button hidden while OTP is disabled — restore when live */}
-                  {/* {regStep === 1 && (
+                  {regStep === 1 && (
                     <Button variant="contained" onClick={handleRegVerifyOTP} disabled={regLoading || loading || regOtp.length !== 6} sx={{ flex: 2, ...primaryBtnSx }}>
-                      Verify & Continue
+                      {(regLoading || loading) ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : t('register.verify_continue', 'Verify & Continue')}
                     </Button>
-                  )} */}
+                  )}
 
                   {regStep === 2 && (
                     <Button variant="contained"

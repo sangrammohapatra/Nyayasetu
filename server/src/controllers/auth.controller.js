@@ -17,8 +17,6 @@ const asyncHandler = require("../utils/asyncHandler");
 const logger = require("../utils/logger");
 const {
   INDIAN_PHONE_REGEX,
-  DEV_PHONE: CONFIG_DEV_PHONE,
-  DEV_OTP,
   PERSONAS,
   MAX_REFRESH_TOKENS,
   SUPPORTED_LANGUAGES,
@@ -27,8 +25,6 @@ const {
   OTP,
 } = require("../config/constants");
 
-const DEV_PHONE = CONFIG_DEV_PHONE || "+919999999999";
-const DEFAULT_DEV_OTP = DEV_OTP || "123456";
 const PERSONA_MAP = PERSONAS || {
   CITIZEN: "citizen",
   LAWYER: "lawyer",
@@ -241,8 +237,6 @@ const sendOTPHandler = asyncHandler(async (req, res) => {
     throw createError(400, "IDENTIFIER_REQUIRED", "Phone number or email address is required");
   }
 
-  const isDev = process.env.NODE_ENV === "development";
-
   // ── Email OTP flow ────────────────────────────────────────────────────────
   if (rawEmail) {
     const email = String(rawEmail).trim().toLowerCase();
@@ -278,7 +272,6 @@ const sendOTPHandler = asyncHandler(async (req, res) => {
       message: `OTP sent to ${maskEmail(email)}`,
       expiresIn: OTP_TTL_SECONDS,
       isNewUser: !existingUser,
-      ...(isDev && { _devOtp: otp }),
     });
   }
 
@@ -294,35 +287,31 @@ const sendOTPHandler = asyncHandler(async (req, res) => {
 
   await checkOTPAttempts(phone);
 
-  const isTestPhone = phone === DEV_PHONE;
-  const otp = isDev && isTestPhone ? DEFAULT_DEV_OTP : generateOTP();
+  const otp = generateOTP();
 
   const otpStore = await setOtpValue(phone, otp);
   if (otpStore === "memory") {
     logger.warn(`[sendOTP] Redis unavailable — using in-memory OTP store for ${phone}`);
   }
 
-  if (!(isDev && isTestPhone)) {
-    try {
-      await sendOTP(phone, otp);
-    } catch (err) {
-      await deleteOtpValue(phone);
-      logger.error(`[sendOTP] SMS dispatch failed for ${phone}: ${err.message}`);
-      throw createError(503, "SMS_FAILED", "Unable to send OTP. Please check your phone number and try again.");
-    }
+  try {
+    await sendOTP(phone, otp);
+  } catch (err) {
+    await deleteOtpValue(phone);
+    logger.error(`[sendOTP] SMS dispatch failed for ${phone}: ${err.message}`);
+    throw createError(503, "SMS_FAILED", "Unable to send OTP. Please check your phone number and try again.");
   }
 
   await User.findOneAndUpdate({ phone }, { $set: { lastOtpSentAt: new Date() } });
 
   const existingUser = await User.findOne({ phone }).select("_id").lean();
   await AuditLog.log(req, "otp.requested", "User", null, { phone, isNewUser: !existingUser });
-  logger.info(`[sendOTP] OTP dispatched to ${phone}${isDev && isTestPhone ? " [DEV TEST]" : ""}`);
+  logger.info(`[sendOTP] OTP dispatched to ${phone}`);
 
   res.status(200).json({
     message: `OTP sent to ${phone.slice(0, 6)}XXXX${phone.slice(-2)}`,
     expiresIn: 300,
     isNewUser: !existingUser,
-    ...(isDev && { _devOtp: otp }),
   });
 });
 
@@ -342,7 +331,6 @@ const verifyOTPHandler = asyncHandler(async (req, res) => {
   }
 
   const otp = String(rawOtp).trim();
-  const isDev = process.env.NODE_ENV === "development";
 
   // ── Email OTP verify ───────────────────────────────────────────────────────
   if (rawEmail) {
@@ -401,13 +389,11 @@ const verifyOTPHandler = asyncHandler(async (req, res) => {
   }
 
   await checkOTPAttempts(phone);
-  const isTestPhone = phone === DEV_PHONE;
   const storedOTP = await getOtpValue(phone);
-  const isDevBypass = isDev && isTestPhone && otp === DEFAULT_DEV_OTP;
-  if (!storedOTP && !isDevBypass) {
+  if (!storedOTP) {
     throw createError(400, "OTP_EXPIRED", "OTP has expired or was not requested. Please request a new OTP.");
   }
-  const expectedOtp = storedOTP ? String(storedOTP) : DEFAULT_DEV_OTP;
+  const expectedOtp = String(storedOTP);
   const otpBuf = Buffer.from(otp.padEnd(10));
   const expectedBuf = Buffer.from(expectedOtp.padEnd(10));
   const isMatch =

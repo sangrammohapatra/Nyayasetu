@@ -68,7 +68,7 @@ export const register = createAsyncThunk(
       if (data.refreshToken) localStorage.setItem('nyayasetu_refresh_token', data.refreshToken);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Registration failed');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Registration failed');
     }
   }
 );
@@ -80,7 +80,7 @@ export const getMe = createAsyncThunk(
       const { data } = await api.get('/auth/me');
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to fetch profile');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to fetch profile');
     }
   }
 );
@@ -92,7 +92,7 @@ export const updateMe = createAsyncThunk(
       const { data } = await api.patch('/auth/me', profileData);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to update profile');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to update profile');
     }
   }
 );

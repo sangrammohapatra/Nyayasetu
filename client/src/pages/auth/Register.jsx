@@ -111,8 +111,9 @@ const step1Schema = yup.object({
     .required("Email is required"),
   phone: yup
     .string()
-    .matches(/^\d{10}$/, "Enter a valid 10-digit phone number")
-    .required("Phone number is required"),
+    .test('phone-format', "Enter a valid 10-digit phone number", (val) => !val || /^\d{10}$/.test(val))
+    .optional()
+    .nullable(),
   state: yup.string().required("State is required"),
   district: yup.string().required("District is required"),
 });
@@ -225,7 +226,7 @@ function Step1({ control, errors, existingPhone }) {
             <TextField
               {...field}
               onChange={(e) => field.onChange(e.target.value.replace(/\D/g, '').slice(0, 10))}
-              label={t("register.phone", "Phone Number")}
+              label={t("register.phone_optional", "Phone Number (optional)")}
               inputMode="numeric"
               autoComplete="tel"
               fullWidth

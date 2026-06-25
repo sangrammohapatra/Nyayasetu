@@ -43,10 +43,6 @@ const otpRequestLimiter = rateLimit({
     message: 'Too many OTP requests. Please wait 15 minutes.',
     retryAfter: 900,
   }),
-  skip: (req) => {
-    const digits = String(req.body?.phone || '').replace(/\D/g, '');
-    return digits.endsWith('9999999999') && process.env.NODE_ENV === 'development';
-  },
 });
 
 const verifyOTPLimiter = rateLimit({
@@ -54,7 +50,10 @@ const verifyOTPLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => String(req.body?.phone || req.ip).replace(/\D/g, '').slice(-10),
+  keyGenerator: (req) => {
+    if (req.body?.email) return String(req.body.email).toLowerCase().trim();
+    return String(req.body?.phone || req.ip).replace(/\D/g, '').slice(-10);
+  },
   handler: (_req, res) => res.status(429).json({
     error: 'VERIFY_RATE_LIMIT',
     message: 'Too many verification attempts. Please wait 15 minutes.',
@@ -175,12 +174,10 @@ router.post(
     requirePhoneOrEmail,
     optionalPhoneValidator,
     body('email').optional({ checkFalsy: true }).isEmail().withMessage('Please enter a valid email address').normalizeEmail(),
-    // BYPASS: OTP validation relaxed — re-enable when verification is live
-    // body('otp')
-    //   .notEmpty().withMessage('OTP is required')
-    //   .isLength({ min: 6, max: 6 }).withMessage('OTP must be exactly 6 digits')
-    //   .isNumeric().withMessage('OTP must contain only digits'),
-    body('otp').optional(),
+    body('otp')
+      .notEmpty().withMessage('OTP is required')
+      .isLength({ min: 6, max: 6 }).withMessage('OTP must be exactly 6 digits')
+      .isNumeric().withMessage('OTP must contain only digits'),
   ]),
   verifyOTPHandler
 );
