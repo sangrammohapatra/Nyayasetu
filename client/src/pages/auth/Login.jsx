@@ -860,6 +860,7 @@ function Login() {
                             {[
                               { value: 'citizen', icon: '🏠', title: 'Citizen', desc: 'I need legal documents, case tracking, and lawyer connections.', features: ['Legal documents', 'Case tracking', 'Find lawyers'] },
                               { value: 'lawyer', icon: '⚖️', title: 'Advocate / Lawyer', desc: 'I am a practising advocate looking to offer consultations.', features: ['Client portal', 'Consultations', 'Earnings dashboard'] },
+                              { value: 'notary', icon: '📜', title: 'Notary', desc: 'I am a registered notary offering document notarization services.', features: ['Notarization requests', 'Video KYC', 'Earnings dashboard'] },
                             ].map((p) => {
                               const isSelected = regData.persona === p.value;
                               return (
