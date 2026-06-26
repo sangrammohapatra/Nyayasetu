@@ -34,6 +34,10 @@ const { errorHandler } = require('./middleware/error.middleware');
 
 const app = express();
 
+// Trust Render/nginx reverse proxy so express-rate-limit reads the real client IP
+// from X-Forwarded-For instead of the proxy's internal IP.
+app.set('trust proxy', 1);
+
 // ─── Request ID ───────────────────────────────────────────────────────────────
 // Attach a unique ID to every request so log lines can be correlated.
 app.use((req, _res, next) => {
