@@ -49,6 +49,7 @@
     "password_label": "पासवर्ड",
     "login_btn": "लॉगिन",
     "identifier_label": "फोन नंबर किंवा ईमेल",
+    "identifier_hint": "OTP प्राप्त करण्यासाठी तुमचा फोन नंबर किंवा ईमेल टाका",
     "no_account": "खाते नाही?",
     "register_link": "नोंदणी करा"
   },
@@ -76,7 +77,10 @@
     "lawyer_desc": "मी एक सराव करणारा अधिवक्ता आहे.",
     "step_label_0": "वैयक्तिक माहिती",
     "step_label_1": "तुमची भूमिका",
-    "step_label_2": "प्राधान्ये"
+    "step_label_2": "प्राधान्ये",
+    "verify_email_title": "तुमचा ईमेल सत्यापित करा",
+    "verify_email_subtitle": "कोड पाठवला",
+    "verify_continue": "सत्यापित करा आणि सुरू ठेवा"
   },
   "nav": {
     "home": "होम",

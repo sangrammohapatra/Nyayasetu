@@ -98,7 +98,10 @@
     "feature_earnings": "Earnings dashboard",
     "step_label_0": "Personal Info",
     "step_label_1": "Your Role",
-    "step_label_2": "Preferences"
+    "step_label_2": "Preferences",
+    "verify_email_title": "Verify Your Email",
+    "verify_email_subtitle": "Code sent to",
+    "verify_continue": "Verify & Continue"
   },
   "nav": {
     "home": "Home",

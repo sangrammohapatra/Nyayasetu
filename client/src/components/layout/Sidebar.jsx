@@ -267,29 +267,14 @@ function SidebarContent({ collapsed, onToggle }) {
       transition: 'width 0.25s ease',
       width: collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_FULL,
     }}>
-      {/* Logo + collapse toggle */}
+      {/* Collapse toggle */}
       <Box sx={{
         display: 'flex', alignItems: 'center',
-        justifyContent: collapsed ? 'center' : 'space-between',
-        px: collapsed ? 0 : 2, py: 1.75,
+        justifyContent: 'flex-end',
+        px: 1, py: 1.75,
         borderBottom: '1px solid var(--color-border)',
         minHeight: 64,
       }}>
-        {!collapsed && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Box sx={{
-              width: 30, height: 30, borderRadius: `${RADIUS.sm}px`,
-              background: 'var(--color-primary)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
-            }}>⚖️</Box>
-            <Typography sx={{
-              fontFamily: "'Playfair Display', 'Tiro Devanagari Hindi', serif",
-              fontWeight: 700, fontSize: '1rem', color: 'var(--color-primary)',
-            }}>
-              NyayaSetu
-            </Typography>
-          </Box>
-        )}
         <Tooltip title={collapsed ? t('sidebar.expand', 'Expand') : t('sidebar.collapse', 'Collapse')} placement="right">
           <IconButton onClick={onToggle} size="small" sx={{ color: 'var(--color-text-secondary)' }}>
             <Typography sx={{

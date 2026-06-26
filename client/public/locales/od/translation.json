@@ -49,6 +49,7 @@
     "password_label": "ପାସୱାର୍ଡ",
     "login_btn": "ଲଗଇନ୍",
     "identifier_label": "ଫୋନ୍ ନମ୍ବର କିମ୍ବା ଇମେଲ୍",
+    "identifier_hint": "OTP ପ୍ରାପ୍ତ କରିବା ପାଇଁ ଆପଣଙ୍କ ଫୋନ୍ ନମ୍ବର କିମ୍ବା ଇମେଲ୍ ପ୍ରବେଶ କରନ୍ତୁ",
     "no_account": "ଖାତା ନାହିଁ କି?",
     "register_link": "ନିବନ୍ଧନ କରନ୍ତୁ"
   },
@@ -77,7 +78,10 @@
     "lawyer_desc": "ମୁଁ ଜଣେ ପ୍ରାକ୍ଟିସିଂ ଆଇନଜୀବୀ।",
     "step_label_0": "ବ୍ୟକ୍ତିଗତ ସୂଚନା",
     "step_label_1": "ଆପଣଙ୍କ ଭୂମିକା",
-    "step_label_2": "ପସନ୍ଦ"
+    "step_label_2": "ପସନ୍ଦ",
+    "verify_email_title": "ଆପଣଙ୍କ ଇମେଲ୍ ଯାଞ୍ଚ କରନ୍ତୁ",
+    "verify_email_subtitle": "କୋଡ୍ ପଠାଯାଇଛି",
+    "verify_continue": "ଯାଞ୍ଚ କରନ୍ତୁ ଏବଂ ଜାରି ରଖନ୍ତୁ"
   },
 
   "nav": {

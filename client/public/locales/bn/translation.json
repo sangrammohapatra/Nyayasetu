@@ -92,7 +92,10 @@
     "feature_earnings": "আয়ের ড্যাশবোর্ড",
     "step_label_0": "ব্যক্তিগত তথ্য",
     "step_label_1": "আপনার ভূমিকা",
-    "step_label_2": "পছন্দ"
+    "step_label_2": "পছন্দ",
+    "verify_email_title": "আপনার ইমেইল যাচাই করুন",
+    "verify_email_subtitle": "কোড পাঠানো হয়েছে",
+    "verify_continue": "যাচাই করুন ও চালিয়ে যান"
   },
   "nav": {
     "home": "হোম",
