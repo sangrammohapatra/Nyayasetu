@@ -2,8 +2,9 @@
  * server/src/services/notification/emailService.js
  *
  * Email service abstraction:
- *   - EMAIL_PROVIDER=gmail     → Gmail SMTP (development)
- *   - EMAIL_PROVIDER=sendgrid  → SendGrid SMTP (production)
+ *   - EMAIL_PROVIDER=resend    → Resend HTTP API (production — works on Render/Heroku)
+ *   - EMAIL_PROVIDER=gmail     → Gmail SMTP (local dev only)
+ *   - EMAIL_PROVIDER=sendgrid  → SendGrid SMTP
  *   - In dev with no creds    → Ethereal test account (preview URLs logged)
  *
  * All HTML templates are themed with NyayaSetu brand colors (no external CSS dependency,
@@ -11,10 +12,11 @@
  */
 
 const nodemailer = require('nodemailer');
+const axios = require('axios');
 const logger = require('../../utils/logger');
 
 const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || 'gmail';
-const EMAIL_FROM = process.env.EMAIL_FROM || 'NyayaSetu <noreply@nyayasetu.in>';
+const EMAIL_FROM = process.env.EMAIL_FROM || 'NyayaSetu <onboarding@resend.dev>';
 
 let transporter = null;
 let etherealPreviewUrlBuilder = null;
@@ -98,6 +100,25 @@ async function sendEmail({ to, subject, html, text, attachments }) {
       subject,
       bodyPreview: html.replace(/<[^>]+>/g, '').substring(0, 200),
     });
+  }
+
+  // Resend HTTP API — bypasses SMTP entirely, works on all cloud hosts
+  if (EMAIL_PROVIDER === 'resend') {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) throw new Error('RESEND_API_KEY is not set');
+    try {
+      const { data } = await axios.post(
+        'https://api.resend.com/emails',
+        { from: EMAIL_FROM, to, subject, html, text: text || html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() },
+        { headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, timeout: 15000 }
+      );
+      logger.info('[emailService] Email sent via Resend', { to, subject, id: data?.id });
+      return data;
+    } catch (err) {
+      const detail = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+      logger.error('[emailService] Resend API error', { to, subject, error: detail });
+      throw new Error(detail);
+    }
   }
 
   try {
