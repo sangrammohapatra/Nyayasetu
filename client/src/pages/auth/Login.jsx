@@ -158,7 +158,7 @@ const slideVariants = {
 // ─── Step progress indicator (register) ──────────────────────────────────────
 
 function RegStepIndicator({ step }) {
-  const labels = ['Personal Info', 'Verify Phone', 'Your Role', 'Preferences'];
+  const labels = ['Personal Info', 'Verify Email', 'Your Role', 'Preferences'];
   const displayStep = step;
   return (
     <Box sx={{ mb: 3 }}>
@@ -388,14 +388,14 @@ function Login() {
     setRegLoading(true);
     setRegError(null);
 
-    const result = await dispatch(sendOTP(`+91${regData.phone}`));
+    const result = await dispatch(sendOTP(regData?.email));
     if (result.meta.requestStatus === 'fulfilled') {
       setRegOtpSent(true);
       setRegCountdown(30);
       setRegDirection(1);
       setRegStep(1);
     } else {
-      setRegError(result.payload || 'Failed to send OTP. Please check the phone number.');
+      setRegError(result.payload || 'Failed to send OTP. Please check your email.');
     }
     setRegLoading(false);
   };
@@ -404,7 +404,7 @@ function Login() {
     if (regOtp.length !== 6) return;
     setRegLoading(true);
     setRegError(null);
-    const result = await dispatch(verifyOTP({ phone: `+91${regData.phone}`, otp: regOtp }));
+    const result = await dispatch(verifyOTP({ email: regData?.email, otp: regOtp }));
     if (result.meta.requestStatus === 'fulfilled') {
       setRegDirection(1);
       setRegStep(2);
@@ -416,7 +416,7 @@ function Login() {
 
   const handleRegResend = () => {
     setRegOtp('');
-    dispatch(sendOTP(`+91${regData.phone}`));
+    dispatch(sendOTP(regData?.email));
     setRegCountdown(30);
   };
 
@@ -813,17 +813,17 @@ function Login() {
                       </motion.div>
                     )}
 
-                    {/* Step 1 — Verify Phone */}
+                    {/* Step 1 — Verify Email */}
                     {regStep === 1 && (
                       <motion.div key="reg-1" custom={prefersReducedMotion ? 0 : regDirection} variants={slideVariants} initial={prefersReducedMotion ? false : "enter"} animate="center" exit={prefersReducedMotion ? undefined : "exit"}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
                           <Box>
                             <Typography variant="h5" sx={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color: 'var(--color-text)', mb: 0.5 }}>
-                              {t('register.verify_phone_title', 'Verify Your Phone')}
+                              {t('register.verify_email_title', 'Verify Your Email')}
                             </Typography>
                             <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
-                              {t('register.verify_phone_subtitle', 'Code sent to')}{' '}
-                              <strong style={{ color: 'var(--color-primary)' }}>+91 {regData.phone}</strong>
+                              {t('register.verify_email_subtitle', 'Code sent to')}{' '}
+                              <strong style={{ color: 'var(--color-primary)' }}>{regData.email}</strong>
                             </Typography>
                           </Box>
                           <OTPInput value={regOtp} onChange={setRegOtp} disabled={regLoading || loading} />
