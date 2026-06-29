@@ -108,7 +108,7 @@ async function process(job) {
     const newResetDate = nextMonthFirstDay(now);
 
     const bulkOps = batch.map(user => {
-      const persona = user.persona || 'citizen';
+      const persona = (user.persona || 'citizen').toLowerCase();
       const subPlan = user.subscription?.plan;
       const subActive =
         subPlan &&

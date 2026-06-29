@@ -361,11 +361,13 @@ const verifyOTPHandler = asyncHandler(async (req, res) => {
     if (isNewUser) {
       user = await User.create({
         email,
+        isEmailVerified: true,
         registrationSource: req.body.source || "web",
         lastActive: new Date(),
       });
       logger.info(`[verifyOTP] New user created for ${maskEmail(email)}, _id: ${user._id}`);
     } else {
+      user.isEmailVerified = true;
       user.lastActive = new Date();
       await user.save();
     }
@@ -440,7 +442,7 @@ const verifyOTPHandler = asyncHandler(async (req, res) => {
 
 const register = asyncHandler(async (req, res) => {
   const { userId } = req.user;
-  const { name, state, district, persona, preferredLanguage, email, pincode, password, phone: rawPhone } =
+  const { name, state, district, persona, preferredLanguage, preferredTheme, whatsappOptIn, email, pincode, password, phone: rawPhone } =
     req.body;
 
   if (!name || !name.trim())
@@ -469,6 +471,14 @@ const register = asyncHandler(async (req, res) => {
       400,
       "INVALID_LANGUAGE",
       `Language must be one of: ${LANGUAGE_LIST.join(", ")}`,
+    );
+  }
+  const VALID_THEMES = ["default", "saffron", "dark", "highContrast", "emerald"];
+  if (preferredTheme && !VALID_THEMES.includes(preferredTheme)) {
+    throw createError(
+      400,
+      "INVALID_THEME",
+      `Theme must be one of: ${VALID_THEMES.join(", ")}`,
     );
   }
   if (email) {
@@ -525,6 +535,8 @@ const register = asyncHandler(async (req, res) => {
     ...(pincode && { pincode: pincode.trim() }),
     ...(email && { email: email.toLowerCase().trim() }),
     ...(preferredLanguage && { preferredLanguage }),
+    ...(preferredTheme && { preferredTheme }),
+    ...(whatsappOptIn !== undefined && { whatsappOptIn: Boolean(whatsappOptIn) }),
     ...(passwordHash && { passwordHash }),
     ...(normalizedPhone && { phone: normalizedPhone }),
     lastActive: new Date(),
@@ -582,14 +594,14 @@ const getMe = asyncHandler(async (req, res) => {
     new Date() < new Date(user.subscription.validUntil);
 
   let lawyerProfile = null;
-  if (user.persona === PERSONA_MAP.LAWYER) {
+  if (user.persona?.toLowerCase() === PERSONA_MAP.LAWYER) {
     lawyerProfile = await LawyerProfile.findOne({ user: user._id })
       .select("-ratings -verificationDocs -__v")
       .lean();
   }
 
   let notaryProfile = null;
-  if (user.persona === PERSONA_MAP.NOTARY) {
+  if (user.persona?.toLowerCase() === PERSONA_MAP.NOTARY) {
     notaryProfile = await NotaryProfile.findOne({ user: user._id })
       .select("-ratings -verificationDocs -__v")
       .lean();

@@ -167,7 +167,7 @@ const listUsers = asyncHandler(async (req, res) => {
 
   const filter = {};
 
-  if (persona) filter.persona = persona;
+  if (persona) filter.persona = { $regex: new RegExp(`^${persona}$`, 'i') };
   if (plan) filter['subscription.plan'] = plan;
 
   if (search) {
@@ -718,7 +718,7 @@ const toggleUserActive = asyncHandler(async (req, res) => {
   }
 
   // Prevent admins from deactivating other admins
-  if (user.persona === 'admin') {
+  if (user.persona?.toLowerCase() === 'admin') {
     return res.status(403).json({ error: 'FORBIDDEN', message: 'Cannot toggle active status of admin accounts' });
   }
 

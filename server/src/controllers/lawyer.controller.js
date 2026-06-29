@@ -203,7 +203,7 @@ const applyAsLawyer = asyncHandler(async (req, res) => {
   const user = await User.findById(userId);
   if (!user) return res.status(404).json({ error: 'User not found' });
 
-  if (user.persona !== 'lawyer') {
+  if (user.persona?.toLowerCase() !== 'lawyer') {
     user.persona = 'lawyer';
     await user.save();
   }
@@ -257,7 +257,7 @@ const applyAsLawyer = asyncHandler(async (req, res) => {
 
     // Notify admins (best-effort)
     try {
-      const admins = await User.find({ persona: 'admin' }).select('_id').lean();
+      const admins = await User.find({ persona: { $regex: /^admin$/i } }).select('_id').lean();
       if (admins.length) {
         await Notification.insertMany(
           admins.map(a => ({

@@ -66,7 +66,6 @@ import {
 // ─── Lazy-loaded pages ─────────────────────────────────────────────────────────
 // Auth
 const Login = lazy(() => import("./pages/auth/Login"));
-const Register = lazy(() => import("./pages/auth/Register"));
 
 // Citizen
 const CitizenHome = lazy(() => import("./pages/citizen/CitizenHome"));
@@ -316,11 +315,7 @@ const router = createBrowserRouter([
   },
   {
     path: "/register",
-    element: (
-      <Suspense fallback={<PageLoader />}>
-        <Register />
-      </Suspense>
-    ),
+    element: <Navigate to="/login" state={{ startRegister: true }} replace />,
   },
 
   // Public pages

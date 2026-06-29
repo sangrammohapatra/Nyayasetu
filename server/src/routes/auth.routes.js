@@ -201,9 +201,9 @@ router.post(
 
     body('persona')
       .optional()
-      .customSanitizer((v) => v?.toUpperCase())
-      .isIn([PERSONAS.CITIZEN, PERSONAS.LAWYER])
-      .withMessage('Persona must be: citizen or lawyer'),
+      .customSanitizer((v) => v?.toLowerCase())
+      .isIn([PERSONAS.CITIZEN, PERSONAS.LAWYER, PERSONAS.NOTARY])
+      .withMessage('Persona must be: citizen, lawyer, or notary'),
 
     body('preferredLanguage')
       .optional()
@@ -228,6 +228,15 @@ router.post(
     body('pincode')
       .optional()
       .matches(/^\d{6}$/).withMessage('Pincode must be exactly 6 digits'),
+
+    body('preferredTheme')
+      .optional()
+      .isIn(['default', 'saffron', 'dark', 'highContrast', 'emerald'])
+      .withMessage('Invalid theme name'),
+
+    body('whatsappOptIn')
+      .optional()
+      .isBoolean().withMessage('whatsappOptIn must be true or false'),
 
     body('password')
       .optional()

@@ -402,7 +402,7 @@ function Pricing() {
               const confetti = (await import('canvas-confetti')).default;
               confetti({ particleCount: 160, spread: 80, origin: { y: 0.55 }, colors: ['#1565C0', '#E65100', '#2E7D32'] });
             } catch (_) {}
-            setTimeout(() => navigate(`/${user.persona || 'citizen'}/home`), 1800);
+            setTimeout(() => navigate(`/${(user.persona || 'citizen').toLowerCase()}/home`), 1800);
           }
           setCheckoutLoading('');
         },

@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
@@ -191,6 +191,7 @@ function Login() {
   const { t, i18n } = useTranslation();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const prefersReducedMotion = useReducedMotion();
   const [searchParams] = useSearchParams();
   const theme = useTheme();
@@ -203,7 +204,9 @@ function Login() {
   const persona = useSelector(selectUserPersona);
 
   // ── Page mode ────────────────────────────────────────────────────────────
-  const [pageMode, setPageMode] = useState('login'); // 'login' | 'register'
+  const [pageMode, setPageMode] = useState(
+    location.state?.startRegister ? 'register' : 'login'
+  ); // 'login' | 'register'
 
   // ── Login state ───────────────────────────────────────────────────────────
   const [loginMode, setLoginMode] = useState('otp'); // 'otp' | 'password'
@@ -215,13 +218,19 @@ function Login() {
   const [localLang, setLocalLang] = useState(i18n.language || 'en');
 
   // ── Register state ────────────────────────────────────────────────────────
+  // When arriving from OTP new-user flow, phone/email are pre-filled and OTP
+  // is already verified — skip to step 2 (role selection) in that case.
+  const otpVerifiedPhone = location.state?.phone || '';
+  const otpVerifiedEmail = location.state?.email || '';
+
   const [regStep, setRegStep] = useState(0);
   const [regDirection, setRegDirection] = useState(1);
   const [regData, setRegData] = useState({
-    name: '', email: '', phone: '', state: '', district: '',
-    persona: 'citizen', preferredLanguage: 'en', whatsappOptIn: true,
+    name: '', email: otpVerifiedEmail, phone: otpVerifiedPhone ? otpVerifiedPhone.replace(/^\+91/, '') : '', state: '', district: '',
+    persona: 'citizen', preferredLanguage: 'en', preferredTheme: 'default', whatsappOptIn: true,
     password: '', confirmPassword: '',
   });
+  const sessionOtpVerified = useRef(false);
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [showRegConfirmPassword, setShowRegConfirmPassword] = useState(false);
   const [regOtp, setRegOtp] = useState('');
@@ -285,7 +294,7 @@ function Login() {
     setPageMode(mode);
     setRegStep(0);
     setRegDirection(1);
-    setRegData({ name: '', email: '', phone: '', state: '', district: '', persona: 'citizen', preferredLanguage: 'en', whatsappOptIn: true, password: '', confirmPassword: '' });
+    setRegData({ name: '', email: '', phone: '', state: '', district: '', persona: 'citizen', preferredLanguage: 'en', preferredTheme: 'default', whatsappOptIn: true, password: '', confirmPassword: '' });
     setShowRegPassword(false);
     setShowRegConfirmPassword(false);
     setRegOtp('');
@@ -330,7 +339,14 @@ function Login() {
     ));
     if (result.meta.requestStatus === 'fulfilled') {
       if (result.payload.isNewUser) {
-        navigate('/register', { state: { phone: identifierIsPhone ? loginIdentifierForApi : undefined, email: identifierIsEmail ? identifier : undefined } });
+        sessionOtpVerified.current = true;
+        setRegData((prev) => ({
+          ...prev,
+          email: identifierIsEmail ? identifier : prev.email,
+          phone: identifierIsPhone ? identifier : prev.phone,
+        }));
+        setRegStep(2);
+        setPageMode('register');
       } else {
         const userPersona = (result.payload.user?.persona || 'citizen').toLowerCase();
         navigate(`/${userPersona}/home`);
@@ -373,7 +389,7 @@ function Login() {
     const errs = {};
     if (!regData.name.trim() || regData.name.trim().length < 2) errs.name = 'Name must be at least 2 characters';
     if (!regData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regData.email)) errs.email = 'Valid email is required';
-    if (!regData.phone || regData.phone.length !== 10) errs.phone = 'Enter a valid 10-digit phone number';
+    if (regData.phone && regData.phone.length !== 10) errs.phone = 'Enter a valid 10-digit phone number';
     if (!regData.state) errs.state = 'State is required';
     if (!regData.district.trim()) errs.district = 'District is required';
     if (regData.password && regData.password.length < 8) errs.password = 'Password must be at least 8 characters';
@@ -385,6 +401,14 @@ function Login() {
     const errs = validateRegStep0();
     if (Object.keys(errs).length > 0) { setRegErrors(errs); return; }
     setRegErrors({});
+
+    // Skip email OTP if already verified in this session (via login OTP flow)
+    if (sessionOtpVerified.current) {
+      setRegDirection(1);
+      setRegStep(2);
+      return;
+    }
+
     setRegLoading(true);
     setRegError(null);
 
@@ -426,10 +450,12 @@ function Login() {
     const result = await dispatch(registerUser({
       name: regData.name.trim(),
       email: regData.email.trim().toLowerCase(),
+      phone: regData.phone ? `+91${regData.phone}` : undefined,
       state: regData.state,
       district: regData.district.trim(),
       persona: regData.persona,
       preferredLanguage: regData.preferredLanguage,
+      preferredTheme: regData.preferredTheme || 'default',
       whatsappOptIn: regData.whatsappOptIn,
       ...(regData.password && { password: regData.password }),
     }));
@@ -940,7 +966,7 @@ function Login() {
                               {THEMES.map((th) => (
                                 <Box key={th.id} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
                                   <motion.button whileHover={prefersReducedMotion ? undefined : { scale: 1.12 }} whileTap={prefersReducedMotion ? undefined : { scale: 0.95 }}
-                                    onClick={() => dispatch(setTheme(th.id))} title={th.label}
+                                    onClick={() => { updateRegData('preferredTheme', th.id); dispatch(setTheme(th.id)); }} title={th.label}
                                     style={{ width: 32, height: 32, borderRadius: '50%', background: th.color, border: '2.5px solid var(--color-border)', cursor: 'pointer', outline: 'none' }} />
                                   <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', fontSize: '0.62rem' }}>{th.label}</Typography>
                                 </Box>
@@ -976,9 +1002,9 @@ function Login() {
 
                 {/* Register navigation buttons */}
                 <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-                  {(regStep === 1 || regStep === 3) && (
+                  {(regStep === 1 || regStep === 2 || regStep === 3) && (
                     <Button variant="outlined"
-                      onClick={() => { setRegDirection(-1); setRegStep((s) => s - 1); }}
+                      onClick={() => { setRegDirection(-1); setRegStep(sessionOtpVerified.current && regStep === 2 ? 0 : regStep - 1); }}
                       disabled={regLoading || loading}
                       sx={{ flex: 1, ...outlinedBtnSx }}>
                       {t('register.back', 'Back')}

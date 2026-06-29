@@ -23,10 +23,10 @@ const PLANS = {
 // ─── PERSONAS ─────────────────────────────────────────
 
 const PERSONAS = {
-  CITIZEN: "CITIZEN",
-  LAWYER: "LAWYER",
-  ADMIN: "ADMIN",
-  NOTARY: "NOTARY",
+  CITIZEN: "citizen",
+  LAWYER: "lawyer",
+  ADMIN: "admin",
+  NOTARY: "notary",
 };
 
 // ─── Pay-per-document pricing (paise) ─────────────────────────────────────────
