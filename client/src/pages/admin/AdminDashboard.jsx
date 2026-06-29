@@ -19,11 +19,12 @@ import { SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
 function StatCard({ icon, label, value, sub, onClick, color }) {
   const prefersReducedMotion = useReducedMotion();
   return (
-    <motion.div whileHover={prefersReducedMotion ? undefined : { y: -3 }} transition={{ duration: 0.2 }}>
+    <motion.div whileHover={prefersReducedMotion ? undefined : { y: -3 }} transition={{ duration: 0.2 }} style={{ width: '100%' }}>
       <GlassCard
         onClick={onClick}
         sx={{
           p: 2.5,
+          height: '100%',
           cursor: onClick ? 'pointer' : 'default',
           borderTop: color ? `3px solid ${color}` : undefined,
           '&:hover': onClick ? { boxShadow: SHADOWS.md } : {},
@@ -111,7 +112,7 @@ export default function AdminDashboard() {
             >
               <Grid container spacing={2} sx={{ mb: 4 }}>
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <Grid item xs={12} sm={6} md={4} key={i}>
+                  <Grid item xs={6} sm={4} md={4} lg={2} key={i}>
                     <Skeleton variant="rounded" height={100} animation="wave"
                       sx={{ borderRadius: 2, bgcolor: 'var(--color-surface)' }} />
                   </Grid>
@@ -128,7 +129,7 @@ export default function AdminDashboard() {
         {stats && (
           <>
             {/* KPI cards */}
-            <Grid container spacing={2} sx={{ mb: 4 }}>
+            <Grid container spacing={2} sx={{ mb: 4 }} alignItems="stretch">
               {[
                 { icon: '👥', label: 'Total Users',      value: stats.totalUsers?.toLocaleString('en-IN'),        color: '#1976d2', onClick: () => navigate('/admin/users') },
                 { icon: '📄', label: 'Documents',        value: stats.totalDocuments?.toLocaleString('en-IN'),     color: '#0288d1' },
@@ -141,7 +142,7 @@ export default function AdminDashboard() {
                 },
                 { icon: '🔔', label: 'Active Subs',      value: stats.activeSubscriptions?.toLocaleString('en-IN'), color: '#6a1b9a', sub: 'paid subscribers' },
               ].map((s) => (
-                <Grid item xs={6} sm={4} md={2} key={s.label}>
+                <Grid item xs={6} sm={4} md={4} lg={2} key={s.label} sx={{ display: 'flex' }}>
                   <StatCard {...s} />
                 </Grid>
               ))}
@@ -151,7 +152,7 @@ export default function AdminDashboard() {
 
             {/* Breakdown charts + quick nav */}
             <Grid container spacing={3} sx={{ mb: 4 }}>
-              <Grid item xs={12} md={5}>
+              <Grid item xs={12} md={6} lg={5}>
                 <GlassCard sx={{ p: 2.5, height: '100%' }}>
                   <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 2 }}>
                     👥 User Breakdown
@@ -163,7 +164,7 @@ export default function AdminDashboard() {
                 </GlassCard>
               </Grid>
 
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={6} lg={4}>
                 <GlassCard sx={{ p: 2.5, height: '100%' }}>
                   <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 2 }}>
                     📄 Content &amp; Revenue
@@ -178,7 +179,7 @@ export default function AdminDashboard() {
                 </GlassCard>
               </Grid>
 
-              <Grid item xs={12} md={3}>
+              <Grid item xs={12} md={12} lg={3}>
                 <GlassCard sx={{ p: 2.5, height: '100%' }}>
                   <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 2 }}>
                     ⚡ Quick Actions

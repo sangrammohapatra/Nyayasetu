@@ -51,7 +51,7 @@ function GlassCard({
     background: theme.custom.cardBg,
     border: theme.custom.cardBorder,
     boxShadow: theme.custom.cardShadow,
-    borderRadius: theme.shape.borderRadius * 1.15,
+    borderRadius: 3,
     backgroundImage: 'none',
     transition: 'box-shadow 0.25s ease, border-color 0.25s ease',
     ...(blurEnabled && {

@@ -8,7 +8,7 @@
  * Role-conditional nav rendering is unchanged.
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -22,10 +22,10 @@ import Drawer from '@mui/material/Drawer';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
-import IconButton from '@mui/material/IconButton';
 import LinearProgress from '@mui/material/LinearProgress';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
+
 
 import { selectUser, selectUserPlan, selectUserPersona } from '../../store/slices/authSlice';
 import { selectFreeUsage } from '../../store/slices/subscriptionSlice';
@@ -33,8 +33,6 @@ import { selectSidebarOpen, setSidebarOpen } from '../../store/slices/uiSlice';
 import { RADIUS, SHADOWS } from '../../theme/tokens';
 
 const SIDEBAR_FULL = 248;
-const SIDEBAR_COLLAPSED = 72;
-const LS_KEY = 'ns-sidebar-collapsed';
 
 // ─── Sidebar icons — served from /public/icons/ (same-origin, no CDN dep.) ───
 // Values are either a local JSON path string (Lordicon) or an MUI icon component
@@ -248,7 +246,7 @@ function SubscriptionCard({ collapsed, plan, freeUsage }) {
 
 // ─── Sidebar content ──────────────────────────────────────────────────────────
 
-function SidebarContent({ collapsed, onToggle }) {
+function SidebarContent() {
   const { t } = useTranslation();
   const location = useLocation();
   const persona = useSelector(selectUserPersona);
@@ -264,29 +262,8 @@ function SidebarContent({ collapsed, onToggle }) {
       background: 'var(--color-surface)',
       borderRight: '1px solid var(--color-border)',
       overflow: 'hidden',
-      transition: 'width 0.25s ease',
-      width: collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_FULL,
+      width: SIDEBAR_FULL,
     }}>
-      {/* Collapse toggle */}
-      <Box sx={{
-        display: 'flex', alignItems: 'center',
-        justifyContent: 'flex-end',
-        px: 1, py: 1.75,
-        borderBottom: '1px solid var(--color-border)',
-        minHeight: 64,
-      }}>
-        <Tooltip title={collapsed ? t('sidebar.expand', 'Expand') : t('sidebar.collapse', 'Collapse')} placement="right">
-          <IconButton onClick={onToggle} size="small" sx={{ color: 'var(--color-text-secondary)' }}>
-            <Typography sx={{
-              fontSize: 16, transition: 'transform 0.25s',
-              transform: collapsed ? 'rotate(180deg)' : 'none',
-            }}>
-              ‹
-            </Typography>
-          </IconButton>
-        </Tooltip>
-      </Box>
-
       {/* Nav items */}
       <Box sx={{
         flex: 1, overflowY: 'auto', overflowX: 'hidden', py: 1,
@@ -296,24 +273,23 @@ function SidebarContent({ collapsed, onToggle }) {
         {navItems.map((item, idx) => {
           // Section header
           if (item.section) {
-            if (collapsed) return <Divider key={`div-${idx}`} sx={{ my: 1, borderColor: 'var(--color-border)' }} />;
             return (
-              <Typography
-                key={`section-${idx}`}
-                variant="overline"
-                sx={{
-                  display: 'block',
-                  px: 2.5,
-                  pt: idx === 0 ? 0.5 : 2,
-                  pb: 0.25,
-                  fontSize: '0.6rem',
-                  letterSpacing: '0.1em',
-                  color: 'var(--color-text-secondary)',
-                  fontWeight: 600,
-                }}
-              >
-                {item.section}
-              </Typography>
+              <Box key={`section-${idx}`} sx={{ px: 2.5, pt: idx === 0 ? 1 : 2.5, pb: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography
+                  variant="overline"
+                  sx={{
+                    fontSize: '0.625rem',
+                    letterSpacing: '0.12em',
+                    color: 'var(--color-text-secondary)',
+                    fontWeight: 700,
+                    lineHeight: 1,
+                    opacity: 0.7,
+                  }}
+                >
+                  {item.section}
+                </Typography>
+                <Box sx={{ flex: 1, height: '1px', background: 'var(--color-border)', opacity: 0.6 }} />
+              </Box>
             );
           }
 
@@ -321,7 +297,7 @@ function SidebarContent({ collapsed, onToggle }) {
             <NavItem
               key={item.path}
               {...item}
-              collapsed={collapsed}
+              collapsed={false}
               isActive={location.pathname === item.path || location.pathname.startsWith(item.path + '/')}
             />
           );
@@ -329,7 +305,7 @@ function SidebarContent({ collapsed, onToggle }) {
       </Box>
 
       {/* Subscription card */}
-      <SubscriptionCard collapsed={collapsed} plan={plan} freeUsage={freeUsage} />
+      <SubscriptionCard collapsed={false} plan={plan} freeUsage={freeUsage} />
     </Box>
   );
 }
@@ -339,20 +315,6 @@ function SidebarContent({ collapsed, onToggle }) {
 function Sidebar() {
   const dispatch = useDispatch();
   const sidebarOpen = useSelector(selectSidebarOpen);
-
-  // Collapsed state: self-managed with localStorage persistence
-  const [collapsed, setCollapsed] = useState(() => {
-    try { return localStorage.getItem(LS_KEY) === 'true'; }
-    catch { return false; }
-  });
-
-  const handleToggle = useCallback(() => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      try { localStorage.setItem(LS_KEY, String(next)); } catch {}
-      return next;
-    });
-  }, []);
 
   return (
     <>
@@ -370,17 +332,16 @@ function Sidebar() {
           },
         }}
       >
-        <SidebarContent collapsed={false} onToggle={() => dispatch(setSidebarOpen(false))} />
+        <SidebarContent />
       </Drawer>
 
-      {/* Desktop Sidebar */}
+      {/* Desktop Sidebar — always expanded */}
       <Box
         component="nav"
         sx={{
           display: { xs: 'none', md: 'flex' },
           flexShrink: 0,
-          width: collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_FULL,
-          transition: 'width 0.25s ease',
+          width: SIDEBAR_FULL,
           position: 'sticky',
           top: 64,
           height: 'calc(100vh - 64px)',
@@ -388,7 +349,7 @@ function Sidebar() {
           overflowX: 'hidden',
         }}
       >
-        <SidebarContent collapsed={collapsed} onToggle={handleToggle} />
+        <SidebarContent />
       </Box>
     </>
   );
