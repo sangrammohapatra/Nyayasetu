@@ -440,7 +440,7 @@ const verifyOTPHandler = asyncHandler(async (req, res) => {
 
 const register = asyncHandler(async (req, res) => {
   const { userId } = req.user;
-  const { name, state, district, persona, preferredLanguage, email, pincode, password } =
+  const { name, state, district, persona, preferredLanguage, email, pincode, password, phone: rawPhone } =
     req.body;
 
   if (!name || !name.trim())
@@ -484,6 +484,28 @@ const register = asyncHandler(async (req, res) => {
       );
   }
 
+  let normalizedPhone;
+  if (rawPhone) {
+    normalizedPhone = normalizePhone(rawPhone);
+    if (!normalizedPhone || !INDIAN_PHONE_REGEX.test(normalizedPhone)) {
+      throw createError(
+        400,
+        "INVALID_PHONE",
+        "Please provide a valid Indian mobile number (10 digits, starting with 6-9)",
+      );
+    }
+    const phoneExists = await User.findOne({
+      phone: normalizedPhone,
+      _id: { $ne: userId },
+    });
+    if (phoneExists)
+      throw createError(
+        409,
+        "PHONE_TAKEN",
+        "Phone number is already associated with another account",
+      );
+  }
+
   const passwordHash = password ? await bcrypt.hash(password, 12) : undefined;
 
   const normalizedState = state ? normalizeState(state) : undefined;
@@ -504,6 +526,7 @@ const register = asyncHandler(async (req, res) => {
     ...(email && { email: email.toLowerCase().trim() }),
     ...(preferredLanguage && { preferredLanguage }),
     ...(passwordHash && { passwordHash }),
+    ...(normalizedPhone && { phone: normalizedPhone }),
     lastActive: new Date(),
   };
 
