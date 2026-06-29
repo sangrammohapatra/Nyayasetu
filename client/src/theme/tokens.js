@@ -17,10 +17,10 @@ export const SPACING = {
 };
 
 export const RADIUS = {
-  sm: 4,
-  md: 8,
-  lg: 12,
-  xl: 16,
+  sm: 2,
+  md: 4,
+  lg: 8,
+  xl: 12,
   full: 9999,
 };
 
