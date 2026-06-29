@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid,
+  Tooltip as RechartTooltip, ResponsiveContainer,
+} from 'recharts';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
@@ -19,7 +23,11 @@ import { SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
 function StatCard({ icon, label, value, sub, onClick, color }) {
   const prefersReducedMotion = useReducedMotion();
   return (
-    <motion.div whileHover={prefersReducedMotion ? undefined : { y: -3 }} transition={{ duration: 0.2 }} style={{ width: '100%' }}>
+    <motion.div
+      whileHover={prefersReducedMotion ? undefined : { y: -3 }}
+      transition={{ duration: 0.2 }}
+      style={{ width: '100%' }}
+    >
       <GlassCard
         onClick={onClick}
         sx={{
@@ -74,19 +82,88 @@ function MetricBar({ label, value, max, color }) {
   );
 }
 
+/* ── Trend area chart ────────────────────────────────────────────────────── */
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtDate(str) {
+  if (!str) return '';
+  const [, m, d] = str.split('-');
+  return `${MONTHS[+m - 1]} ${+d}`;
+}
+
+function TrendChart({ id, data, dataKey, color, title, yFormatter }) {
+  return (
+    <GlassCard sx={{ p: 2.5, height: '100%' }}>
+      <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 2 }}>
+        {title}
+      </Typography>
+      <ResponsiveContainer width="100%" height={180}>
+        <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id={`grad-${id}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%"  stopColor={color} stopOpacity={0.28} />
+              <stop offset="95%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+          <XAxis
+            dataKey="date"
+            tickFormatter={(val, i) => i % 7 === 0 ? fmtDate(val) : ''}
+            tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
+            axisLine={false} tickLine={false}
+          />
+          <YAxis
+            tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
+            axisLine={false} tickLine={false}
+            width={yFormatter ? 52 : 32}
+            tickFormatter={yFormatter}
+          />
+          <RechartTooltip
+            labelFormatter={fmtDate}
+            formatter={(val) => [yFormatter ? yFormatter(val) : val]}
+            contentStyle={{
+              background: 'var(--color-surface)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 8,
+              fontSize: 12,
+            }}
+          />
+          <Area
+            type="monotone"
+            dataKey={dataKey}
+            stroke={color}
+            strokeWidth={2}
+            fill={`url(#grad-${id})`}
+            dot={false}
+            activeDot={{ r: 4, fill: color, strokeWidth: 0 }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </GlassCard>
+  );
+}
+
 /* ── Main page ───────────────────────────────────────────────────────────── */
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [stats, setStats]           = useState(null);
+  const [analytics, setAnalytics]   = useState(null);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState(null);
 
   useEffect(() => {
-    api.get('/admin/stats')
-      .then(({ data }) => setStats(data))
-      .catch((err) => setError(err.response?.data?.message || 'Failed to load stats'))
+    Promise.all([
+      api.get('/admin/stats'),
+      api.get('/admin/analytics'),
+    ])
+      .then(([{ data: s }, { data: a }]) => { setStats(s); setAnalytics(a); })
+      .catch((err) => setError(err.response?.data?.message || 'Failed to load dashboard'))
       .finally(() => setLoading(false));
   }, []);
+
+  const revenueInRupees = stats?.totalPayments?.amountInRupees
+    ?? (stats?.totalPayments != null && typeof stats.totalPayments === 'number'
+        ? (stats.totalPayments / 100).toFixed(2)
+        : null);
 
   return (
     <AnimatedPage>
@@ -104,22 +181,22 @@ export default function AdminDashboard() {
 
         <AnimatePresence>
           {loading && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
               <Grid container spacing={2} sx={{ mb: 4 }}>
-                {Array.from({ length: 5 }).map((_, i) => (
+                {Array.from({ length: 6 }).map((_, i) => (
                   <Grid item xs={6} sm={4} md={4} lg={2} key={i}>
-                    <Skeleton variant="rounded" height={100} animation="wave"
-                      sx={{ borderRadius: 2, bgcolor: 'var(--color-surface)' }} />
+                    <Skeleton variant="rounded" height={100} animation="wave" sx={{ borderRadius: 2, bgcolor: 'var(--color-surface)' }} />
                   </Grid>
                 ))}
               </Grid>
-              <Skeleton variant="rounded" height={300} animation="wave"
-                sx={{ borderRadius: 2, bgcolor: 'var(--color-surface)', mb: 3 }} />
+              <Skeleton variant="rounded" height={220} animation="wave" sx={{ borderRadius: 2, bgcolor: 'var(--color-surface)', mb: 3 }} />
+              <Grid container spacing={2}>
+                {[1, 2].map((i) => (
+                  <Grid item xs={12} md={6} key={i}>
+                    <Skeleton variant="rounded" height={240} animation="wave" sx={{ borderRadius: 2, bgcolor: 'var(--color-surface)' }} />
+                  </Grid>
+                ))}
+              </Grid>
             </motion.div>
           )}
         </AnimatePresence>
@@ -131,16 +208,12 @@ export default function AdminDashboard() {
             {/* KPI cards */}
             <Grid container spacing={2} sx={{ mb: 4 }} alignItems="stretch">
               {[
-                { icon: '👥', label: 'Total Users',      value: stats.totalUsers?.toLocaleString('en-IN'),        color: '#1976d2', onClick: () => navigate('/admin/users') },
-                { icon: '📄', label: 'Documents',        value: stats.totalDocuments?.toLocaleString('en-IN'),     color: '#0288d1' },
-                { icon: '👨‍⚖️', label: 'Active Lawyers',  value: stats.activeLawyers?.toLocaleString('en-IN'),      color: '#7b1fa2', onClick: () => navigate('/admin/lawyers') },
-                { icon: '🆕', label: "Today's Signups",  value: stats.todaySignups?.toLocaleString('en-IN'),       color: '#ed6c02', sub: 'new users today' },
-                {
-                  icon: '💰', label: 'Revenue',
-                  value: stats.totalPayments != null ? `₹${(stats.totalPayments / 100).toLocaleString('en-IN')}` : null,
-                  color: '#2e7d32',
-                },
-                { icon: '🔔', label: 'Active Subs',      value: stats.activeSubscriptions?.toLocaleString('en-IN'), color: '#6a1b9a', sub: 'paid subscribers' },
+                { icon: '👥', label: 'Total Users',     value: stats.totalUsers?.toLocaleString('en-IN'),           color: '#1976d2', onClick: () => navigate('/admin/users') },
+                { icon: '📄', label: 'Documents',       value: stats.totalDocuments?.toLocaleString('en-IN'),        color: '#0288d1' },
+                { icon: '👨‍⚖️', label: 'Active Lawyers', value: stats.activeLawyers?.toLocaleString('en-IN'),          color: '#7b1fa2', onClick: () => navigate('/admin/lawyers') },
+                { icon: '🆕', label: "Today's Signups", value: stats.todaySignups?.toLocaleString('en-IN'),          color: '#ed6c02', sub: 'new users today' },
+                { icon: '💰', label: 'Revenue',         value: revenueInRupees != null ? `₹${Number(revenueInRupees).toLocaleString('en-IN')}` : '—', color: '#2e7d32' },
+                { icon: '🔔', label: 'Active Subs',     value: stats.activeSubscriptions?.toLocaleString('en-IN'),   color: '#6a1b9a', sub: 'paid subscribers' },
               ].map((s) => (
                 <Grid item xs={6} sm={4} md={4} lg={2} key={s.label} sx={{ display: 'flex' }}>
                   <StatCard {...s} />
@@ -150,17 +223,17 @@ export default function AdminDashboard() {
 
             <Divider sx={{ borderColor: 'var(--color-border)', mb: 4 }} />
 
-            {/* Breakdown charts + quick nav */}
+            {/* Breakdown + quick actions */}
             <Grid container spacing={3} sx={{ mb: 4 }}>
               <Grid item xs={12} md={6} lg={5}>
                 <GlassCard sx={{ p: 2.5, height: '100%' }}>
                   <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 2 }}>
                     👥 User Breakdown
                   </Typography>
-                  <MetricBar label="Total Users"        value={stats.totalUsers}           max={stats.totalUsers}                        color="#1976d2" />
-                  <MetricBar label="Active Lawyers"     value={stats.activeLawyers}        max={stats.totalUsers}                        color="#7b1fa2" />
-                  <MetricBar label="Active Subscribers" value={stats.activeSubscriptions}  max={stats.totalUsers}                        color="#2e7d32" />
-                  <MetricBar label="Today's Signups"    value={stats.todaySignups}         max={Math.max(stats.todaySignups ?? 0, 1)}    color="#ed6c02" />
+                  <MetricBar label="Total Users"        value={stats.totalUsers}          max={stats.totalUsers}                     color="#1976d2" />
+                  <MetricBar label="Active Lawyers"     value={stats.activeLawyers}       max={stats.totalUsers}                     color="#7b1fa2" />
+                  <MetricBar label="Active Subscribers" value={stats.activeSubscriptions} max={stats.totalUsers}                     color="#2e7d32" />
+                  <MetricBar label="Today's Signups"    value={stats.todaySignups}        max={Math.max(stats.todaySignups ?? 0, 1)} color="#ed6c02" />
                 </GlassCard>
               </Grid>
 
@@ -169,11 +242,11 @@ export default function AdminDashboard() {
                   <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 2 }}>
                     📄 Content &amp; Revenue
                   </Typography>
-                  <MetricBar label="Documents Generated" value={stats.totalDocuments}  max={Math.max(stats.totalDocuments ?? 0, 1)}   color="#0288d1" />
+                  <MetricBar label="Documents Generated" value={stats.totalDocuments} max={Math.max(stats.totalDocuments ?? 0, 1)} color="#0288d1" />
                   <MetricBar
                     label="Revenue (₹)"
-                    value={stats.totalPayments != null ? Math.round(stats.totalPayments / 100) : null}
-                    max={Math.max(stats.totalPayments != null ? stats.totalPayments / 100 : 0, 1)}
+                    value={revenueInRupees != null ? Math.round(Number(revenueInRupees)) : null}
+                    max={Math.max(revenueInRupees != null ? Number(revenueInRupees) : 0, 1)}
                     color="#2e7d32"
                   />
                 </GlassCard>
@@ -186,10 +259,10 @@ export default function AdminDashboard() {
                   </Typography>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     {[
-                      { icon: '👥', label: 'Manage Users',     path: '/admin/users' },
-                      { icon: '👨‍⚖️', label: 'Verify Lawyers',  path: '/admin/lawyers' },
-                      { icon: '📋', label: 'Edit Templates',   path: '/admin/templates' },
-                      { icon: '🔍', label: 'Audit Log',        path: '/admin/audit-logs' },
+                      { icon: '👥', label: 'Manage Users',   path: '/admin/users' },
+                      { icon: '👨‍⚖️', label: 'Verify Lawyers', path: '/admin/lawyers' },
+                      { icon: '📋', label: 'Edit Templates',  path: '/admin/templates' },
+                      { icon: '🔍', label: 'Audit Log',       path: '/admin/audit-logs' },
                     ].map((item) => (
                       <Box
                         key={item.path}
@@ -214,9 +287,42 @@ export default function AdminDashboard() {
               </Grid>
             </Grid>
 
-            <Alert severity="info" sx={{ borderRadius: 2 }}>
-              Time-series charts (daily signups, revenue trends) will be available once a dedicated analytics endpoint is added to the server.
-            </Alert>
+            {/* Time-series charts */}
+            {analytics && (
+              <>
+                <Divider sx={{ borderColor: 'var(--color-border)', mb: 4 }} />
+                <Grid container spacing={3} sx={{ mb: 4 }}>
+                  <Grid item xs={12} md={6}>
+                    <TrendChart
+                      id="signups"
+                      data={analytics.signups}
+                      dataKey="count"
+                      color="#1976d2"
+                      title="📈 Daily Signups — Last 30 Days"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TrendChart
+                      id="revenue"
+                      data={analytics.revenue}
+                      dataKey="amount"
+                      color="#2e7d32"
+                      title="💰 Daily Revenue — Last 30 Days"
+                      yFormatter={(v) => `₹${v}`}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TrendChart
+                      id="documents"
+                      data={analytics.documents}
+                      dataKey="count"
+                      color="#0288d1"
+                      title="📄 Documents Generated — Last 30 Days"
+                    />
+                  </Grid>
+                </Grid>
+              </>
+            )}
           </>
         )}
       </Box>

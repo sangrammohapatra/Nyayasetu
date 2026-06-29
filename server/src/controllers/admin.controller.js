@@ -798,6 +798,63 @@ const revokeSubscription = asyncHandler(async (req, res) => {
   return res.json({ ok: true, userId: id, revokedAt: now });
 });
 
+/* ---------------------------------------------------------------------------
+ * getAnalytics
+ * GET /v1/admin/analytics
+ * Returns 30-day time-series for signups, revenue, and documents.
+ * ------------------------------------------------------------------------ */
+const getAnalytics = asyncHandler(async (req, res) => {
+  const days = 30;
+  const since = new Date();
+  since.setDate(since.getDate() - days + 1);
+  since.setHours(0, 0, 0, 0);
+
+  try {
+    const [signups, revenue, documents] = await Promise.all([
+      User.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
+        { $project: { _id: 0, date: '$_id', count: 1 } },
+      ]),
+      Payment.aggregate([
+        { $match: { status: 'paid', createdAt: { $gte: since } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, amount: { $sum: '$amount' } } },
+        { $sort: { _id: 1 } },
+        { $project: { _id: 0, date: '$_id', amount: { $divide: ['$amount', 100] } } },
+      ]),
+      Document.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
+        { $project: { _id: 0, date: '$_id', count: 1 } },
+      ]),
+    ]);
+
+    // Fill missing dates with 0 so charts are continuous
+    const fillDates = (data, valueKey) => {
+      const map = new Map(data.map((d) => [d.date, d[valueKey]]));
+      const result = [];
+      for (let i = 0; i < days; i++) {
+        const d = new Date(since);
+        d.setDate(since.getDate() + i);
+        const key = d.toISOString().slice(0, 10);
+        result.push({ date: key, [valueKey]: map.get(key) ?? 0 });
+      }
+      return result;
+    };
+
+    return res.json({
+      signups:   fillDates(signups,   'count'),
+      revenue:   fillDates(revenue,   'amount'),
+      documents: fillDates(documents, 'count'),
+    });
+  } catch (err) {
+    logger.error('[admin.controller] getAnalytics failed', { error: err.message });
+    return res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Failed to load analytics' });
+  }
+});
+
 module.exports = {
   verifyLawyer,
   rejectLawyer,
@@ -808,6 +865,7 @@ module.exports = {
   toggleUserActive,
   revokeSubscription,
   getStats,
+  getAnalytics,
   listUsers,
   getUser,
   getAuditLogs,

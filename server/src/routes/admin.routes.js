@@ -30,7 +30,8 @@ router.use(verifyToken, requirePersona('admin'));
 /* ---------------------------------------------------------------------------
  * Platform statistics
  * ------------------------------------------------------------------------ */
-router.get('/stats', adminController.getStats);
+router.get('/stats',     adminController.getStats);
+router.get('/analytics', adminController.getAnalytics);
 
 /* ---------------------------------------------------------------------------
  * User management
