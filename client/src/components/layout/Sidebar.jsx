@@ -65,7 +65,7 @@ function useNavItems(persona, t) {
       { section: t('sidebar.section_main', 'Main') },
       { icon: IC.home,        label: t('sidebar.home',        'Home'),          path: '/citizen/home' },
       { icon: IC.newDoc,      label: t('sidebar.newDoc',      'New Document'),  path: '/citizen/documents/new' },
-      { icon: IC.myDocs,      label: t('sidebar.myDocs',      'My Documents'),  path: '/citizen/documents' },
+      { icon: IC.myDocs,      label: t('sidebar.myDocs',      'My Documents'),  path: '/citizen/documents', exact: true },
       { section: t('sidebar.section_legal', 'Legal') },
       { icon: IC.caseTracker, label: t('sidebar.caseTracker', 'Case Tracker'),  path: '/citizen/cases' },
       { icon: IC.rtiTracker,  label: t('sidebar.rtiTracker',  'RTI Tracker'),   path: '/citizen/rti' },
@@ -298,7 +298,7 @@ function SidebarContent() {
               key={item.path}
               {...item}
               collapsed={false}
-              isActive={location.pathname === item.path || location.pathname.startsWith(item.path + '/')}
+              isActive={location.pathname === item.path || (!item.exact && location.pathname.startsWith(item.path + '/'))}
             />
           );
         })}
