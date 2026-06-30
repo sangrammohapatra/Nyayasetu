@@ -26,6 +26,7 @@ const razorpayService = require('../services/payment/razorpayService');
 const emailService = require('../services/notification/emailService');
 const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
+const AuditLog = require('../models/AuditLog.model');
 
 /* ---------------------------------------------------------------------------
  * Constants
@@ -133,7 +134,7 @@ const createDocumentOrder = asyncHandler(async (req, res) => {
     return res.status(502).json({ error: 'Payment gateway error — please try again' });
   }
 
-  await Payment.create({
+  const payment = await Payment.create({
     user: userId,
     type: 'pay_per_doc',
     razorpayOrderId: order.id,
@@ -144,6 +145,13 @@ const createDocumentOrder = asyncHandler(async (req, res) => {
     relatedEntityType: 'Document',
     lawyerEarnings: 0,
     platformEarnings: amount,
+  });
+
+  await AuditLog.log(req, 'payment.order.created', 'Payment', payment._id, {
+    documentId: String(documentId),
+    amount,
+    templateSlug: doc.template.slug,
+    orderId: order.id,
   });
 
   return res.status(201).json({
@@ -175,6 +183,7 @@ const verifyDocumentPayment = asyncHandler(async (req, res) => {
       orderId,
       paymentId,
     });
+    await AuditLog.log(req, 'payment.signature.invalid', 'Payment', null, { orderId, documentId }, false);
     return res.status(400).json({ error: 'Payment signature verification failed' });
   }
 
@@ -214,6 +223,11 @@ const verifyDocumentPayment = asyncHandler(async (req, res) => {
   if (!doc) {
     return res.status(404).json({ error: 'Document not found' });
   }
+
+  await AuditLog.log(req, 'payment.document.verified', 'Payment', payment._id, {
+    documentId: String(documentId),
+    orderId,
+  });
 
   // Trigger PDF generation if not yet generated
   let pdfUrl = doc.pdfUrl;
@@ -287,6 +301,13 @@ const createSubscriptionOrder = asyncHandler(async (req, res) => {
     return res.status(502).json({ error: 'Payment gateway error — please try again' });
   }
 
+  await AuditLog.log(req, 'payment.subscription.order.created', 'Subscription', null, {
+    plan,
+    billingCycle,
+    amount,
+    orderId: order.id,
+  });
+
   return res.status(201).json({
     orderId: order.id,
     amount: order.amount,
@@ -325,6 +346,7 @@ const verifySubscription = asyncHandler(async (req, res) => {
       userId,
       orderId,
     });
+    await AuditLog.log(req, 'payment.subscription.signature.invalid', 'Subscription', null, { orderId, plan }, false);
     return res.status(400).json({ error: 'Payment signature verification failed' });
   }
 
@@ -408,6 +430,13 @@ const verifySubscription = asyncHandler(async (req, res) => {
     }
   }
 
+  await AuditLog.log(req, 'payment.subscription.verified', 'Subscription', subscription._id, {
+    plan,
+    billingCycle,
+    amount,
+    orderId,
+  });
+
   return res.json({ success: true, subscription });
 });
 
@@ -475,6 +504,12 @@ const cancelUserSubscription = asyncHandler(async (req, res) => {
     $set: {
       'subscription.autoRenew': false,
     },
+  });
+
+  await AuditLog.log(req, 'payment.subscription.cancelled', 'Subscription', subscription._id, {
+    plan: subscription.plan,
+    billingCycle: subscription.billingCycle,
+    validUntil: subscription.endDate,
   });
 
   return res.json({
@@ -569,18 +604,35 @@ const webhookHandler = asyncHandler(async (req, res) => {
     switch (eventType) {
       case 'payment.captured':
         await handlePaymentCaptured(payload);
+        await AuditLog.log(req, 'payment.webhook.captured', 'Payment', null, {
+          orderId: payload?.payment?.entity?.order_id,
+          paymentId: payload?.payment?.entity?.id,
+        });
         break;
       case 'subscription.activated':
         await handleSubscriptionActivated(payload);
+        await AuditLog.log(req, 'payment.webhook.subscription.activated', 'Subscription', null, {
+          razorpaySubscriptionId: payload?.subscription?.entity?.id,
+        });
         break;
       case 'subscription.charged':
         await handleSubscriptionCharged(payload);
+        await AuditLog.log(req, 'payment.webhook.subscription.charged', 'Subscription', null, {
+          razorpaySubscriptionId: payload?.subscription?.entity?.id,
+          paymentId: payload?.payment?.entity?.id,
+        });
         break;
       case 'subscription.cancelled':
         await handleSubscriptionCancelled(payload);
+        await AuditLog.log(req, 'payment.webhook.subscription.cancelled', 'Subscription', null, {
+          razorpaySubscriptionId: payload?.subscription?.entity?.id,
+        });
         break;
       case 'payment.failed':
         await handlePaymentFailed(payload);
+        await AuditLog.log(req, 'payment.webhook.failed', 'Payment', null, {
+          orderId: payload?.payment?.entity?.order_id,
+        }, false);
         break;
       default:
         logger.debug('[payment.controller] Unhandled webhook event', { eventType });

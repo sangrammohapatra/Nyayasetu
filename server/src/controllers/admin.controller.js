@@ -93,9 +93,8 @@ const verifyLawyer = asyncHandler(async (req, res) => {
     });
   } catch (_) {}
 
-  logger.info('[admin.controller] Lawyer verified', {
-    lawyerProfileId: profile._id,
-    adminUserId: req.user.userId,
+  await AuditLog.log(req, 'admin.lawyer.verified', 'LawyerProfile', profile._id, {
+    lawyerUserId: lawyerUser._id,
   });
 
   return res.json({ ok: true, lawyerProfileId: profile._id, isVerified: true });
@@ -314,6 +313,10 @@ const listTemplates = asyncHandler(async (req, res) => {
 const createTemplate = asyncHandler(async (req, res) => {
   try {
     const template = await DocumentTemplate.create(req.body);
+    await AuditLog.log(req, 'admin.template.created', 'DocumentTemplate', template._id, {
+      slug: template.slug,
+      name: template.name,
+    });
     return res.status(201).json({ template });
   } catch (err) {
     if (err.code === 11000) {
@@ -360,6 +363,9 @@ const updateTemplate = asyncHandler(async (req, res) => {
       },
       { new: true, runValidators: true }
     );
+    await AuditLog.log(req, 'admin.template.updated', 'DocumentTemplate', id, {
+      fields: Object.keys(safeFields),
+    });
     return res.json({ template });
   } catch (err) {
     logger.error('[admin.controller] updateTemplate failed', { id, error: err.message });
@@ -507,11 +513,7 @@ ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
     });
   } catch (_) {}
 
-  logger.info('[admin.controller] Lawyer rejected', {
-    lawyerProfileId: profile._id,
-    adminUserId: req.user.userId,
-    reason,
-  });
+  await AuditLog.log(req, 'admin.lawyer.rejected', 'LawyerProfile', profile._id, { reason });
 
   return res.json({ ok: true, lawyerProfileId: profile._id, verificationStatus: 'rejected' });
 });
@@ -636,9 +638,8 @@ const verifyNotary = asyncHandler(async (req, res) => {
     });
   } catch (_) {}
 
-  logger.info('[admin.controller] Notary verified', {
-    notaryProfileId: profile._id,
-    adminUserId: req.user.userId,
+  await AuditLog.log(req, 'admin.notary.verified', 'NotaryProfile', profile._id, {
+    notaryUserId: notaryUser._id,
   });
 
   return res.json({ ok: true, notaryProfileId: profile._id, isVerified: true });
@@ -717,11 +718,7 @@ ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
     });
   } catch (_) {}
 
-  logger.info('[admin.controller] Notary rejected', {
-    notaryProfileId: profile._id,
-    adminUserId: req.user.userId,
-    reason,
-  });
+  await AuditLog.log(req, 'admin.notary.rejected', 'NotaryProfile', profile._id, { reason });
 
   return res.json({ ok: true, notaryProfileId: profile._id, verificationStatus: 'rejected' });
 });
@@ -770,11 +767,7 @@ const toggleUserActive = asyncHandler(async (req, res) => {
 
   await user.save();
 
-  logger.info('[admin.controller] User active status toggled', {
-    targetUserId: user._id,
-    isActive: user.isActive,
-    adminUserId: req.user.userId,
-  });
+  await AuditLog.log(req, 'admin.user.toggled', 'User', user._id, { isActive: user.isActive });
 
   return res.json({ ok: true, userId: user._id, isActive: user.isActive });
 });
@@ -816,10 +809,7 @@ const revokeSubscription = asyncHandler(async (req, res) => {
     { $set: { isActive: false, cancelledAt: now, endDate: now, autoRenew: false } }
   );
 
-  logger.info('[admin.controller] Subscription force-revoked', {
-    targetUserId: id,
-    adminUserId: req.user.userId,
-  });
+  await AuditLog.log(req, 'admin.subscription.revoked', 'User', id, { revokedAt: now });
 
   return res.json({ ok: true, userId: id, revokedAt: now });
 });
@@ -988,8 +978,10 @@ const refundPayment = asyncHandler(async (req, res) => {
   payment.refundReason = reason || 'Admin refund';
   await payment.save();
 
-  logger.info('[admin.controller] Payment refunded', {
-    paymentId: id, refundId: refund.id, amount: refundAmount, adminUserId: req.user.userId,
+  await AuditLog.log(req, 'admin.payment.refunded', 'Payment', id, {
+    refundId: refund.id,
+    refundAmount,
+    reason,
   });
 
   return res.json({ ok: true, refundId: refund.id, status: payment.status, refundAmount });
@@ -1056,9 +1048,7 @@ const cancelConsultation = asyncHandler(async (req, res) => {
   consultation.cancellationReason = reason || 'Cancelled by admin';
   await consultation.save();
 
-  logger.info('[admin.controller] Consultation cancelled by admin', {
-    consultationId: id, adminUserId: req.user.userId,
-  });
+  await AuditLog.log(req, 'admin.consultation.cancelled', 'Consultation', id, { reason });
 
   return res.json({ ok: true, consultationId: id, status: 'cancelled' });
 });
@@ -1115,9 +1105,7 @@ const deleteDocument = asyncHandler(async (req, res) => {
 
   await document.softDelete();
 
-  logger.info('[admin.controller] Document soft-deleted by admin', {
-    documentId: id, adminUserId: req.user.userId,
-  });
+  await AuditLog.log(req, 'admin.document.deleted', 'Document', id, {});
 
   return res.json({ ok: true, documentId: id, deletedAt: document.deletedAt });
 });
@@ -1239,11 +1227,10 @@ const extendRTIDeadline = asyncHandler(async (req, res) => {
 
   await application.save();
 
-  logger.info('[admin.controller] RTI deadline extended', {
-    rtiId: id,
+  await AuditLog.log(req, 'admin.rti.deadline.extended', 'RTIApplication', id, {
     daysExtended: daysNum,
     newDeadline,
-    adminUserId: req.user.userId,
+    reason,
   });
 
   return res.json({ ok: true, rtiId: id, newDeadline, daysExtended: daysNum });
@@ -1300,12 +1287,7 @@ const resetUserQuota = asyncHandler(async (req, res) => {
 
   await User.findByIdAndUpdate(id, { $set });
 
-  logger.info('[admin.controller] User quota reset by admin', {
-    targetUserId: id,
-    quotaType,
-    overrides,
-    adminUserId: req.user.userId,
-  });
+  await AuditLog.log(req, 'admin.user.quota.reset', 'User', id, { quotaType, overrides });
 
   return res.json({ ok: true, userId: id, quotaType, overrides });
 });
@@ -1391,13 +1373,12 @@ const bulkUserAction = asyncHandler(async (req, res) => {
     }
   });
 
-  logger.info('[admin.controller] Bulk user action', {
+  await AuditLog.log(req, 'admin.users.bulk.action', 'User', null, {
     action,
     total: userIds.length,
     succeeded: succeeded.length,
     failed: failed.length,
     skipped: skipped.length,
-    adminUserId: req.user.userId,
   });
 
   return res.json({ ok: true, action, succeeded, failed, skipped });
@@ -1439,7 +1420,7 @@ const reauth = asyncHandler(async (req, res) => {
     await redis.set(`admin:session:${user._id}`, '1', 'EX', ADMIN_SESSION_TTL);
   }
 
-  logger.info('[admin.controller] Admin session refreshed via re-auth', { adminUserId: user._id });
+  await AuditLog.log(req, 'admin.reauth', 'User', user._id, {});
 
   return res.json({ ok: true });
 });
@@ -1519,8 +1500,10 @@ const rollbackTemplate = asyncHandler(async (req, res) => {
     { new: true }
   );
 
-  logger.info('[admin.controller] Template rolled back', {
-    templateId: id, fromVersion: current.version, toVersion: targetVersion, newVersion, adminUserId: req.user.userId,
+  await AuditLog.log(req, 'admin.template.rolledback', 'DocumentTemplate', id, {
+    fromVersion: current.version,
+    toVersion: targetVersion,
+    newVersion,
   });
 
   return res.json({ ok: true, templateId: id, rolledBackToVersion: targetVersion, currentVersion: newVersion, template });
@@ -1552,9 +1535,7 @@ const resetLawyerVerification = asyncHandler(async (req, res) => {
 
   await profile.save();
 
-  logger.info('[admin.controller] Lawyer verification reset to pending', {
-    lawyerProfileId: id, adminUserId: req.user.userId,
-  });
+  await AuditLog.log(req, 'admin.lawyer.verification.reset', 'LawyerProfile', id, {});
 
   return res.json({ ok: true, lawyerProfileId: id, verificationStatus: 'pending' });
 });
@@ -1585,9 +1566,7 @@ const resetNotaryVerification = asyncHandler(async (req, res) => {
 
   await profile.save();
 
-  logger.info('[admin.controller] Notary verification reset to pending', {
-    notaryProfileId: id, adminUserId: req.user.userId,
-  });
+  await AuditLog.log(req, 'admin.notary.verification.reset', 'NotaryProfile', id, {});
 
   return res.json({ ok: true, notaryProfileId: id, verificationStatus: 'pending' });
 });
@@ -1650,8 +1629,11 @@ const broadcastNotification = asyncHandler(async (req, res) => {
     }
   }
 
-  logger.info('[admin.controller] Broadcast notification sent', {
-    sent, failed, personas: personaFilter, adminUserId: req.user.userId,
+  await AuditLog.log(req, 'admin.notification.broadcast', 'Notification', null, {
+    sent,
+    failed,
+    personas: personas || [],
+    title: title.trim(),
   });
 
   return res.json({ ok: true, sent, failed });

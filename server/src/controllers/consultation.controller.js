@@ -19,6 +19,7 @@ const whatsappService = require('../services/notification/whatsappService');
 const emailService = require('../services/notification/emailService');
 const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
+const AuditLog = require('../models/AuditLog.model');
 
 /* ---------------------------------------------------------------------------
  * Razorpay client — lazy init so missing creds don't crash at require time.
@@ -264,6 +265,13 @@ const createConsultation = asyncHandler(async (req, res) => {
   payment.relatedEntityType = 'Consultation';
   await payment.save();
 
+  await AuditLog.log(req, 'consultation.requested', 'Consultation', consultation._id, {
+    lawyerId: String(lawyerId),
+    mode,
+    scheduledAt,
+    fee: feeInPaise,
+  });
+
   // Notify lawyer (best-effort)
   await notifyLawyer(lawyerProfile.user, consultation, 'new_booking');
 
@@ -332,6 +340,12 @@ const acceptConsultation = asyncHandler(async (req, res) => {
   }
 
   await consultation.save();
+
+  await AuditLog.log(req, 'consultation.accepted', 'Consultation', consultation._id, {
+    mode: consultation.mode,
+    scheduledAt: consultation.scheduledAt,
+    ...(consultation.meetingLink ? { meetingLink: consultation.meetingLink } : {}),
+  });
 
   const citizenUser = await User.findById(consultation.citizen).select('name email phone whatsappOptIn whatsappNumber').lean();
 
@@ -413,6 +427,11 @@ const rejectConsultation = asyncHandler(async (req, res) => {
   if (reason) consultation.rejectionReason = reason;
   await consultation.save();
 
+  await AuditLog.log(req, 'consultation.rejected', 'Consultation', consultation._id, {
+    reason,
+    refundInitiated,
+  });
+
   const citizenUser = await User.findById(consultation.citizen).select('name email phone whatsappOptIn whatsappNumber').lean();
   await notifyCitizen(citizenUser, consultation, 'rejected');
 
@@ -460,6 +479,10 @@ const completeConsultation = asyncHandler(async (req, res) => {
   consultation.status = 'completed';
   consultation.completedAt = new Date();
   await consultation.save();
+
+  await AuditLog.log(req, 'consultation.completed', 'Consultation', consultation._id, {
+    fee: consultation.fee,
+  });
 
   // Commission split
   const referralFeePercent = lawyerProfile.referralFeePercent || 10;
@@ -555,6 +578,8 @@ const rateConsultation = asyncHandler(async (req, res) => {
       },
     });
   }
+
+  await AuditLog.log(req, 'consultation.rated', 'Consultation', consultation._id, { score: numScore });
 
   return res.json({ ok: true, rating: consultation.citizenRating });
 });

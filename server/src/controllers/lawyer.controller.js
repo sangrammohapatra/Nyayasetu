@@ -16,6 +16,7 @@ const Notification = require('../models/Notification.model');
 const cloudinaryService = require('../services/storage/cloudinaryService');
 const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
+const AuditLog = require('../models/AuditLog.model');
 
 /* ---------------------------------------------------------------------------
  * Multer — memory storage, 5 MB cap, PDF/image only.
@@ -275,6 +276,11 @@ const applyAsLawyer = asyncHandler(async (req, res) => {
       logger.warn('[lawyer.controller] Admin notification failed', { error: notifErr.message });
     }
 
+    await AuditLog.log(req, 'lawyer.applied', 'LawyerProfile', profile._id, {
+      barCouncilNumber: barCouncilNumber.trim(),
+      specialisations: toArray(specialisations),
+    });
+
     return res.status(201).json({
       message: 'Application submitted. An admin will verify your profile within 2-3 business days.',
       lawyerProfileId: profile._id,
@@ -335,6 +341,10 @@ const updateLawyerProfile = asyncHandler(async (req, res) => {
     if (!profile) {
       return res.status(404).json({ error: 'Lawyer profile not found — please apply first' });
     }
+
+    await AuditLog.log(req, 'lawyer.profile.updated', 'LawyerProfile', profile._id, {
+      fields: Object.keys(updates),
+    });
 
     return res.json({ profile });
   } catch (err) {
@@ -557,7 +567,9 @@ const updateAvailability = asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'PROFILE_NOT_FOUND', message: 'Lawyer profile not found — please apply first' });
   }
 
-  logger.info('[lawyer.controller] Availability updated', { userId, slots: availability.length });
+  await AuditLog.log(req, 'lawyer.availability.updated', 'LawyerProfile', profile._id, {
+    slots: availability.length,
+  });
   return res.json({ ok: true, availability: profile.availability });
 });
 

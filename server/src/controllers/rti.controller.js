@@ -98,7 +98,7 @@ const aiDraftRTI = asyncHandler(async (req, res) => {
 
   const draft = await rtiAIService.draftApplication({ description, language });
 
-  logger.info(`[rti/aiDraft] AI draft generated for user ${req.user.userId}`);
+  await AuditLog.log(req, 'rti.ai_drafted', 'RTIApplication', null, { language });
   res.json({ draft });
 });
 
@@ -158,7 +158,6 @@ const createRTI = asyncHandler(async (req, res) => {
   });
 
   await AuditLog.log(req, 'rti.created', 'RTIApplication', rti._id, { ministry, govLevel });
-  logger.info(`[rti/create] RTI created: ${rti._id}, user: ${userId}`);
 
   res.status(201).json({ message: 'RTI application created', rti });
 });
@@ -283,6 +282,7 @@ const generateFirstAppealDraft = asyncHandler(async (req, res) => {
   if (rti.user.toString() !== userId) throw createError(403, 'FORBIDDEN', 'Access denied');
 
   const appealContent = await rtiAIService.draftFirstAppeal(rti);
+  await AuditLog.log(req, 'rti.first_appeal_drafted', 'RTIApplication', rti._id, {});
   res.json({ appealContent });
 });
 
@@ -304,6 +304,7 @@ const generateCICAppealDraft = asyncHandler(async (req, res) => {
   }
 
   const cicContent = await rtiAIService.draftCICAppeal(rti);
+  await AuditLog.log(req, 'rti.cic_appeal_drafted', 'RTIApplication', rti._id, {});
   res.json({ cicContent });
 });
 
@@ -352,6 +353,8 @@ const downloadPDF = asyncHandler(async (req, res) => {
   } else {
     throw createError(400, 'INVALID_DOC_TYPE', "docType must be 'application', 'first-appeal', or 'cic-appeal'");
   }
+
+  await AuditLog.log(req, 'rti.pdf.downloaded', 'RTIApplication', rti._id, { docType });
 
   res.set({
     'Content-Type':        'application/pdf',

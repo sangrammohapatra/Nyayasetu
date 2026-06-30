@@ -145,8 +145,6 @@ const addCase = asyncHandler(async (req, res) => {
 
   await AuditLog.log(req, 'case.added', 'CaseTracker', caseDoc._id, { cnrNumber: cnr });
 
-  logger.info(`[case/add] Case added: ${cnr}, user: ${userId}, caseId: ${caseDoc._id}`);
-
   res.status(201).json({
     message:  'Case added successfully',
     case:     sanitizeCase(caseDoc),
@@ -243,8 +241,12 @@ const refreshCase = asyncHandler(async (req, res) => {
 
   if (refreshed && ecourtsData) {
     await caseDoc.updateFromEcourts(ecourtsData);
-    logger.info(`[case/refresh] Refreshed case ${caseDoc.cnrNumber}, nextHearing: ${caseDoc.nextHearingDate}`);
   }
+
+  await AuditLog.log(req, 'case.refreshed', 'CaseTracker', caseDoc._id, {
+    cnrNumber: caseDoc.cnrNumber,
+    refreshed,
+  });
 
   const freshness = computeDataFreshness(caseDoc.lastSyncedAt);
 
@@ -288,6 +290,12 @@ const updateAlerts = asyncHandler(async (req, res) => {
   }
 
   await caseDoc.save();
+
+  await AuditLog.log(req, 'case.alerts.updated', 'CaseTracker', caseDoc._id, {
+    alertDaysBefore: caseDoc.alertDaysBefore,
+    alertChannels:   caseDoc.alertChannels,
+    alertsEnabled:   caseDoc.alertsEnabled,
+  });
 
   res.json({
     message:       'Alert settings updated',

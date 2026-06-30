@@ -10,6 +10,7 @@ const razorpayService = require('../services/payment/razorpayService');
 const storageProvider = require('../services/storage/storageProvider');
 const videoProvider = require('../services/video/videoProvider');
 const logger = require('../utils/logger');
+const AuditLog = require('../models/AuditLog.model');
 const { PERSONAS, NOTARIZATION_FEE } = require('../config/constants');
 const { signTokenPair } = require('./auth.controller');
 
@@ -150,6 +151,11 @@ exports.applyAsNotary = async (req, res) => {
     const { accessToken, refreshToken } = signTokenPair(updatedUser);
     await updatedUser.addRefreshToken(refreshToken);
 
+    await AuditLog.log(req, 'notary.applied', 'NotaryProfile', profile._id, {
+      notaryRegistrationNumber,
+      registrationState,
+    });
+
     res.status(201).json({ message: 'Application submitted. Under review.', profile, accessToken, refreshToken });
   } catch (err) {
     logger.error('applyAsNotary error:', err);
@@ -173,6 +179,9 @@ exports.updateNotaryProfile = async (req, res) => {
     });
 
     await profile.save();
+    await AuditLog.log(req, 'notary.profile.updated', 'NotaryProfile', profile._id, {
+      fields: allowed.filter((key) => req.body[key] !== undefined),
+    });
     res.json({ message: 'Profile updated', profile });
   } catch (err) {
     logger.error('updateNotaryProfile error:', err);
@@ -230,6 +239,11 @@ exports.createNotarizationRequest = async (req, res) => {
         io: req.app.get('io'),
       });
     } catch (_) {}
+
+    await AuditLog.log(req, 'notarization.requested', 'NotarizationRequest', notarizationReq._id, {
+      notaryId,
+      documentId,
+    });
 
     res.status(201).json({ notarizationRequest: notarizationReq });
   } catch (err) {
@@ -312,6 +326,10 @@ exports.verifyNotarizationPayment = async (req, res) => {
         io: req.app.get('io'),
       });
     } catch (_) {}
+
+    await AuditLog.log(req, 'notarization.payment.verified', 'NotarizationRequest', notarizationReq._id, {
+      razorpayPaymentId,
+    });
 
     res.json({ message: 'Payment verified. Notary will be notified.', notarizationRequest: notarizationReq });
   } catch (err) {
@@ -429,6 +447,10 @@ exports.acceptRequest = async (req, res) => {
       });
     } catch (_) {}
 
+    await AuditLog.log(req, 'notarization.accepted', 'NotarizationRequest', request._id, {
+      razorpayOrderId: order.id,
+    });
+
     res.json({ message: 'Request accepted. Citizen will be prompted to pay.', request });
   } catch (err) {
     logger.error('acceptRequest error:', err);
@@ -474,6 +496,11 @@ exports.scheduleKYC = async (req, res) => {
       });
     } catch (_) {}
 
+    await AuditLog.log(req, 'notarization.kyc.scheduled', 'NotarizationRequest', request._id, {
+      scheduledAt,
+      videoLink: room.url,
+    });
+
     res.json({ message: 'KYC session scheduled', request });
   } catch (err) {
     logger.error('scheduleKYC error:', err);
@@ -504,6 +531,8 @@ exports.completeKYC = async (req, res) => {
         io: req.app.get('io'),
       });
     } catch (_) {}
+
+    await AuditLog.log(req, 'notarization.kyc.completed', 'NotarizationRequest', request._id, {});
 
     res.json({ message: 'KYC completed. Ready to stamp.', request });
   } catch (err) {
@@ -587,6 +616,12 @@ exports.stampDocument = async (req, res) => {
       });
     } catch (_) {}
 
+    await AuditLog.log(req, 'notarization.stamped', 'NotarizationRequest', updatedRequest._id, {
+      documentId: String(request.document._id),
+      stampRef,
+      notarizedPdfUrl: uploaded.url,
+    });
+
     res.json({ message: 'Document stamped and notarized', request: updatedRequest, notarizedPdfUrl: uploaded.url });
   } catch (err) {
     logger.error('stampDocument error:', err);
@@ -631,6 +666,8 @@ exports.rejectRequest = async (req, res) => {
       });
     } catch (_) {}
 
+    await AuditLog.log(req, 'notarization.rejected', 'NotarizationRequest', request._id, { reason });
+
     res.json({ message: 'Request rejected', request });
   } catch (err) {
     logger.error('rejectRequest error:', err);
@@ -649,6 +686,7 @@ exports.requestCourier = async (req, res) => {
       { new: true }
     );
     if (!request) return res.status(404).json({ error: 'NOT_FOUND', message: 'Not found' });
+    await AuditLog.log(req, 'notarization.courier.requested', 'NotarizationRequest', request._id, { courierAddress });
     res.json({ message: 'Courier dispatch requested', request });
   } catch (err) {
     logger.error('requestCourier error:', err);
@@ -687,6 +725,10 @@ exports.markDispatched = async (req, res) => {
       });
     } catch (_) {}
 
+    await AuditLog.log(req, 'notarization.dispatched', 'NotarizationRequest', request._id, {
+      courierTrackingId: courierTrackingId?.trim(),
+    });
+
     res.json({ message: 'Marked as dispatched', request });
   } catch (err) {
     logger.error('markDispatched error:', err);
@@ -720,6 +762,8 @@ exports.rateNotary = async (req, res) => {
     if (notaryProfile) {
       await notaryProfile.addRating({ citizenId: req.user.userId, requestId: request._id, score, review });
     }
+
+    await AuditLog.log(req, 'notarization.rated', 'NotarizationRequest', request._id, { score });
 
     res.json({ message: 'Rating submitted', request });
   } catch (err) {
