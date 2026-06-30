@@ -16,6 +16,7 @@ const CaseTracker = require('../models/CaseTracker.model');
 const Notification = require('../models/Notification.model');
 const Subscription = require('../models/Subscription.model');
 const AuditLog = require('../models/AuditLog.model');
+const RTIApplication = require('../models/RTIApplication.model');
 
 const razorpayService = require('../services/payment/razorpayService');
 
@@ -331,12 +332,34 @@ const updateTemplate = asyncHandler(async (req, res) => {
   }
 
   try {
+    const current = await DocumentTemplate.findById(id).lean();
+    if (!current) return res.status(404).json({ error: 'NOT_FOUND', message: 'Template not found' });
+
+    // Strip fields that must not be overwritten via this route
+    const { version: _v, versionHistory: _vh, slug: _s, totalGenerated: _tg, ...safeFields } = req.body;
+
+    const snapshot = {
+      name: current.name, systemPromptAddendum: current.systemPromptAddendum,
+      isActive: current.isActive, isFeatured: current.isFeatured,
+      pricePayPerDoc: current.pricePayPerDoc, complexity: current.complexity,
+      estimatedMinutes: current.estimatedMinutes, questionFlow: current.questionFlow,
+      outputFormat: current.outputFormat, requiredPlan: current.requiredPlan,
+    };
+
     const template = await DocumentTemplate.findByIdAndUpdate(
       id,
-      { $set: req.body },
+      {
+        $set: safeFields,
+        $inc: { version: 1 },
+        $push: {
+          versionHistory: {
+            $each: [{ version: current.version || 1, updatedAt: new Date(), updatedBy: req.user.userId, snapshot }],
+            $slice: -20,
+          },
+        },
+      },
       { new: true, runValidators: true }
     );
-    if (!template) return res.status(404).json({ error: 'NOT_FOUND', message: 'Template not found' });
     return res.json({ template });
   } catch (err) {
     logger.error('[admin.controller] updateTemplate failed', { id, error: err.message });
@@ -813,7 +836,7 @@ const getAnalytics = asyncHandler(async (req, res) => {
   since.setHours(0, 0, 0, 0);
 
   try {
-    const [signups, revenue, documents] = await Promise.all([
+    const [signups, revenue, documents, triageRequests, consultationFacet] = await Promise.all([
       User.aggregate([
         { $match: { createdAt: { $gte: since } } },
         { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
@@ -832,6 +855,31 @@ const getAnalytics = asyncHandler(async (req, res) => {
         { $sort: { _id: 1 } },
         { $project: { _id: 0, date: '$_id', count: 1 } },
       ]),
+      // Triage requests sourced from AuditLog (action prefix: "triage.")
+      AuditLog.aggregate([
+        { $match: { action: { $regex: '^triage\\.', $options: 'i' }, success: true, createdAt: { $gte: since } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
+        { $project: { _id: 0, date: '$_id', count: 1 } },
+      ]),
+      // Helpline/consultation breakdown for the period
+      Consultation.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        { $facet: {
+          byStatus: [
+            { $group: { _id: '$status', count: { $sum: 1 } } },
+          ],
+          daily: [
+            { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
+            { $sort: { _id: 1 } },
+            { $project: { _id: 0, date: '$_id', count: 1 } },
+          ],
+          avgRating: [
+            { $match: { 'citizenRating.score': { $exists: true, $ne: null } } },
+            { $group: { _id: null, avg: { $avg: '$citizenRating.score' }, total: { $sum: 1 } } },
+          ],
+        }},
+      ]),
     ]);
 
     // Fill missing dates with 0 so charts are continuous
@@ -847,10 +895,21 @@ const getAnalytics = asyncHandler(async (req, res) => {
       return result;
     };
 
+    const consultData = consultationFacet[0] || {};
+    const byStatus = (consultData.byStatus || []).reduce((acc, s) => { acc[s._id] = s.count; return acc; }, {});
+    const ratingStats = consultData.avgRating?.[0] || { avg: 0, total: 0 };
+
     return res.json({
       signups:   fillDates(signups,   'count'),
       revenue:   fillDates(revenue,   'amount'),
       documents: fillDates(documents, 'count'),
+      triage:    fillDates(triageRequests, 'count'),
+      consultations: {
+        daily:     fillDates(consultData.daily || [], 'count'),
+        byStatus,
+        avgRating: Number(ratingStats.avg?.toFixed(2) ?? 0),
+        ratedCount: ratingStats.total ?? 0,
+      },
     });
   } catch (err) {
     logger.error('[admin.controller] getAnalytics failed', { error: err.message });
@@ -1063,13 +1122,509 @@ const deleteDocument = asyncHandler(async (req, res) => {
   return res.json({ ok: true, documentId: id, deletedAt: document.deletedAt });
 });
 
+/* ---------------------------------------------------------------------------
+ * listRTI
+ * GET /v1/admin/rti
+ * Query: status, govLevel, overdue (true|false), search, page, limit
+ * Returns platform-wide RTI filings so admin can spot missed deadlines.
+ * ------------------------------------------------------------------------ */
+const listRTI = asyncHandler(async (req, res) => {
+  const { status, govLevel, overdue, search, page = 1, limit = 20 } = req.query;
+
+  const pageNum  = Math.max(1, parseInt(page,  10) || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+  const skip     = (pageNum - 1) * limitNum;
+
+  const filter = { isActive: true };
+  if (status)   filter.status   = status;
+  if (govLevel) filter.govLevel = govLevel;
+  if (overdue === 'true') {
+    filter.responseDeadline = { $lt: new Date() };
+    filter.status = { $nin: ['response_received', 'closed', 'withdrawn'] };
+  }
+
+  if (search) {
+    const esc = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const matchingUsers = await User.find({
+      $or: [
+        { name:  { $regex: esc, $options: 'i' } },
+        { email: { $regex: esc, $options: 'i' } },
+        { phone: { $regex: esc, $options: 'i' } },
+      ],
+    }).select('_id').lean();
+    const userIds = matchingUsers.map((u) => u._id);
+    filter.$or = [
+      { user: { $in: userIds } },
+      { title: { $regex: esc, $options: 'i' } },
+      { referenceNumber: { $regex: esc, $options: 'i' } },
+    ];
+  }
+
+  try {
+    const [applications, total, statusBreakdown, overdueCount] = await Promise.all([
+      RTIApplication.find(filter)
+        .sort({ responseDeadline: 1, createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .populate('user', 'name email phone')
+        .select('title status govLevel ministry department responseDeadline filedDate referenceNumber user aiDrafted createdAt')
+        .lean(),
+      RTIApplication.countDocuments(filter),
+      RTIApplication.aggregate([
+        { $match: { isActive: true } },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]),
+      RTIApplication.countDocuments({
+        isActive: true,
+        responseDeadline: { $lt: new Date() },
+        status: { $nin: ['response_received', 'closed', 'withdrawn'] },
+      }),
+    ]);
+
+    return res.json({
+      applications,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.max(1, Math.ceil(total / limitNum)),
+      summary: {
+        overdueCount,
+        byStatus: statusBreakdown.reduce((acc, s) => { acc[s._id] = s.count; return acc; }, {}),
+      },
+    });
+  } catch (err) {
+    logger.error('[admin.controller] listRTI failed', { error: err.message });
+    return res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Failed to load RTI applications' });
+  }
+});
+
+/* ---------------------------------------------------------------------------
+ * extendRTIDeadline
+ * PATCH /v1/admin/rti/:id/extend-deadline
+ * Body: { days: number (1–90), reason?: string }
+ * Extends the PIO response deadline. Appends an audit note to the record.
+ * ------------------------------------------------------------------------ */
+const extendRTIDeadline = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { days, reason } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid RTI application id' });
+  }
+
+  const daysNum = parseInt(days, 10);
+  if (!daysNum || daysNum < 1 || daysNum > 90) {
+    return res.status(400).json({ error: 'INVALID_DAYS', message: 'days must be an integer between 1 and 90' });
+  }
+
+  const application = await RTIApplication.findById(id);
+  if (!application) {
+    return res.status(404).json({ error: 'NOT_FOUND', message: 'RTI application not found' });
+  }
+
+  if (['closed', 'withdrawn'].includes(application.status)) {
+    return res.status(400).json({
+      error: 'INVALID_STATUS',
+      message: `Cannot extend deadline for a ${application.status} application`,
+    });
+  }
+
+  const currentDeadline = application.responseDeadline || new Date();
+  const newDeadline = new Date(currentDeadline);
+  newDeadline.setDate(newDeadline.getDate() + daysNum);
+  application.responseDeadline = newDeadline;
+
+  const auditLine = `[Admin] Deadline extended by ${daysNum} day(s) on ${new Date().toISOString().slice(0, 10)}${reason ? `: ${reason}` : ''}.`;
+  application.notes = [application.notes, auditLine].filter(Boolean).join('\n');
+
+  await application.save();
+
+  logger.info('[admin.controller] RTI deadline extended', {
+    rtiId: id,
+    daysExtended: daysNum,
+    newDeadline,
+    adminUserId: req.user.userId,
+  });
+
+  return res.json({ ok: true, rtiId: id, newDeadline, daysExtended: daysNum });
+});
+
+/* ---------------------------------------------------------------------------
+ * resetUserQuota
+ * PATCH /v1/admin/users/:id/reset-quota
+ * Body: {
+ *   quotaType?: 'docs' | 'chats' | 'triage' | 'all'  (default: 'all')
+ *   overrides?: { docsLimit?, casesLimit?, aiChatsLimit? }
+ * }
+ * Zeroes usage counters for the requested quota type.
+ * Optional overrides adjust the per-user limit caps for support exceptions.
+ * ------------------------------------------------------------------------ */
+const resetUserQuota = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { quotaType = 'all', overrides = {} } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid user id' });
+  }
+
+  const validTypes = ['docs', 'chats', 'triage', 'all'];
+  if (!validTypes.includes(quotaType)) {
+    return res.status(400).json({
+      error: 'INVALID_QUOTA_TYPE',
+      message: `quotaType must be one of: ${validTypes.join(', ')}`,
+    });
+  }
+
+  const user = await User.findById(id).select('_id persona').lean();
+  if (!user) {
+    return res.status(404).json({ error: 'NOT_FOUND', message: 'User not found' });
+  }
+
+  const $set = {};
+
+  if (quotaType === 'docs' || quotaType === 'all') {
+    $set['freeUsage.docsGenerated'] = 0;
+    if (overrides.docsLimit !== undefined) $set['freeUsage.docsLimit'] = Number(overrides.docsLimit);
+  }
+  if (quotaType === 'chats' || quotaType === 'all') {
+    $set['freeUsage.aiChatsUsed'] = 0;
+    if (overrides.aiChatsLimit !== undefined) $set['freeUsage.aiChatsLimit'] = Number(overrides.aiChatsLimit);
+  }
+  if (quotaType === 'triage' || quotaType === 'all') {
+    $set['freeUsage.triageUsed'] = 0;
+    $set['freeUsage.triageResetDate'] = new Date();
+  }
+  if (quotaType === 'all' && overrides.casesLimit !== undefined) {
+    $set['freeUsage.casesLimit'] = Number(overrides.casesLimit);
+  }
+
+  await User.findByIdAndUpdate(id, { $set });
+
+  logger.info('[admin.controller] User quota reset by admin', {
+    targetUserId: id,
+    quotaType,
+    overrides,
+    adminUserId: req.user.userId,
+  });
+
+  return res.json({ ok: true, userId: id, quotaType, overrides });
+});
+
+/* ---------------------------------------------------------------------------
+ * bulkUserAction
+ * POST /v1/admin/users/bulk-action
+ * Body: {
+ *   userIds: string[]       (1–200 IDs)
+ *   action: 'deactivate' | 'activate' | 'revoke-subscription'
+ * }
+ * Runs the requested action against every listed user in parallel.
+ * Admin accounts are silently skipped (returned in `skipped`).
+ * ------------------------------------------------------------------------ */
+const bulkUserAction = asyncHandler(async (req, res) => {
+  const { userIds, action } = req.body;
+
+  const validActions = ['deactivate', 'activate', 'revoke-subscription'];
+  if (!validActions.includes(action)) {
+    return res.status(400).json({
+      error: 'INVALID_ACTION',
+      message: `action must be one of: ${validActions.join(', ')}`,
+    });
+  }
+
+  if (!Array.isArray(userIds) || userIds.length === 0 || userIds.length > 200) {
+    return res.status(400).json({
+      error: 'INVALID_INPUT',
+      message: 'userIds must be a non-empty array of up to 200 IDs',
+    });
+  }
+
+  const badId = userIds.find((id) => !mongoose.Types.ObjectId.isValid(id));
+  if (badId) {
+    return res.status(400).json({ error: 'INVALID_IDS', message: `Invalid user id: ${badId}` });
+  }
+
+  // Fetch targets; silently exclude admins so they can never be mass-modified
+  const users = await User.find({ _id: { $in: userIds }, persona: { $ne: 'admin' } })
+    .select('_id')
+    .lean();
+
+  const foundIds = new Set(users.map((u) => String(u._id)));
+  const skipped  = userIds.filter((id) => !foundIds.has(id));
+
+  const redis = getRedisClient();
+  const now   = new Date();
+
+  const results = await Promise.allSettled(
+    users.map(async (user) => {
+      const uid = user._id;
+      if (action === 'deactivate') {
+        await User.findByIdAndUpdate(uid, { $set: { isActive: false, refreshTokens: [] } });
+        if (redis) await redis.set(`user:suspended:${uid}`, '1', 'EX', 3600);
+      } else if (action === 'activate') {
+        await User.findByIdAndUpdate(uid, { $set: { isActive: true } });
+        if (redis) await redis.del(`user:suspended:${uid}`);
+      } else {
+        // revoke-subscription
+        await User.findByIdAndUpdate(uid, {
+          $set: {
+            'subscription.plan':       'free',
+            'subscription.validUntil': now,
+            'subscription.autoRenew':  false,
+          },
+        });
+        await Subscription.findOneAndUpdate(
+          { user: uid, isActive: true },
+          { $set: { isActive: false, cancelledAt: now, endDate: now, autoRenew: false } }
+        );
+      }
+      return String(uid);
+    })
+  );
+
+  const succeeded = [];
+  const failed    = [];
+  results.forEach((r, i) => {
+    if (r.status === 'fulfilled') {
+      succeeded.push(r.value);
+    } else {
+      failed.push({ userId: String(users[i]._id), reason: r.reason?.message });
+    }
+  });
+
+  logger.info('[admin.controller] Bulk user action', {
+    action,
+    total: userIds.length,
+    succeeded: succeeded.length,
+    failed: failed.length,
+    skipped: skipped.length,
+    adminUserId: req.user.userId,
+  });
+
+  return res.json({ ok: true, action, succeeded, failed, skipped });
+});
+
+/* ---------------------------------------------------------------------------
+ * getTemplatePreview — GET /v1/admin/templates/:id/preview
+ * Returns a single template document (full, including questionFlow) for admin preview.
+ * ------------------------------------------------------------------------ */
+const getTemplatePreview = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid template id' });
+  }
+  const template = await DocumentTemplate.findById(id).lean();
+  if (!template) return res.status(404).json({ error: 'NOT_FOUND', message: 'Template not found' });
+  return res.json({ template });
+});
+
+/* ---------------------------------------------------------------------------
+ * getTemplateHistory — GET /v1/admin/templates/:id/history
+ * Returns version and versionHistory for the template.
+ * ------------------------------------------------------------------------ */
+const getTemplateHistory = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid template id' });
+  }
+  const template = await DocumentTemplate.findById(id).select('name version versionHistory').lean();
+  if (!template) return res.status(404).json({ error: 'NOT_FOUND', message: 'Template not found' });
+  return res.json({ templateId: id, name: template.name, version: template.version || 1, history: (template.versionHistory || []).slice().reverse() });
+});
+
+/* ---------------------------------------------------------------------------
+ * rollbackTemplate — POST /v1/admin/templates/:id/rollback
+ * Body: { version: number }
+ * Restores the template to a previous version snapshot and increments version.
+ * ------------------------------------------------------------------------ */
+const rollbackTemplate = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const targetVersion = parseInt(req.body.version, 10);
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid template id' });
+  }
+  if (!targetVersion || targetVersion < 1) {
+    return res.status(400).json({ error: 'INVALID_VERSION', message: 'version must be a positive integer' });
+  }
+
+  const current = await DocumentTemplate.findById(id);
+  if (!current) return res.status(404).json({ error: 'NOT_FOUND', message: 'Template not found' });
+
+  const entry = (current.versionHistory || []).find((h) => h.version === targetVersion);
+  if (!entry) {
+    return res.status(404).json({ error: 'VERSION_NOT_FOUND', message: `Version ${targetVersion} not found in history` });
+  }
+
+  const currentSnapshot = {
+    name: current.name, systemPromptAddendum: current.systemPromptAddendum,
+    isActive: current.isActive, isFeatured: current.isFeatured,
+    pricePayPerDoc: current.pricePayPerDoc, complexity: current.complexity,
+    estimatedMinutes: current.estimatedMinutes, questionFlow: current.questionFlow,
+    outputFormat: current.outputFormat, requiredPlan: current.requiredPlan,
+  };
+
+  const newVersion = (current.version || 1) + 1;
+  const template = await DocumentTemplate.findByIdAndUpdate(
+    id,
+    {
+      $set: { ...entry.snapshot, version: newVersion },
+      $push: {
+        versionHistory: {
+          $each: [{ version: current.version || 1, updatedAt: new Date(), updatedBy: req.user.userId, snapshot: currentSnapshot }],
+          $slice: -20,
+        },
+      },
+    },
+    { new: true }
+  );
+
+  logger.info('[admin.controller] Template rolled back', {
+    templateId: id, fromVersion: current.version, toVersion: targetVersion, newVersion, adminUserId: req.user.userId,
+  });
+
+  return res.json({ ok: true, templateId: id, rolledBackToVersion: targetVersion, currentVersion: newVersion, template });
+});
+
+/* ---------------------------------------------------------------------------
+ * resetLawyerVerification — POST /v1/admin/lawyers/:id/reset-verification
+ * Resets an approved or rejected LawyerProfile back to pending.
+ * ------------------------------------------------------------------------ */
+const resetLawyerVerification = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid lawyer profile id' });
+  }
+
+  const profile = await LawyerProfile.findById(id);
+  if (!profile) return res.status(404).json({ error: 'NOT_FOUND', message: 'Lawyer profile not found' });
+  if (profile.verificationStatus === 'pending') {
+    return res.status(409).json({ error: 'ALREADY_PENDING', message: 'Lawyer profile is already pending' });
+  }
+
+  profile.isVerified = false;
+  profile.verificationStatus = 'pending';
+  profile.verifiedAt = undefined;
+  profile.verifiedBy = undefined;
+  profile.rejectedAt = undefined;
+  profile.rejectedBy = undefined;
+  if ('rejectionReason' in profile) profile.rejectionReason = undefined;
+
+  await profile.save();
+
+  logger.info('[admin.controller] Lawyer verification reset to pending', {
+    lawyerProfileId: id, adminUserId: req.user.userId,
+  });
+
+  return res.json({ ok: true, lawyerProfileId: id, verificationStatus: 'pending' });
+});
+
+/* ---------------------------------------------------------------------------
+ * resetNotaryVerification — POST /v1/admin/notaries/:id/reset-verification
+ * Resets an approved or rejected NotaryProfile back to pending.
+ * ------------------------------------------------------------------------ */
+const resetNotaryVerification = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid notary profile id' });
+  }
+
+  const profile = await NotaryProfile.findById(id);
+  if (!profile) return res.status(404).json({ error: 'NOT_FOUND', message: 'Notary profile not found' });
+  if (profile.verificationStatus === 'pending') {
+    return res.status(409).json({ error: 'ALREADY_PENDING', message: 'Notary profile is already pending' });
+  }
+
+  profile.isVerified = false;
+  profile.verificationStatus = 'pending';
+  profile.verifiedAt = undefined;
+  profile.verifiedBy = undefined;
+  profile.rejectedAt = undefined;
+  profile.rejectedBy = undefined;
+  if ('rejectionReason' in profile) profile.rejectionReason = undefined;
+
+  await profile.save();
+
+  logger.info('[admin.controller] Notary verification reset to pending', {
+    notaryProfileId: id, adminUserId: req.user.userId,
+  });
+
+  return res.json({ ok: true, notaryProfileId: id, verificationStatus: 'pending' });
+});
+
+/* ---------------------------------------------------------------------------
+ * broadcastNotification — POST /v1/admin/notifications/broadcast
+ * Body: { title, body, actionUrl?, personas?: string[], dryRun?: boolean }
+ * Sends an in-app notification to all (or filtered) active users.
+ * ------------------------------------------------------------------------ */
+const broadcastNotification = asyncHandler(async (req, res) => {
+  const { title, body, actionUrl, personas, dryRun } = req.body;
+
+  if (!title?.trim() || !body?.trim()) {
+    return res.status(400).json({ error: 'INVALID_INPUT', message: 'title and body are required' });
+  }
+
+  const personaFilter = Array.isArray(personas) && personas.length > 0
+    ? { persona: { $in: personas } }
+    : {};
+
+  const targetUsers = await User.find({ ...personaFilter, isActive: { $ne: false } })
+    .select('_id')
+    .lean();
+
+  if (dryRun) {
+    return res.json({ dryRun: true, targetCount: targetUsers.length });
+  }
+
+  if (targetUsers.length === 0) {
+    return res.json({ ok: true, sent: 0, failed: 0 });
+  }
+
+  const notificationsToInsert = targetUsers.map((u) => ({
+    user: u._id,
+    type: 'system',
+    title: title.trim(),
+    body: body.trim(),
+    actionUrl: actionUrl || null,
+    channel: 'web',
+    priority: 'normal',
+    isRead: false,
+  }));
+
+  let sent = 0;
+  let failed = 0;
+  try {
+    const result = await Notification.insertMany(notificationsToInsert, { ordered: false });
+    sent = result.length;
+  } catch (err) {
+    sent = targetUsers.length - (err.writeErrors?.length ?? 0);
+    failed = err.writeErrors?.length ?? 0;
+    logger.warn('[admin.controller] broadcastNotification partial failure', { sent, failed, error: err.message });
+  }
+
+  const io = req.app.get('io');
+  if (io && sent > 0) {
+    const payload = { type: 'system', title: title.trim(), body: body.trim(), actionUrl: actionUrl || null };
+    for (const u of targetUsers) {
+      io.to(`user:${u._id}`).emit('notification', payload);
+    }
+  }
+
+  logger.info('[admin.controller] Broadcast notification sent', {
+    sent, failed, personas: personaFilter, adminUserId: req.user.userId,
+  });
+
+  return res.json({ ok: true, sent, failed });
+});
+
 module.exports = {
   verifyLawyer,
   rejectLawyer,
   listLawyers,
+  resetLawyerVerification,
   verifyNotary,
   rejectNotary,
   listNotaries,
+  resetNotaryVerification,
   toggleUserActive,
   revokeSubscription,
   getStats,
@@ -1080,10 +1635,18 @@ module.exports = {
   listTemplates,
   createTemplate,
   updateTemplate,
+  getTemplatePreview,
+  getTemplateHistory,
+  rollbackTemplate,
   listPayments,
   refundPayment,
   listConsultations,
   cancelConsultation,
   listDocuments,
   deleteDocument,
+  listRTI,
+  extendRTIDeadline,
+  resetUserQuota,
+  bulkUserAction,
+  broadcastNotification,
 };

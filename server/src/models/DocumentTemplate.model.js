@@ -193,6 +193,16 @@ const documentTemplateSchema = new Schema(
     tags: [{ type: String, trim: true, lowercase: true }],
     icon: { type: String },          // MUI icon name or emoji
     totalGenerated: { type: Number, default: 0 },  // Usage counter
+
+    // ── Versioning ────────────────────────────────────────────────────────────
+    version: { type: Number, default: 1 },
+    versionHistory: [{
+      version: { type: Number },
+      updatedAt: { type: Date },
+      updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+      snapshot: { type: Schema.Types.Mixed },
+      _id: false,
+    }],
   },
   {
     timestamps: true,

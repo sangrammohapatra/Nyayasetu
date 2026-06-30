@@ -104,6 +104,7 @@ const AdminAuditLog      = lazy(() => import('./pages/admin/AdminAuditLog'));
 const AdminPayments      = lazy(() => import('./pages/admin/AdminPayments'));
 const AdminConsultations = lazy(() => import('./pages/admin/AdminConsultations'));
 const AdminDocuments     = lazy(() => import('./pages/admin/AdminDocuments'));
+const AdminRTI           = lazy(() => import('./pages/admin/AdminRTI'));
 const LawSearch           = lazy(() => import('./pages/shared/LawSearch'));
 const EmergencyHelpline   = lazy(() => import('./pages/citizen/EmergencyHelpline'));
 const LandingPage         = lazy(() => import('./pages/public/LandingPage'));
@@ -491,6 +492,14 @@ const router = createBrowserRouter([
         element: (
           <Suspense fallback={<PageLoader />}>
             <AdminDocuments />
+          </Suspense>
+        ),
+      },
+      {
+        path: "rti",
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <AdminRTI />
           </Suspense>
         ),
       },

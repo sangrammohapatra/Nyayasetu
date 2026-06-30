@@ -26,6 +26,7 @@ import IconButton from '@mui/material/IconButton';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GlassCard from '../../components/ui/GlassCard';
@@ -64,6 +65,11 @@ const PLAN_BADGE = {
 };
 const TIME_MAP = { simple: '5–10 min', moderate: '10–20 min', complex: '20–40 min', premium: '30–60 min' };
 
+const INPUT_TYPE_LABELS = {
+  text: 'Text', textarea: 'Paragraph', date: 'Date', number: 'Number',
+  select: 'Select', multiselect: 'Multi-select', boolean: 'Yes/No', address: 'Address',
+};
+
 function getRequiredPlan(template) {
   if (template.pricePayPerDoc === 0) return 'free';
   const p = template.requiredPlan?.citizen;
@@ -78,7 +84,7 @@ function canAccessWithPlan(template, plan) {
 }
 
 /* ---------------------------------------------------------------------------
- * Citizen card replica — matches the visual from NewDocument.jsx
+ * Citizen card replica
  * ------------------------------------------------------------------------ */
 function CitizenCardReplica({ template, viewerPlan }) {
   const canAccess = canAccessWithPlan(template, viewerPlan);
@@ -91,67 +97,30 @@ function CitizenCardReplica({ template, viewerPlan }) {
 
   return (
     <Box sx={{
-      width: 220,
-      p: 2.5,
-      borderRadius: `${RADIUS.lg}px`,
-      border: '1.5px solid var(--color-border)',
-      background: 'var(--color-surface)',
-      position: 'relative',
-      overflow: 'hidden',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 1,
+      width: 220, p: 2.5, borderRadius: `${RADIUS.lg}px`,
+      border: '1.5px solid var(--color-border)', background: 'var(--color-surface)',
+      position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 1,
     }}>
-      {/* Always-free ribbon */}
       {isAlwaysFree && (
         <Box sx={{
           position: 'absolute', top: 10, right: -24,
-          background: '#2e7d32', color: '#fff',
-          fontSize: '0.6rem', fontWeight: 800,
-          px: 3.5, py: 0.25, transform: 'rotate(30deg)',
-          letterSpacing: '0.05em',
-        }}>
-          FREE
-        </Box>
+          background: '#2e7d32', color: '#fff', fontSize: '0.6rem', fontWeight: 800,
+          px: 3.5, py: 0.25, transform: 'rotate(30deg)', letterSpacing: '0.05em',
+        }}>FREE</Box>
       )}
-
-      {/* Category icon */}
-      <Box sx={{
-        width: 48, height: 48, borderRadius: `${RADIUS.md}px`,
-        background: 'rgba(25,118,210,0.1)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 24, flexShrink: 0,
-      }}>
+      <Box sx={{ width: 48, height: 48, borderRadius: `${RADIUS.md}px`, background: 'rgba(25,118,210,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>
         {catIcon}
       </Box>
-
-      {/* Name */}
       <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.35, color: 'var(--color-text)', flex: 1 }}>
         {template.name}
       </Typography>
-
-      {/* Estimated time */}
-      <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
-        ⏱ {estTime}
-      </Typography>
-
-      {/* Badges */}
+      <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>⏱ {estTime}</Typography>
       <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mt: 0.5 }}>
-        <Chip size="small" label={complexity.label}
-          sx={{ height: 19, fontSize: '0.67rem', fontWeight: 600, background: complexity.bg, color: complexity.color, border: 'none' }} />
-        <Chip size="small" label={planBadge.label}
-          sx={{ height: 19, fontSize: '0.67rem', fontWeight: 600, background: planBadge.bg, color: planBadge.color, border: 'none' }} />
+        <Chip size="small" label={complexity.label} sx={{ height: 19, fontSize: '0.67rem', fontWeight: 600, background: complexity.bg, color: complexity.color, border: 'none' }} />
+        <Chip size="small" label={planBadge.label} sx={{ height: 19, fontSize: '0.67rem', fontWeight: 600, background: planBadge.bg, color: planBadge.color, border: 'none' }} />
       </Box>
-
-      {/* Lock overlay */}
       {!canAccess && (
-        <Box sx={{
-          position: 'absolute', inset: 0,
-          borderRadius: `${RADIUS.lg}px`,
-          background: 'rgba(248,250,255,0.75)',
-          backdropFilter: 'blur(2px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
+        <Box sx={{ position: 'absolute', inset: 0, borderRadius: `${RADIUS.lg}px`, background: 'rgba(248,250,255,0.75)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Typography sx={{ fontSize: 28 }}>🔒</Typography>
         </Box>
       )}
@@ -160,11 +129,14 @@ function CitizenCardReplica({ template, viewerPlan }) {
 }
 
 /* ---------------------------------------------------------------------------
- * Template preview modal
+ * Template preview modal — citizen card + question flow
  * ------------------------------------------------------------------------ */
 function TemplatePreviewModal({ template, onClose }) {
   const [viewerPlan, setViewerPlan] = useState('free');
   if (!template) return null;
+
+  const questions = [...(template.questionFlow || [])].sort((a, b) => a.order - b.order);
+  const sections = [...new Set(questions.map((q) => q.section).filter(Boolean))];
 
   return (
     <Dialog open onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3, background: 'var(--color-surface)' } }}>
@@ -175,9 +147,7 @@ function TemplatePreviewModal({ template, onClose }) {
       <DialogContent>
         {/* Plan selector */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-          <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', fontWeight: 600, mr: 0.5 }}>
-            Viewing as:
-          </Typography>
+          <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', fontWeight: 600, mr: 0.5 }}>Viewing as:</Typography>
           {PREVIEW_PLANS.map((p) => (
             <Chip key={p} label={p} size="small" onClick={() => setViewerPlan(p)}
               sx={{
@@ -191,7 +161,7 @@ function TemplatePreviewModal({ template, onClose }) {
           ))}
         </Box>
 
-        {/* Citizen card replica */}
+        {/* Citizen card */}
         <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
           <CitizenCardReplica template={template} viewerPlan={viewerPlan} />
         </Box>
@@ -206,15 +176,10 @@ function TemplatePreviewModal({ template, onClose }) {
           {PREVIEW_PLANS.map((p) => {
             const accessible = canAccessWithPlan(template, p);
             let label;
-            if (template.isAlwaysFree) {
-              label = { text: '✓ Always free', color: '#2e7d32' };
-            } else if (accessible) {
-              label = { text: '✓ Subscription access', color: '#2e7d32' };
-            } else if (template.pricePayPerDoc > 0) {
-              label = { text: `💳 Pay ₹${template.pricePayPerDoc / 100}`, color: '#0288d1' };
-            } else {
-              label = { text: '✗ Locked', color: '#d32f2f' };
-            }
+            if (template.isAlwaysFree)        label = { text: '✓ Always free', color: '#2e7d32' };
+            else if (accessible)               label = { text: '✓ Subscription access', color: '#2e7d32' };
+            else if (template.pricePayPerDoc > 0) label = { text: `💳 Pay ₹${template.pricePayPerDoc / 100}`, color: '#0288d1' };
+            else                               label = { text: '✗ Locked', color: '#d32f2f' };
             return (
               <Box key={p} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.75, borderBottom: '1px solid var(--color-border)' }}>
                 <Typography variant="caption" sx={{ textTransform: 'capitalize', fontWeight: 600, color: 'var(--color-text)' }}>{p}</Typography>
@@ -224,7 +189,7 @@ function TemplatePreviewModal({ template, onClose }) {
           })}
         </Box>
 
-        {/* Template metadata */}
+        {/* Metadata */}
         <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 1, display: 'block' }}>
           Metadata
         </Typography>
@@ -233,6 +198,7 @@ function TemplatePreviewModal({ template, onClose }) {
             ['Slug', template.slug],
             ['Category', template.category],
             ['Complexity', template.complexity],
+            ['Version', `v${template.version || 1}`],
             ['Est. Time', TIME_MAP[template.complexity] || '—'],
             ['Price', template.isAlwaysFree ? 'Always Free' : template.pricePayPerDoc === 0 ? '₹0 (plan-gated)' : `₹${template.pricePayPerDoc / 100}`],
             ['Active', template.isActive ? 'Yes' : 'No'],
@@ -251,21 +217,169 @@ function TemplatePreviewModal({ template, onClose }) {
             <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 1, display: 'block' }}>
               AI System Prompt Addendum
             </Typography>
-            <Box sx={{
-              p: 1.5, borderRadius: `${RADIUS.md}px`,
-              background: 'var(--color-bg)',
-              border: '1px solid var(--color-border)',
-              fontFamily: 'monospace', fontSize: '0.75rem',
-              color: 'var(--color-text-secondary)', lineHeight: 1.6,
-              whiteSpace: 'pre-wrap',
-              maxHeight: 140, overflow: 'auto',
-            }}>
+            <Box sx={{ p: 1.5, borderRadius: `${RADIUS.md}px`, background: 'var(--color-bg)', border: '1px solid var(--color-border)', fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--color-text-secondary)', lineHeight: 1.6, whiteSpace: 'pre-wrap', maxHeight: 140, overflow: 'auto', mb: 2.5 }}>
               {template.systemPromptAddendum}
+            </Box>
+          </>
+        )}
+
+        {/* Question flow */}
+        {questions.length > 0 && (
+          <>
+            <Divider sx={{ mb: 2, borderColor: 'var(--color-border)' }} />
+            <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 1.5, display: 'block' }}>
+              Question Flow ({questions.length} question{questions.length !== 1 ? 's' : ''})
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {questions.map((q, idx) => {
+                const isNewSection = idx === 0 || questions[idx - 1]?.section !== q.section;
+                return (
+                  <Box key={q._id || q.key}>
+                    {isNewSection && q.section && (
+                      <Typography variant="overline" sx={{ fontSize: '0.6rem', letterSpacing: '0.1em', color: 'var(--color-text-secondary)', fontWeight: 700, opacity: 0.7, display: 'block', mt: idx > 0 ? 1.5 : 0, mb: 0.5 }}>
+                        {q.section}
+                      </Typography>
+                    )}
+                    <Box sx={{ p: 1.25, borderRadius: `${RADIUS.md}px`, border: '1px solid var(--color-border)', background: 'var(--color-bg)' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 0.5 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 800, color: 'var(--color-text-secondary)', minWidth: 20, lineHeight: 1.6 }}>{idx + 1}.</Typography>
+                        <Typography variant="caption" sx={{ fontWeight: 600, color: 'var(--color-text)', flex: 1, lineHeight: 1.5 }}>{q.questionText}</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', pl: 3 }}>
+                        <Chip label={INPUT_TYPE_LABELS[q.inputType] || q.inputType} size="small" sx={{ height: 18, fontSize: '0.63rem', fontWeight: 600, background: 'rgba(25,118,210,0.1)', color: '#1976d2', border: 'none' }} />
+                        {q.isRequired
+                          ? <Chip label="Required" size="small" sx={{ height: 18, fontSize: '0.63rem', fontWeight: 600, background: 'rgba(211,47,47,0.1)', color: '#d32f2f', border: 'none' }} />
+                          : <Chip label="Optional" size="small" sx={{ height: 18, fontSize: '0.63rem', background: 'var(--color-border)', color: 'var(--color-text-secondary)', border: 'none' }} />}
+                        {q.dependsOn?.key && (
+                          <Chip label={`if ${q.dependsOn.key}`} size="small" sx={{ height: 18, fontSize: '0.63rem', background: 'rgba(230,81,0,0.1)', color: '#e65100', border: 'none' }} />
+                        )}
+                      </Box>
+                      {(q.inputType === 'select' || q.inputType === 'multiselect') && q.options?.length > 0 && (
+                        <Box sx={{ pl: 3, mt: 0.5, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                          {q.options.map((opt) => (
+                            <Chip key={opt} label={opt} size="small" sx={{ height: 16, fontSize: '0.6rem', background: 'var(--color-border)', color: 'var(--color-text-secondary)', border: 'none' }} />
+                          ))}
+                        </Box>
+                      )}
+                    </Box>
+                  </Box>
+                );
+              })}
             </Box>
           </>
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+ * Version history dialog
+ * ------------------------------------------------------------------------ */
+function HistoryDialog({ templateId, templateName, onClose, onRolledBack }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [rollbackTarget, setRollbackTarget] = useState(null);
+  const [rolling, setRolling] = useState(false);
+  const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
+
+  useEffect(() => {
+    if (!templateId) return;
+    api.get(`/admin/templates/${templateId}/history`)
+      .then(({ data: d }) => setData(d))
+      .catch(() => setData({ history: [] }))
+      .finally(() => setLoading(false));
+  }, [templateId]);
+
+  const handleRollback = async (version) => {
+    setRolling(true);
+    try {
+      await api.post(`/admin/templates/${templateId}/rollback`, { version });
+      setSnack({ open: true, msg: `Rolled back to v${version}. New version created.`, severity: 'success' });
+      setRollbackTarget(null);
+      onRolledBack();
+    } catch (err) {
+      setSnack({ open: true, msg: err.response?.data?.message || 'Rollback failed.', severity: 'error' });
+    } finally {
+      setRolling(false);
+    }
+  };
+
+  return (
+    <>
+      <Dialog open onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3, background: 'var(--color-surface)' } }}>
+        <DialogTitle sx={{ fontWeight: 700, pr: 6, fontFamily: TYPOGRAPHY.fontFamily.display }}>
+          🕘 History: {templateName}
+          {data && <Typography component="span" variant="caption" sx={{ ml: 1, color: 'var(--color-text-secondary)' }}>current v{data.version || 1}</Typography>}
+          <IconButton onClick={onClose} size="small" sx={{ position: 'absolute', right: 12, top: 12 }}>✕</IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {loading ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {[1, 2, 3].map((i) => <Skeleton key={i} variant="rounded" height={60} />)}
+            </Box>
+          ) : !data?.history?.length ? (
+            <Box sx={{ py: 4, textAlign: 'center' }}>
+              <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>No previous versions — this template has not been edited yet.</Typography>
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {data.history.map((entry) => (
+                <Box key={entry.version} sx={{ p: 1.5, borderRadius: `${RADIUS.md}px`, border: '1px solid var(--color-border)', background: 'var(--color-bg)' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Chip label={`v${entry.version}`} size="small" sx={{ height: 20, fontSize: '0.68rem', fontWeight: 700, background: 'rgba(25,118,210,0.1)', color: '#1976d2' }} />
+                      <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
+                        {entry.updatedAt ? new Date(entry.updatedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
+                      </Typography>
+                    </Box>
+                    <Button
+                      size="small" variant="outlined"
+                      disabled={rolling}
+                      onClick={() => setRollbackTarget(entry.version)}
+                      sx={{ fontSize: '0.68rem', py: 0.3, px: 1.2, borderRadius: `${RADIUS.md}px` }}
+                    >
+                      Restore
+                    </Button>
+                  </Box>
+                  {entry.snapshot?.name && (
+                    <Typography variant="caption" sx={{ color: 'var(--color-text)', fontWeight: 600, display: 'block', mt: 0.75 }}>
+                      {entry.snapshot.name}
+                    </Typography>
+                  )}
+                  {entry.snapshot?.complexity && (
+                    <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
+                      {entry.snapshot.complexity} · {entry.snapshot.isActive ? 'Active' : 'Inactive'}
+                      {entry.snapshot.pricePayPerDoc > 0 ? ` · ₹${entry.snapshot.pricePayPerDoc / 100}` : ' · Free'}
+                    </Typography>
+                  )}
+                </Box>
+              ))}
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Rollback confirm dialog */}
+      <Dialog open={!!rollbackTarget} onClose={() => setRollbackTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Restore v{rollbackTarget}?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
+            The current template will be snapshotted as a new version before restoring. This cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ pb: 2, px: 3 }}>
+          <Button onClick={() => setRollbackTarget(null)} disabled={rolling}>Cancel</Button>
+          <Button variant="contained" color="error" disabled={rolling} onClick={() => handleRollback(rollbackTarget)}>
+            {rolling ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Restore'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity={snack.severity} onClose={() => setSnack((s) => ({ ...s, open: false }))} sx={{ borderRadius: 2 }}>{snack.msg}</Alert>
+      </Snackbar>
+    </>
   );
 }
 
@@ -295,7 +409,6 @@ function TemplateForm({ template, onSave, onClose, saving }) {
   } : EMPTY_FORM);
 
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
-
   const fieldSx = { '& .MuiOutlinedInput-root': { borderRadius: `${RADIUS.md}px` } };
 
   return (
@@ -371,6 +484,7 @@ export default function AdminTemplates() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [previewTemplate, setPreviewTemplate] = useState(null);
+  const [historyTarget, setHistoryTarget] = useState(null); // { id, name }
   const [saving, setSaving] = useState(false);
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
 
@@ -442,6 +556,7 @@ export default function AdminTemplates() {
                   <TableCell>Category</TableCell>
                   <TableCell>Complexity</TableCell>
                   <TableCell>Price</TableCell>
+                  <TableCell>Ver.</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
@@ -450,7 +565,7 @@ export default function AdminTemplates() {
                 {loading
                   ? Array.from({ length: 8 }).map((_, i) => (
                       <TableRow key={i}>
-                        {Array.from({ length: 7 }).map((_, j) => <TableCell key={j}><Skeleton variant="text" height={20} /></TableCell>)}
+                        {Array.from({ length: 8 }).map((_, j) => <TableCell key={j}><Skeleton variant="text" height={20} /></TableCell>)}
                       </TableRow>
                     ))
                   : filtered.map((t) => {
@@ -478,6 +593,11 @@ export default function AdminTemplates() {
                             </Typography>
                           </TableCell>
                           <TableCell>
+                            <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', fontFamily: 'monospace' }}>
+                              v{t.version || 1}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
                             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                               {t.isActive
                                 ? <Chip label="Active" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700, background: 'rgba(46,125,50,0.1)', color: '#2e7d32' }} />
@@ -491,6 +611,10 @@ export default function AdminTemplates() {
                                 sx={{ fontSize: '0.7rem', py: 0.3, px: 1.2, borderRadius: `${RADIUS.md}px`, borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}>
                                 Preview
                               </Button>
+                              <Button size="small" variant="outlined" onClick={() => setHistoryTarget({ id: t._id, name: t.name })}
+                                sx={{ fontSize: '0.7rem', py: 0.3, px: 1.2, borderRadius: `${RADIUS.md}px`, borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                                History
+                              </Button>
                               <Button size="small" variant="outlined" onClick={() => openEdit(t)}
                                 sx={{ fontSize: '0.7rem', py: 0.3, px: 1.2, borderRadius: `${RADIUS.md}px`, borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
                                 Edit
@@ -502,7 +626,7 @@ export default function AdminTemplates() {
                     })}
                 {!loading && filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                       <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>No templates found</Typography>
                     </TableCell>
                   </TableRow>
@@ -526,6 +650,16 @@ export default function AdminTemplates() {
 
       {/* Citizen preview modal */}
       <TemplatePreviewModal template={previewTemplate} onClose={() => setPreviewTemplate(null)} />
+
+      {/* Version history dialog */}
+      {historyTarget && (
+        <HistoryDialog
+          templateId={historyTarget.id}
+          templateName={historyTarget.name}
+          onClose={() => setHistoryTarget(null)}
+          onRolledBack={() => { setHistoryTarget(null); fetchTemplates(); setSnack({ open: true, msg: 'Template restored.', severity: 'success' }); }}
+        />
+      )}
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>

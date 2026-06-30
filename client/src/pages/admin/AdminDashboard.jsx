@@ -10,8 +10,21 @@ import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import Skeleton from '@mui/material/Skeleton';
 import Alert from '@mui/material/Alert';
+import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import LinearProgress from '@mui/material/LinearProgress';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import CircularProgress from '@mui/material/CircularProgress';
+import Snackbar from '@mui/material/Snackbar';
 
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GlassCard from '../../components/ui/GlassCard';
@@ -142,6 +155,103 @@ function TrendChart({ id, data, dataKey, color, title, yFormatter }) {
   );
 }
 
+/* ── Broadcast notification dialog ───────────────────────────────────────── */
+function BroadcastDialog({ open, onClose }) {
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [personas, setPersonas] = useState([]);
+  const [preview, setPreview] = useState(null);  // { targetCount }
+  const [sending, setSending] = useState(false);
+  const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
+
+  const reset = () => { setTitle(''); setBody(''); setPersonas([]); setPreview(null); };
+
+  const handleDryRun = async () => {
+    setSending(true);
+    try {
+      const { data } = await api.post('/admin/notifications/broadcast', {
+        title, body, personas: personas.length ? personas : undefined, dryRun: true,
+      });
+      setPreview(data);
+    } catch (err) {
+      setSnack({ open: true, msg: err.response?.data?.message || 'Preview failed.', severity: 'error' });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleSend = async () => {
+    setSending(true);
+    try {
+      const { data } = await api.post('/admin/notifications/broadcast', {
+        title, body, personas: personas.length ? personas : undefined,
+      });
+      setSnack({ open: true, msg: `Sent to ${data.sent} user${data.sent !== 1 ? 's' : ''}.`, severity: 'success' });
+      reset();
+      onClose();
+    } catch (err) {
+      setSnack({ open: true, msg: err.response?.data?.message || 'Broadcast failed.', severity: 'error' });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const canSend = title.trim() && body.trim();
+
+  return (
+    <>
+      <Dialog open={open} onClose={() => { reset(); onClose(); }} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3, background: 'var(--color-surface)' } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontFamily: TYPOGRAPHY.fontFamily.display }}>📢 Broadcast Notification</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          <TextField
+            label="Title" size="small" fullWidth value={title}
+            onChange={(e) => { setTitle(e.target.value); setPreview(null); }}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+          />
+          <TextField
+            label="Body" size="small" fullWidth multiline rows={3} value={body}
+            onChange={(e) => { setBody(e.target.value); setPreview(null); }}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+          />
+          <FormControl size="small" fullWidth sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
+            <InputLabel>Audience</InputLabel>
+            <Select
+              multiple label="Audience" value={personas}
+              onChange={(e) => { setPersonas(e.target.value); setPreview(null); }}
+              renderValue={(v) => v.length ? v.join(', ') : 'All users'}
+            >
+              {['citizen', 'lawyer', 'notary'].map((p) => (
+                <MenuItem key={p} value={p} sx={{ textTransform: 'capitalize' }}>{p}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          {preview && (
+            <Alert severity="info" sx={{ borderRadius: 2 }}>
+              Will reach <strong>{preview.targetCount}</strong> active user{preview.targetCount !== 1 ? 's' : ''}.
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ pb: 2, px: 3, gap: 1 }}>
+          <Button onClick={() => { reset(); onClose(); }} disabled={sending}>Cancel</Button>
+          <Button variant="outlined" disabled={!canSend || sending} onClick={handleDryRun}>
+            {sending && !preview ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
+            Preview Count
+          </Button>
+          <Button variant="contained" disabled={!canSend || sending}
+            onClick={handleSend}
+            sx={{ background: 'var(--color-primary)' }}>
+            {sending && preview ? <CircularProgress size={16} sx={{ color: '#fff', mr: 1 }} /> : null}
+            Send
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity={snack.severity} onClose={() => setSnack((s) => ({ ...s, open: false }))} sx={{ borderRadius: 2 }}>{snack.msg}</Alert>
+      </Snackbar>
+    </>
+  );
+}
+
 /* ── Main page ───────────────────────────────────────────────────────────── */
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -149,6 +259,7 @@ export default function AdminDashboard() {
   const [analytics, setAnalytics]   = useState(null);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState(null);
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -259,10 +370,10 @@ export default function AdminDashboard() {
                   </Typography>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     {[
-                      { icon: '👥', label: 'Manage Users',   path: '/admin/users' },
-                      { icon: '👨‍⚖️', label: 'Verify Lawyers', path: '/admin/lawyers' },
-                      { icon: '📋', label: 'Edit Templates',  path: '/admin/templates' },
-                      { icon: '🔍', label: 'Audit Log',       path: '/admin/audit-logs' },
+                      { icon: '👥', label: 'Manage Users',      path: '/admin/users' },
+                      { icon: '👨‍⚖️', label: 'Verify Lawyers',  path: '/admin/lawyers' },
+                      { icon: '📋', label: 'Edit Templates',     path: '/admin/templates' },
+                      { icon: '🔍', label: 'Audit Log',          path: '/admin/audit-logs' },
                     ].map((item) => (
                       <Box
                         key={item.path}
@@ -282,6 +393,22 @@ export default function AdminDashboard() {
                         </Typography>
                       </Box>
                     ))}
+                    <Box
+                      onClick={() => setBroadcastOpen(true)}
+                      sx={{
+                        display: 'flex', alignItems: 'center', gap: 1.5, px: 1.5, py: 1,
+                        borderRadius: 2, cursor: 'pointer',
+                        border: '1px solid var(--color-border)',
+                        background: 'var(--color-bg)',
+                        transition: 'all 0.15s',
+                        '&:hover': { borderColor: '#7b1fa2', background: 'rgba(123,31,162,0.06)' },
+                      }}
+                    >
+                      <Typography sx={{ fontSize: 18 }}>📢</Typography>
+                      <Typography variant="caption" sx={{ fontWeight: 600, color: 'var(--color-text)' }}>
+                        Broadcast Alert
+                      </Typography>
+                    </Box>
                   </Box>
                 </GlassCard>
               </Grid>
@@ -320,12 +447,81 @@ export default function AdminDashboard() {
                       title="📄 Documents Generated — Last 30 Days"
                     />
                   </Grid>
+                  {analytics.triage && (
+                    <Grid item xs={12} md={6}>
+                      <TrendChart
+                        id="triage"
+                        data={analytics.triage}
+                        dataKey="count"
+                        color="#7b1fa2"
+                        title="🆘 Triage Requests — Last 30 Days"
+                      />
+                    </Grid>
+                  )}
+                  {analytics.consultations?.daily && (
+                    <Grid item xs={12} md={6}>
+                      <TrendChart
+                        id="consultations"
+                        data={analytics.consultations.daily}
+                        dataKey="count"
+                        color="#00897b"
+                        title="🤝 Consultations Booked — Last 30 Days"
+                      />
+                    </Grid>
+                  )}
+                  {analytics.consultations?.byStatus && (
+                    <Grid item xs={12}>
+                      <GlassCard sx={{ p: 2.5 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 1.5 }}>
+                          🤝 Consultation Summary — Last 30 Days
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
+                          {Object.entries(analytics.consultations.byStatus).map(([status, count]) => {
+                            const colors = {
+                              requested:  { bg: 'rgba(2,136,209,0.1)',   color: '#0288d1' },
+                              accepted:   { bg: 'rgba(46,125,50,0.1)',   color: '#2e7d32' },
+                              completed:  { bg: 'rgba(27,94,32,0.1)',    color: '#1b5e20' },
+                              cancelled:  { bg: 'rgba(211,47,47,0.1)',   color: '#d32f2f' },
+                              rejected:   { bg: 'rgba(117,117,117,0.1)', color: '#757575' },
+                              no_show:    { bg: 'rgba(230,81,0,0.1)',    color: '#e65100' },
+                            };
+                            const c = colors[status] || { bg: 'rgba(97,97,97,0.1)', color: '#616161' };
+                            return (
+                              <Chip
+                                key={status}
+                                label={`${status.replace(/_/g, ' ')}: ${count}`}
+                                size="small"
+                                sx={{ fontWeight: 600, background: c.bg, color: c.color, border: 'none', fontSize: '0.72rem' }}
+                              />
+                            );
+                          })}
+                          {analytics.consultations.avgRating > 0 && (
+                            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                              <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>
+                                Avg Rating
+                              </Typography>
+                              <Chip
+                                label={`⭐ ${analytics.consultations.avgRating} / 5`}
+                                size="small"
+                                sx={{ fontWeight: 700, background: 'rgba(249,168,37,0.12)', color: '#f9a825', border: 'none' }}
+                              />
+                              <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
+                                ({analytics.consultations.ratedCount} reviews)
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
+                      </GlassCard>
+                    </Grid>
+                  )}
                 </Grid>
               </>
             )}
           </>
         )}
       </Box>
+
+      <BroadcastDialog open={broadcastOpen} onClose={() => setBroadcastOpen(false)} />
     </AnimatedPage>
   );
 }

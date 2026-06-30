@@ -84,6 +84,19 @@ export default function AdminNotaries() {
     }
   };
 
+  const handleReset = async (notaryProfileId, name) => {
+    setActionId(notaryProfileId);
+    try {
+      await api.post(`/admin/notaries/${notaryProfileId}/reset-verification`);
+      setSnack({ open: true, msg: `${name} reset to pending.`, severity: 'info' });
+      fetchNotaries();
+    } catch (err) {
+      setSnack({ open: true, msg: err.response?.data?.message || 'Reset failed.', severity: 'error' });
+    } finally {
+      setActionId(null);
+    }
+  };
+
   const openRejectDialog = (notaryProfileId, name) => {
     setRejectDialog({ open: true, notaryId: notaryProfileId, name });
     setRejectReason('');
@@ -169,6 +182,7 @@ export default function AdminNotaries() {
                       const busy    = actionId === np._id;
                       const canVerify = vstatus !== 'approved';
                       const canReject = vstatus !== 'rejected';
+                      const canReset  = vstatus === 'approved' || vstatus === 'rejected';
 
                       return (
                         <TableRow key={np._id} sx={{ '& td': { borderBottom: '1px solid var(--color-border)', py: 1 } }}>
@@ -223,6 +237,16 @@ export default function AdminNotaries() {
                                   sx={{ fontSize: '0.7rem', py: 0.4, px: 1.5, borderRadius: `${RADIUS.md}px`, minWidth: 72 }}
                                 >
                                   Reject
+                                </Button>
+                              )}
+                              {canReset && (
+                                <Button
+                                  size="small" variant="outlined"
+                                  disabled={busy}
+                                  onClick={() => handleReset(np._id, u.name)}
+                                  sx={{ fontSize: '0.7rem', py: 0.4, px: 1.5, borderRadius: `${RADIUS.md}px`, minWidth: 60, borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                                >
+                                  Reset
                                 </Button>
                               )}
                             </Box>

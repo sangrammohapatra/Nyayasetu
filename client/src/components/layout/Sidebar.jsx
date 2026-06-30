@@ -95,6 +95,7 @@ function useNavItems(persona, t) {
       { icon: IC.templates,     label: t('sidebar.templates',     'Templates'),     path: '/admin/templates' },
       { icon: IC.lawyers,       label: t('sidebar.lawyers',       'Lawyers'),       path: '/admin/lawyers' },
       { icon: IC.notaries,      label: t('sidebar.notaries',      'Notaries'),      path: '/admin/notaries' },
+      { icon: IC.rtiTracker,    label: t('sidebar.rtiDashboard',  'RTI Dashboard'), path: '/admin/rti' },
       { section: t('sidebar.section_moderation', 'Moderation') },
       { icon: IC.earnings,      label: t('sidebar.payments',      'Payments'),      path: '/admin/payments' },
       { icon: IC.consultations, label: t('sidebar.consultations', 'Consultations'), path: '/admin/consultations' },
