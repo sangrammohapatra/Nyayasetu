@@ -1404,6 +1404,47 @@ const bulkUserAction = asyncHandler(async (req, res) => {
 });
 
 /* ---------------------------------------------------------------------------
+ * reauth — POST /v1/admin/reauth
+ * Verifies the admin's password and refreshes the 15-minute Redis session key.
+ * This endpoint intentionally sits OUTSIDE the requireAdminSession middleware so
+ * it remains callable when the session has already expired.
+ * ------------------------------------------------------------------------ */
+const bcrypt = require('bcryptjs');
+
+const reauth = asyncHandler(async (req, res) => {
+  const { password } = req.body;
+
+  if (!password?.trim()) {
+    return res.status(400).json({ error: 'MISSING_PASSWORD', message: 'Password is required' });
+  }
+
+  const user = await User.findById(req.user.userId).select('+passwordHash');
+  if (!user) return res.status(404).json({ error: 'NOT_FOUND', message: 'User not found' });
+
+  if (!user.passwordHash) {
+    return res.status(422).json({
+      error: 'NO_PASSWORD_SET',
+      message: 'No password is set for this account. Please set a password in Settings, then try again.',
+    });
+  }
+
+  const isMatch = await bcrypt.compare(password, user.passwordHash);
+  if (!isMatch) {
+    return res.status(401).json({ error: 'INVALID_PASSWORD', message: 'Incorrect password. Please try again.' });
+  }
+
+  const redis = getRedisClient();
+  if (redis) {
+    const { ADMIN_SESSION_TTL } = require('../middleware/adminSession.middleware');
+    await redis.set(`admin:session:${user._id}`, '1', 'EX', ADMIN_SESSION_TTL);
+  }
+
+  logger.info('[admin.controller] Admin session refreshed via re-auth', { adminUserId: user._id });
+
+  return res.json({ ok: true });
+});
+
+/* ---------------------------------------------------------------------------
  * getTemplatePreview — GET /v1/admin/templates/:id/preview
  * Returns a single template document (full, including questionFlow) for admin preview.
  * ------------------------------------------------------------------------ */
@@ -1617,6 +1658,7 @@ const broadcastNotification = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  reauth,
   verifyLawyer,
   rejectLawyer,
   listLawyers,

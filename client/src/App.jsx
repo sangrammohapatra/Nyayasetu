@@ -39,6 +39,7 @@ import BottomNav from "./components/layout/BottomNav";
 import NyayaBotWidget from "./components/nyayabot/NyayaBotWidget";
 import ScrollProgressBar from "./components/ui/ScrollProgressBar";
 import ErrorBoundaryWithDispatch from "./components/ui/ErrorBoundary";
+import AdminSessionGate from "./components/admin/AdminSessionGate";
 import { ErrorNotificationSnackbar } from "./hooks/useErrorHandling";
 import OfflineBanner from "./components/ui/OfflineBanner";
 import socketService from "./services/socket";
@@ -417,7 +418,9 @@ const router = createBrowserRouter([
     path: "/admin",
     element: (
       <ProtectedRoute allowedPersonas={["admin"]}>
-        <AppLayout />
+        <AdminSessionGate>
+          <AppLayout />
+        </AdminSessionGate>
       </ProtectedRoute>
     ),
     children: [

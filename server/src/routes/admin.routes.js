@@ -14,9 +14,19 @@ const router = express.Router();
 
 const adminController = require('../controllers/admin.controller');
 const { verifyToken, requirePersona } = require('../middleware/auth.middleware');
+const { requireAdminSession } = require('../middleware/adminSession.middleware');
 
 // Every route in this file requires a valid JWT and admin persona.
 router.use(verifyToken, requirePersona('admin'));
+
+/* ---------------------------------------------------------------------------
+ * Re-auth — must be registered BEFORE requireAdminSession so it's reachable
+ * when the session has already expired.
+ * ------------------------------------------------------------------------ */
+router.post('/reauth', adminController.reauth);
+
+// All routes below require an active admin session (15-min sliding window).
+router.use(requireAdminSession);
 
 /* ---------------------------------------------------------------------------
  * Platform statistics
