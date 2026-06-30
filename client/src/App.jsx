@@ -418,6 +418,7 @@ const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <Navigate to="/admin/dashboard" replace /> },
+      { path: "settings", element: <Settings /> },
       {
         path: "dashboard",
         element: (
