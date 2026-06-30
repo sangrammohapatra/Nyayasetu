@@ -1,7 +1,7 @@
 /**
  * scripts/seedTemplates.js
  *
- * Seeds 15 DocumentTemplate records.
+ * Seeds 21 DocumentTemplate records.
  * Run: node scripts/seedTemplates.js
  * Safe to re-run — skips slugs that already exist.
  */
@@ -557,6 +557,287 @@ Note: Landlord cannot forcibly evict. Eviction requires court order after notice
       { key: 'vacate_by_date',      question: 'By when must the tenant vacate? (DD/MM/YYYY)',               type: 'date',   required: true },
     ],
     estimatedTime: '5–10 min',
+    availableStates: [],
+  },
+
+  // ── 16 ─────────────────────────────────────────────────────────────────────
+  {
+    slug: 'rent_agreement',
+    name: 'Leave & License / Residential Rent Agreement',
+    nameTranslations: {
+      hi: 'लीव और लाइसेंस / किराया अनुबंध',
+      mr: 'परवाना करार / भाडे करार',
+      bn: 'লিভ ও লাইসেন্স / ভাড়া চুক্তি',
+      ta: 'குத்தகை ஒப்பந்தம்',
+      te: 'అద్దె ఒప్పందం',
+    },
+    category: 'property',
+    complexity: 'moderate',
+    pricePayPerDoc: 7900,
+    requiredPlan: { citizen: 'basic', lawyer: 'free' },
+    isFeatured: true,
+    applicableActs: [
+      { shortName: 'Transfer of Property Act 1882', sections: ['105', '106', '107'] },
+      { shortName: 'Indian Stamp Act 1899', sections: ['2(16)', '35'] },
+      { shortName: 'Registration Act 1908', sections: ['17', '49'] },
+    ],
+    systemPromptAddendum: `You are drafting a Leave and License / Residential Rent Agreement under the Transfer of Property Act 1882 and applicable state stamp and registration laws.
+Include: licensor and licensee details, property description, monthly license fee/rent amount, security deposit, tenure (typically 11 months for Leave & License), lock-in period if any, notice period, maintenance obligations, prohibited activities, and termination conditions.
+Remind the parties that agreements above 11 months require compulsory registration under Section 17 of Registration Act 1908. Use formal legal language. Add witnesses and execution details.`,
+    questionFlow: [
+      { key: 'licensor_name',        question: "What is the landlord's / licensor's full name?",                         type: 'text',    required: true },
+      { key: 'licensor_address',     question: "What is the licensor's permanent address?",                               type: 'text',    required: true },
+      { key: 'licensee_name',        question: "What is the tenant's / licensee's full name?",                            type: 'text',    required: true },
+      { key: 'licensee_address',     question: "What is the licensee's current address?",                                 type: 'text',    required: true },
+      { key: 'property_address',     question: 'What is the complete address of the property being rented?',              type: 'text',    required: true },
+      { key: 'property_description', question: 'Briefly describe the property (e.g., 2BHK flat, 3rd floor, approx. 850 sq.ft.)',  type: 'textarea', required: true },
+      { key: 'monthly_rent',         question: 'What is the monthly rent / license fee amount in ₹?',                    type: 'number',  required: true },
+      { key: 'security_deposit',     question: 'What is the security deposit amount in ₹?',                               type: 'number',  required: true },
+      { key: 'commencement_date',    question: 'From what date does the agreement commence? (DD/MM/YYYY)',                 type: 'date',    required: true },
+      { key: 'tenure_months',        question: 'What is the tenure of the agreement in months? (typically 11)',            type: 'number',  required: true },
+      { key: 'notice_period',        question: 'What is the notice period required for termination? (e.g., 30 days, 1 month)', type: 'text', required: true },
+      { key: 'state',                question: 'In which state is the property located?',                                  type: 'text',    required: true },
+      {
+        key: 'registration_required',
+        question: 'Will you be registering this agreement at the Sub-Registrar\'s office?',
+        type: 'choice',
+        choices: ['yes', 'no'],
+        required: true,
+      },
+    ],
+    estimatedTime: '8–12 min',
+    availableStates: [],
+  },
+
+  // ── 17 ─────────────────────────────────────────────────────────────────────
+  {
+    slug: 'legal_heir_certificate',
+    name: 'Legal Heir Certificate Application',
+    nameTranslations: {
+      hi: 'कानूनी उत्तराधिकारी प्रमाणपत्र आवेदन',
+      mr: 'कायदेशीर वारस प्रमाणपत्र अर्ज',
+      bn: 'আইনি উত্তরাধিকার সনদ আবেদন',
+      ta: 'சட்டப்பூர்வ வாரிசு சான்றிதழ் விண்ணப்பம்',
+      te: 'చట్టపరమైన వారసుడు ధృవీకరణ పత్రం దరఖాస్తు',
+    },
+    category: 'family',
+    complexity: 'moderate',
+    pricePayPerDoc: 5900,
+    requiredPlan: { citizen: 'basic', lawyer: 'free' },
+    isFeatured: false,
+    applicableActs: [
+      { shortName: 'Hindu Succession Act 1956', sections: ['8', '10', '14', '15'] },
+      { shortName: 'Indian Succession Act 1925', sections: ['370', '371', '372'] },
+      { shortName: 'Code of Civil Procedure 1908', sections: ['Order VII Rule 1'] },
+    ],
+    systemPromptAddendum: `You are drafting an application for a Legal Heir Certificate to be submitted to the Revenue Department / Tehsildar / SDM of the concerned district.
+Include: details of the deceased (name, date of death, address, occupation), applicant's relationship to deceased, list of all surviving legal heirs with their names, ages, addresses and relationship to deceased, purpose of the certificate (e.g., to claim provident fund, bank accounts, pension, property transfer), and declaration of truthfulness.
+Reference the Hindu Succession Act 1956 or Indian Succession Act 1925 as applicable based on religion. Request the certificate urgently for the stated purpose.`,
+    questionFlow: [
+      { key: 'applicant_name',      question: 'What is your full name (the person applying for the certificate)?',       type: 'text',   required: true },
+      { key: 'applicant_address',   question: 'What is your current residential address?',                                type: 'text',   required: true },
+      { key: 'applicant_relation',  question: 'What is your relationship to the deceased? (e.g., son, daughter, spouse, mother)', type: 'text', required: true },
+      { key: 'deceased_name',       question: 'What was the full name of the deceased?',                                  type: 'text',   required: true },
+      { key: 'deceased_dob',        question: "What was the deceased's date of birth? (DD/MM/YYYY)",                      type: 'date',   required: true },
+      { key: 'deceased_dod',        question: 'What was the date of death? (DD/MM/YYYY)',                                 type: 'date',   required: true },
+      { key: 'deceased_address',    question: "What was the deceased's last residential address?",                         type: 'text',   required: true },
+      { key: 'deceased_occupation', question: "What was the deceased's occupation?",                                      type: 'text',   required: false },
+      { key: 'legal_heirs',         question: 'List all surviving legal heirs (name, age, relationship, address for each person — one per line)',  type: 'textarea', required: true },
+      { key: 'purpose',             question: 'What is the purpose for which you need the Legal Heir Certificate? (e.g., bank account transfer, PF claim, property mutation)',  type: 'textarea', required: true },
+      {
+        key: 'religion',
+        question: 'What was the religion of the deceased?',
+        type: 'choice',
+        choices: ['hindu', 'muslim', 'christian', 'other'],
+        required: true,
+      },
+      { key: 'district',            question: 'In which district and state did the deceased reside?',                     type: 'text',   required: true },
+    ],
+    estimatedTime: '8–12 min',
+    availableStates: [],
+  },
+
+  // ── 18 ─────────────────────────────────────────────────────────────────────
+  {
+    slug: 'affidavit_general',
+    name: 'General Purpose Affidavit',
+    nameTranslations: {
+      hi: 'सामान्य शपथपत्र',
+      mr: 'सर्वसाधारण प्रतिज्ञापत्र',
+      bn: 'সাধারণ হলফনামা',
+      ta: 'பொதுவான உறுதிமொழி',
+      te: 'సాధారణ అఫిడవిట్',
+    },
+    category: 'civil',
+    complexity: 'simple',
+    pricePayPerDoc: 2900,
+    requiredPlan: { citizen: 'free', lawyer: 'free' },
+    isFeatured: false,
+    applicableActs: [
+      { shortName: 'Code of Civil Procedure 1908', sections: ['Order XIX'] },
+      { shortName: 'Oaths Act 1969', sections: ['4', '5'] },
+      { shortName: 'Indian Evidence Act 1872', sections: ['3', '59'] },
+    ],
+    systemPromptAddendum: `You are drafting a general purpose sworn affidavit to be executed before a Notary Public or Magistrate.
+The affidavit must include: deponent's full details (name, age, address, occupation), clear statement of facts being sworn to, declaration that the statements are true to the best of deponent's knowledge and belief, consequences of false statement (perjury), place and date of execution, signature/thumb impression, and space for notary attestation.
+Ensure formal language. Clearly number each paragraph. Avoid ambiguity.`,
+    questionFlow: [
+      { key: 'deponent_name',     question: 'What is your full name (the person making the affidavit)?',                  type: 'text',   required: true },
+      { key: 'deponent_age',      question: 'What is your age?',                                                          type: 'number', required: true },
+      { key: 'deponent_address',  question: 'What is your full residential address?',                                     type: 'text',   required: true },
+      { key: 'deponent_occupation', question: 'What is your occupation?',                                                 type: 'text',   required: true },
+      { key: 'purpose',           question: 'For what purpose is this affidavit being made? (e.g., passport application, address proof, lost document declaration, name change)',  type: 'text', required: true },
+      { key: 'facts',             question: 'State the facts you are swearing to — be detailed, specific and truthful (each fact will become a numbered paragraph):',  type: 'textarea', required: true },
+      { key: 'place',             question: 'At which city/town is this affidavit being executed?',                       type: 'text',   required: true },
+      {
+        key: 'language',
+        question: 'In which language should the affidavit be executed?',
+        type: 'choice',
+        choices: ['english', 'hindi', 'marathi', 'bengali', 'tamil'],
+        required: true,
+      },
+    ],
+    estimatedTime: '5–8 min',
+    availableStates: [],
+  },
+
+  // ── 19 ─────────────────────────────────────────────────────────────────────
+  {
+    slug: 'cybercrime_complaint',
+    name: 'Cybercrime Complaint',
+    nameTranslations: {
+      hi: 'साइबर अपराध शिकायत',
+      mr: 'सायबर गुन्हा तक्रार',
+      bn: 'সাইবার অপরাধ অভিযোগ',
+      ta: 'இணையவழி குற்ற புகார்',
+      te: 'సైబర్ నేర ఫిర్యాదు',
+    },
+    category: 'criminal',
+    complexity: 'moderate',
+    pricePayPerDoc: 7900,
+    requiredPlan: { citizen: 'basic', lawyer: 'free' },
+    isFeatured: true,
+    applicableActs: [
+      { shortName: 'Information Technology Act 2000', sections: ['66', '66C', '66D', '67', '72', '79'] },
+      { shortName: 'Indian Penal Code 1860', sections: ['419', '420', '463', '465', '468'] },
+      { shortName: 'Bharatiya Nyaya Sanhita 2023', sections: ['318', '319', '338', '340'] },
+    ],
+    systemPromptAddendum: `You are drafting a cybercrime complaint to be filed with the Cybercrime Cell / Police Station or online at cybercrime.gov.in.
+Cite the relevant sections of the Information Technology Act 2000 (Sections 66, 66C, 66D for identity theft, phishing, impersonation; Section 67 for obscene content; Section 72 for privacy breach) and the applicable IPC/BNS sections for fraud, forgery.
+Include: complainant details, details of the accused (if known), chronological narrative of the incident with dates/times/amounts, digital evidence available (screenshots, emails, transaction IDs), financial loss suffered, any prior complaints made, and relief sought. Request immediate registration of FIR, freezing of fraudulent accounts, and recovery of money.`,
+    questionFlow: [
+      { key: 'complainant_name',     question: 'What is your full name?',                                                 type: 'text',     required: true },
+      { key: 'complainant_address',  question: 'What is your address?',                                                   type: 'text',     required: true },
+      { key: 'complainant_phone',    question: 'What is your mobile number linked to the incident?',                      type: 'text',     required: true },
+      { key: 'complainant_email',    question: 'What is your email address?',                                             type: 'text',     required: true },
+      {
+        key: 'crime_type',
+        question: 'What type of cybercrime occurred?',
+        type: 'choice',
+        choices: ['online_fraud', 'identity_theft', 'phishing', 'social_media_abuse', 'ransomware', 'upi_fraud', 'other'],
+        required: true,
+      },
+      { key: 'incident_date',        question: 'When did the incident occur? (DD/MM/YYYY)',                               type: 'date',     required: true },
+      { key: 'incident_description', question: 'Describe exactly what happened — be as detailed as possible (chronological order):',  type: 'textarea', required: true },
+      { key: 'financial_loss',       question: 'What is the total financial loss in ₹? (Enter 0 if no financial loss)',   type: 'number',   required: true },
+      { key: 'accused_details',      question: "Any details about the accused? (name, phone number, email, bank account, UPI ID — enter 'Unknown' if not known)", type: 'textarea', required: true },
+      { key: 'evidence',             question: 'What digital evidence do you have? (e.g., screenshots, email headers, transaction IDs, chat logs)', type: 'textarea', required: true },
+      { key: 'previous_complaint',   question: 'Have you previously filed any complaint about this incident? If yes, provide details (complaint number, date, police station):', type: 'textarea', required: false },
+    ],
+    estimatedTime: '10–15 min',
+    availableStates: [],
+  },
+
+  // ── 20 ─────────────────────────────────────────────────────────────────────
+  {
+    slug: 'msme_recovery_notice',
+    name: 'MSME Payment Recovery Notice',
+    nameTranslations: {
+      hi: 'MSME भुगतान वसूली नोटिस',
+      mr: 'MSME देयक वसुली नोटीस',
+      bn: 'MSME পেমেন্ট রিকভারি নোটিস',
+      ta: 'MSME கட்டண வசூல் நோட்டீஸ்',
+      te: 'MSME చెల్లింపు రికవరీ నోటీసు',
+    },
+    category: 'financial',
+    complexity: 'moderate',
+    pricePayPerDoc: 8900,
+    requiredPlan: { citizen: 'basic', lawyer: 'free' },
+    isFeatured: false,
+    applicableActs: [
+      { shortName: 'Micro, Small and Medium Enterprises Development Act 2006', sections: ['15', '16', '17', '18'] },
+      { shortName: 'Interest on Delayed Payments to Small Scale & Ancillary Industrial Undertakings Act 1993', sections: ['3', '4', '5'] },
+    ],
+    systemPromptAddendum: `You are drafting a formal payment recovery notice under the MSMED Act 2006 on behalf of a Micro, Small or Medium Enterprise.
+Cite Section 15 (obligation of buyer to make payment within 45 days), Section 16 (interest on delayed payment at 3× bank rate compounded monthly), Section 17 (recovery of amount due) and Section 18 (reference to Micro and Small Enterprises Facilitation Council — MSEFC).
+Include: supplier's MSME registration details (Udyam Registration Number), buyer's details, invoice particulars (invoice number, date, amount, goods/services supplied), amount outstanding, days overdue, interest calculation, and demand for immediate payment with a 15-day deadline before MSEFC reference and/or civil suit.`,
+    questionFlow: [
+      { key: 'supplier_name',        question: 'What is the full name / business name of your enterprise (the MSME)?',   type: 'text',    required: true },
+      { key: 'supplier_address',     question: 'What is your business address?',                                          type: 'text',    required: true },
+      { key: 'udyam_number',         question: 'What is your Udyam Registration Number (e.g., UDYAM-MH-01-0012345)?',    type: 'text',    required: true },
+      { key: 'msme_category',        question: 'What is your MSME category?',                                             type: 'choice',  choices: ['micro', 'small', 'medium'], required: true },
+      { key: 'buyer_name',           question: "What is the buyer's / debtor's full name or company name?",              type: 'text',    required: true },
+      { key: 'buyer_address',        question: "What is the buyer's address?",                                            type: 'text',    required: true },
+      { key: 'invoice_details',      question: 'List all unpaid invoices (invoice number, date, amount for each):',       type: 'textarea', required: true },
+      { key: 'total_outstanding',    question: 'What is the total outstanding amount in ₹?',                              type: 'number',  required: true },
+      { key: 'goods_services',       question: 'What goods or services were supplied under these invoices?',               type: 'textarea', required: true },
+      { key: 'supply_date',          question: 'When were the goods/services supplied or accepted? (DD/MM/YYYY)',          type: 'date',    required: true },
+      { key: 'payment_terms',        question: 'What were the agreed payment terms? (e.g., 30 days from invoice, 45 days net)', type: 'text', required: true },
+      { key: 'prior_reminders',      question: 'Have you sent prior payment reminders? If yes, briefly describe (dates, response received):', type: 'textarea', required: false },
+    ],
+    estimatedTime: '10–15 min',
+    availableStates: [],
+  },
+
+  // ── 21 ─────────────────────────────────────────────────────────────────────
+  {
+    slug: 'will_testament',
+    name: 'Last Will and Testament',
+    nameTranslations: {
+      hi: 'अंतिम वसीयतनामा',
+      mr: 'मृत्युपत्र / इच्छापत्र',
+      bn: 'শেষ উইল ও উইলনামা',
+      ta: 'இறுதி விருப்பப்படி உயில்',
+      te: 'చివరి వీలునామా',
+    },
+    category: 'family',
+    complexity: 'complex',
+    pricePayPerDoc: 14900,
+    requiredPlan: { citizen: 'pro', lawyer: 'free' },
+    isFeatured: false,
+    applicableActs: [
+      { shortName: 'Indian Succession Act 1925', sections: ['57', '58', '59', '63', '68', '69', '74'] },
+      { shortName: 'Hindu Succession Act 1956', sections: ['30'] },
+    ],
+    systemPromptAddendum: `You are drafting a Last Will and Testament under the Indian Succession Act 1925 and the Hindu Succession Act 1956 Section 30 (for Hindus).
+The Will must include: testator's full details and declaration of sound mind; revocation of all prior wills; specific bequests of properties (immovable and movable) to named beneficiaries; executor appointment; residuary clause (for undistributed assets); conditions attached to bequests if any; and attestation by two witnesses (who are not beneficiaries) in the testator's presence.
+Important notices to include: (1) Will must be signed by testator in presence of two witnesses who must also sign. (2) Registration is optional but strongly recommended. (3) For Muslims: use Islamic succession rules — a Will (Wasiyat) cannot dispose of more than 1/3 of estate without heirs' consent. Flag if testator is Muslim.`,
+    questionFlow: [
+      { key: 'testator_name',       question: 'What is your full legal name (the person making the Will)?',               type: 'text',    required: true },
+      { key: 'testator_age',        question: 'What is your age? (Must be above 21 years)',                               type: 'number',  required: true },
+      { key: 'testator_address',    question: 'What is your permanent residential address?',                               type: 'text',    required: true },
+      { key: 'testator_occupation', question: 'What is your occupation?',                                                 type: 'text',    required: false },
+      {
+        key: 'religion',
+        question: 'What is your religion? (This affects applicable succession law)',
+        type: 'choice',
+        choices: ['hindu', 'muslim', 'christian', 'parsi', 'other'],
+        required: true,
+      },
+      { key: 'executor_name',       question: "Who do you appoint as executor of your Will? (Provide their full name and relationship to you)", type: 'text', required: true },
+      { key: 'executor_address',    question: "What is the executor's address?",                                          type: 'text',    required: true },
+      { key: 'immovable_assets',    question: 'List your immovable properties to be included in the Will (property address, survey/registration number, current market value approximately):', type: 'textarea', required: false },
+      { key: 'movable_assets',      question: 'List your movable assets (bank accounts, FDs, investments, jewellery, vehicles — with approximate values):', type: 'textarea', required: false },
+      { key: 'bequests',            question: 'How do you wish to distribute your assets? Specify: asset → beneficiary (full name, relationship, address) — one bequest per line:', type: 'textarea', required: true },
+      { key: 'residuary_beneficiary', question: 'Who should receive any assets not specifically mentioned in the Will (the residuary beneficiary)?', type: 'text', required: true },
+      { key: 'conditions',          question: 'Are there any conditions attached to any bequest? (e.g., beneficiary must attain age 25, must complete education — enter "None" if no conditions)', type: 'textarea', required: true },
+      { key: 'witness_1_name',      question: 'Full name of Witness 1 (must NOT be a beneficiary):',                     type: 'text',    required: true },
+      { key: 'witness_1_address',   question: "Witness 1's address:",                                                    type: 'text',    required: true },
+      { key: 'witness_2_name',      question: 'Full name of Witness 2 (must NOT be a beneficiary):',                     type: 'text',    required: true },
+      { key: 'witness_2_address',   question: "Witness 2's address:",                                                    type: 'text',    required: true },
+      { key: 'place',               question: 'At which city/town is this Will being executed?',                          type: 'text',    required: true },
+    ],
+    estimatedTime: '15–20 min',
     availableStates: [],
   },
 ];

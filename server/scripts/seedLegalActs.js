@@ -273,6 +273,204 @@ const ACTS = [
   },
 
   // ══════════════════════════════════════════════════════════════════════════
+  // 9. INFORMATION TECHNOLOGY ACT, 2000
+  // ══════════════════════════════════════════════════════════════════════════
+  {
+    shortName: 'Information Technology Act 2000',
+    fullName: 'The Information Technology Act, 2000',
+    year: 2000,
+    type: 'central',
+    description: 'An Act to provide legal recognition for transactions carried out by means of electronic data interchange and other means of electronic communication, and to prevent cybercrime.',
+    sections: [
+      {
+        number: '66',
+        title: 'Computer Related Offences',
+        text: 'If any person, dishonestly or fraudulently, does any act referred to in section 43, he shall be punishable with imprisonment for a term which may extend to three years or with fine which may extend to five lakh rupees or with both. Explanation: For the purpose of this section,— (a) the word "dishonestly" shall have the meaning assigned to it in section 24 of the Indian Penal Code; (b) the word "fraudulently" shall have the meaning assigned to it in section 25 of the Indian Penal Code.',
+        simplifiedText: 'Anyone who hacks into a computer system, damages data, or disrupts computer networks dishonestly faces up to 3 years imprisonment and/or ₹5 lakh fine. This covers: hacking into someone\'s email, destroying files, introducing viruses, denying access to systems. File a complaint at the nearest cybercrime police station or cybercrime.gov.in.',
+        relevantTo: ['cybercrime_complaint', 'police_complaint'],
+      },
+      {
+        number: '66C',
+        title: 'Punishment for Identity Theft',
+        text: 'Whoever, fraudulently or dishonestly make use of the electronic signature, password or any other unique identification feature of any other person, shall be punished with imprisonment of either description for a term which may extend to three years and shall also be liable to fine which may extend to rupees one lakh.',
+        simplifiedText: 'Using someone else\'s password, OTP, digital signature, or login credentials without permission is a criminal offence: up to 3 years imprisonment and ₹1 lakh fine. This includes: using someone\'s UPI PIN, logging into their social media, using their Aadhaar for verification. Report to cybercrime.gov.in with evidence of the identity theft.',
+        relevantTo: ['cybercrime_complaint', 'police_complaint'],
+      },
+      {
+        number: '66D',
+        title: 'Punishment for Cheating by Personation by Using Computer Resource',
+        text: 'Whoever, by means of any communication device or computer resource cheats by personating, shall be punished with imprisonment of either description for a term which may extend to three years and shall also be liable to fine which may extend to one lakh rupees.',
+        simplifiedText: 'Online fraud by impersonation — pretending to be someone else online to cheat you of money — is a criminal offence: up to 3 years and ₹1 lakh fine. This covers: fake loan apps, phishing calls pretending to be bank officials, fake e-commerce sellers. File complaint at cybercrime.gov.in (National Cyber Crime Reporting Portal) or call helpline 1930.',
+        relevantTo: ['cybercrime_complaint', 'consumer_complaint', 'police_complaint'],
+      },
+      {
+        number: '72',
+        title: 'Breach of Confidentiality and Privacy',
+        text: 'Save as otherwise provided in this Act or any other law for the time being in force, any person who, in pursuance of any of the powers conferred under this Act, rules or regulations made thereunder, has secured access to any electronic record, book, register, correspondence, information, document or other material without the consent of the person concerned discloses such material to any other person shall be punished with imprisonment for a term which may extend to two years, or with fine which may extend to one lakh rupees, or with both.',
+        simplifiedText: 'Government officials or anyone with authorized access to your digital records cannot share them without your consent. Doing so is punishable with up to 2 years imprisonment or ₹1 lakh fine. If a government official leaks your Aadhaar data, tax records, or medical records, you can file a complaint under this section.',
+        relevantTo: ['cybercrime_complaint', 'police_complaint'],
+      },
+      {
+        number: '79',
+        title: 'Exemption from Liability of Intermediary in Certain Cases',
+        text: 'An intermediary shall not be liable for any third party information, data, or communication link made available or hosted by him, if— (a) the function of the intermediary is limited to providing access to a communication system over which information made available by third parties is transmitted or temporarily stored or hosted; or (b) the intermediary does not— (i) initiate the transmission; (ii) select the receiver of the transmission; and (iii) select or modify the information contained in the transmission; and (c) the intermediary observes due diligence while discharging his duties under this Act.',
+        simplifiedText: 'Platforms like Facebook, WhatsApp, Google are not automatically liable for user content — but they must remove illegal content when notified. If a platform does NOT remove harmful/illegal content after proper notice, it loses this protection and becomes liable. Send a legal notice to the platform\'s grievance officer first before approaching courts.',
+        relevantTo: ['cybercrime_complaint', 'police_complaint'],
+      },
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 10. HINDU SUCCESSION ACT, 1956
+  // ══════════════════════════════════════════════════════════════════════════
+  {
+    shortName: 'Hindu Succession Act 1956',
+    fullName: 'The Hindu Succession Act, 1956',
+    year: 1956,
+    type: 'central',
+    description: 'An Act to amend and codify the law relating to intestate succession among Hindus.',
+    sections: [
+      {
+        number: '8',
+        title: 'General Rules of Succession in the Case of Males',
+        text: 'The property of a male Hindu dying intestate shall devolve according to the provisions of this Chapter:— (a) firstly, upon the heirs, being the relatives specified in class I of the Schedule; (b) secondly, if there is no heir of class I, then upon the heirs, being the relatives specified in class II of the Schedule; (c) thirdly, if there is no heir of any of the two classes, then upon the agnates of the deceased; and (d) lastly, if there is no agnate, then upon the cognates of the deceased.',
+        simplifiedText: 'When a Hindu man dies without a will, his property is distributed as follows: First priority — Class I heirs (wife, sons, daughters, mother, son\'s children, daughter\'s children). If no Class I heirs — Class II heirs (father, siblings, grandchildren etc.). All Class I heirs inherit equally. After the 2005 amendment, daughters have equal rights as sons in ancestral property.',
+        relevantTo: ['legal_heir_certificate', 'property_sale_agreement'],
+      },
+      {
+        number: '14',
+        title: 'Property of a Female Hindu to be her Absolute Property',
+        text: 'Any property possessed by a female Hindu, whether acquired before or after the commencement of this Act, shall be held by her as full owner thereof and not as a limited owner. Explanation — In this section, "property" includes both moveable and immoveable property acquired by a female Hindu by inheritance or devise, or at a partition, or in lieu of maintenance or arrears of maintenance, or by gift from any person, whether a relative or not, before, at or after her marriage, or by her own skill or exertion, or by purchase or by prescription, or in any other manner whatsoever, and also any such property held by her as stridhana immediately before the commencement of this Act.',
+        simplifiedText: 'A Hindu woman owns ALL property she acquires or inherits absolutely — no one else can claim rights over it. This includes: property inherited from parents/husband, gifts received at marriage (stridhan), property bought with her own money, property received in lieu of maintenance. Her property passes to her heirs like any other absolute owner.',
+        relevantTo: ['legal_heir_certificate', 'property_sale_agreement', 'domestic_violence_complaint'],
+      },
+      {
+        number: '15',
+        title: 'General Rules of Succession in the Case of Female Hindus',
+        text: 'The property of a female Hindu dying intestate shall devolve according to the rules set out in section 16— (a) firstly, upon the sons and daughters (including the children of any pre-deceased son or daughter) and the husband; (b) secondly, upon the heirs of the husband; (c) thirdly, upon the mother and father; (d) fourthly, upon the heirs of the father; and (e) lastly, upon the heirs of the mother.',
+        simplifiedText: 'When a Hindu woman dies without a will, her property goes in this order: (1) Her sons, daughters, and husband equally. (2) Husband\'s heirs (in-laws). (3) Her parents. (4) Father\'s heirs. (5) Mother\'s heirs. Note: Property she inherited from her parents goes back to her parents\' heirs if she dies without children. Property from her husband/in-laws goes to her husband\'s heirs.',
+        relevantTo: ['legal_heir_certificate'],
+      },
+      {
+        number: '6',
+        title: 'Devolution of Interest in Coparcenary Property (Post-2005 Amendment)',
+        text: 'On and from the commencement of the Hindu Succession (Amendment) Act, 2005, in a Joint Hindu family governed by the Mitakshara law, the daughter of a coparcener shall,— (a) by birth become a coparcener in her own right the same manner as the son; (b) have the same rights in the coparcenary property as she would have had if she had been a son; (c) be subject to the same liabilities in respect of the said coparcenary property as that of a son, and any reference to a Hindu Mitakshara coparcener shall be deemed to include a reference to a daughter of a coparcener.',
+        simplifiedText: 'Since September 2005, daughters have EQUAL rights in ancestral (joint family) property as sons — from birth. This applies even if the father died before 2005, as long as the daughter was alive at the time of the 2005 amendment. Daughters can demand partition of ancestral property and cannot be deprived of their share by a will. This is a landmark equality provision.',
+        relevantTo: ['legal_heir_certificate', 'property_sale_agreement'],
+      },
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 11. MOTOR VEHICLES ACT, 1988
+  // ══════════════════════════════════════════════════════════════════════════
+  {
+    shortName: 'Motor Vehicles Act 1988',
+    fullName: 'The Motor Vehicles Act, 1988',
+    year: 1988,
+    type: 'central',
+    description: 'An Act to consolidate and amend the law relating to motor vehicles including road accident compensation.',
+    sections: [
+      {
+        number: '163A',
+        title: 'Special Provisions as to Payment of Compensation on Structured Formula Basis',
+        text: 'Notwithstanding anything contained in this Act or in any other law for the time being in force or instrument having the force of law, the owner of the motor vehicle or the authorised insurer shall be liable to pay in the case of death or permanent disablement due to accident arising out of the use of motor vehicle, compensation, as indicated in the Second Schedule, to the legal representatives or the victim, as the case may be. In any claim for compensation under sub-section (1), the claimant shall not be required to plead or establish that the death or permanent disablement in respect of which the claim has been made was due to any wrongful act or neglect or default of the owner of the vehicle or of any other person.',
+        simplifiedText: 'Accident victims or their families can claim compensation WITHOUT proving the driver was at fault (no-fault liability). Use the structured formula based on age and income in Schedule II. This is faster than proving negligence. File claim with Motor Accident Claims Tribunal (MACT) within 6 months of accident.',
+        relevantTo: ['consumer_complaint'],
+      },
+      {
+        number: '165',
+        title: 'Claims Tribunals',
+        text: 'A State Government may, by notification in the Official Gazette, constitute one or more Motor Accidents Claims Tribunals (hereinafter referred to as Claims Tribunal) for such area as may be specified in the notification for the purpose of adjudicating upon claims for compensation in respect of accidents involving the death of, or bodily injury to, persons arising out of the use of motor vehicles, or damages to any property of a third party so arising, or both.',
+        simplifiedText: 'Motor Accident Claims Tribunals (MACT) are special courts set up in each district to handle road accident compensation claims. They are faster and more accessible than regular courts. File your accident claim here — you don\'t need a lawyer for simple cases. MACT hearings are informal and focused on getting compensation for victims quickly.',
+        relevantTo: ['consumer_complaint'],
+      },
+      {
+        number: '166',
+        title: 'Application for Compensation',
+        text: 'An application for compensation arising out of an accident of the nature specified in sub-section (1) of section 165 may be made— (a) by the person who has sustained the injury; or (b) by the owner of the property; or (c) where death has resulted from the accident, by all or any of the legal representatives of the deceased; or (d) by any agent duly authorised by the person injured or all or any of the legal representatives of the deceased, as the case may be.',
+        simplifiedText: 'Who can claim accident compensation: (1) The injured person. (2) Legal heirs if the person died. (3) Any agent/lawyer on their behalf. Deadline: File within 6 months of accident (courts can condone delay). Include: FIR copy, medical bills, disability certificate (if applicable), income proof for calculating lost earnings. Insurance company is a mandatory party to the claim.',
+        relevantTo: ['consumer_complaint'],
+      },
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 12. PAYMENT OF GRATUITY ACT, 1972
+  // ══════════════════════════════════════════════════════════════════════════
+  {
+    shortName: 'Payment of Gratuity Act 1972',
+    fullName: 'The Payment of Gratuity Act, 1972',
+    year: 1972,
+    type: 'central',
+    description: 'An Act to provide for a scheme for the payment of gratuity to employees engaged in factories, mines, oilfields, plantations, ports, railway companies, shops or other establishments.',
+    sections: [
+      {
+        number: '4',
+        title: 'Payment of Gratuity',
+        text: 'Gratuity shall be payable to an employee on the termination of his employment after he has rendered continuous service for not less than five years,— (a) on his superannuation, or (b) on his retirement or resignation, or (c) on his death or disablement due to accident or disease: Provided that the completion of continuous service of five years shall not be necessary where the termination of the employment of any employee is due to death or disablement. The amount of gratuity payable to an employee shall be at the rate of fifteen days wages based on the rate of wages last drawn by the employee concerned, for every completed year of service or part thereof in excess of six months.',
+        simplifiedText: 'You are entitled to gratuity after completing 5 years of continuous service (except in case of death/disability — no minimum years required). Formula: 15 days salary × number of years worked. Gratuity must be paid within 30 days of leaving. Maximum gratuity is capped at ₹20 lakh (revised from ₹10 lakh). Gratuity cannot be forfeited except in case of moral turpitude or violence.',
+        relevantTo: ['employment_termination', 'labour_dispute'],
+      },
+      {
+        number: '7',
+        title: 'Determination of the Amount of Gratuity',
+        text: '(1) A person who is eligible for payment of gratuity under this Act or any person authorised, in writing, to act on his behalf shall send a written application to the employer, within such time and in such form, as may be prescribed, for payment of such gratuity. (2) As soon as gratuity becomes payable, the employer shall, whether an application referred to in sub-section (1) has been made or not, determine the amount of gratuity and give notice in writing to the person to whom the gratuity is payable and also to the Controlling Authority specifying the amount of gratuity so determined. (3) The employer shall arrange to pay the amount of gratuity within thirty days from the date it becomes payable to the person to whom the gratuity is payable.',
+        simplifiedText: 'To claim gratuity: Submit Form I (gratuity application) to your employer within 30 days of leaving. Employer must pay within 30 days. If not paid: employer pays interest from due date. If employer disputes: apply to Controlling Authority (Labour Commissioner). If employer denies gratuity unfairly: appeal to Appellate Authority (District Collector or designated officer). Gratuity is exempt from income tax up to ₹20 lakh.',
+        relevantTo: ['employment_termination', 'labour_dispute'],
+      },
+      {
+        number: '8',
+        title: 'Recovery of Gratuity',
+        text: 'If the amount of gratuity payable under this Act is not paid by the employer, within the prescribed time, to the person entitled thereto, the Controlling Authority shall, on an application made to it in this behalf by the aggrieved person, issue a certificate for that amount to the Collector, who shall recover the same from the employer with compound interest thereon at such rate as the Central Government may, by notification, specify, from the date of expiry of the prescribed period, with penalty, if any, as may be specified in the certificate.',
+        simplifiedText: 'If your employer does not pay gratuity: File application before the Controlling Authority (Labour Commissioner) with proof of service and calculation. The authority issues a certificate and the Collector recovers the amount from the employer — including compound interest. Employer also faces criminal prosecution for wilful failure to pay gratuity.',
+        relevantTo: ['employment_termination', 'labour_dispute'],
+      },
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 13. INDIAN CONTRACT ACT, 1872
+  // ══════════════════════════════════════════════════════════════════════════
+  {
+    shortName: 'Indian Contract Act 1872',
+    fullName: 'The Indian Contract Act, 1872',
+    year: 1872,
+    type: 'central',
+    description: 'An Act to define and amend the law relating to contracts in India.',
+    sections: [
+      {
+        number: '10',
+        title: 'What Agreements are Contracts',
+        text: 'All agreements are contracts if they are made by the free consent of parties competent to contract, for a lawful consideration and with a lawful object, and are not hereby expressly declared to be void. Nothing herein contained shall affect any law in force in India, and not hereby expressly repealed, by which any contract is required to be made in writing or in the presence of witnesses, or any law relating to the registration of documents.',
+        simplifiedText: 'A valid contract needs: (1) Offer and acceptance. (2) Both parties must be competent (above 18, sound mind, not bankrupt). (3) Free consent (no force, fraud, or misrepresentation). (4) Lawful purpose. (5) Consideration (something of value exchanged). Even verbal agreements can be contracts — but written contracts are easier to prove. If any of these elements is missing, the contract may be void or voidable.',
+        relevantTo: ['property_sale_agreement', 'startup_founders_agreement', 'employment_termination'],
+      },
+      {
+        number: '73',
+        title: 'Compensation for Loss or Damage Caused by Breach of Contract',
+        text: 'When a contract has been broken, the party who suffers by such breach is entitled to receive, from the party who has broken it, compensation for any loss or damage caused to him thereby, which naturally arose in the usual course of things from such breach, or which the parties knew, when they made the contract, to be likely to result from the breach of it. Such compensation is not to be given for any remote and indirect loss or damage sustained by reason of the breach. Compensation for failure to discharge obligation resembling those created by contract — When an obligation resembling those created by contract has been incurred and has not been discharged, any person injured by the failure to discharge it is entitled to receive the same compensation from the party in default, as if such person had contracted to discharge it and had broken his contract.',
+        simplifiedText: 'If someone breaks a contract: you can claim compensation for losses that directly result from the breach — including lost profits, wasted expenses, and costs incurred. You cannot claim for indirect/speculative losses. You have a duty to "mitigate" — take steps to reduce your own losses. Always document your financial losses with receipts and records before approaching court.',
+        relevantTo: ['property_sale_agreement', 'startup_founders_agreement', 'consumer_complaint'],
+      },
+      {
+        number: '74',
+        title: 'Compensation for Breach of Contract Where Penalty Stipulated',
+        text: 'When a contract has been broken, if a sum is named in the contract as the amount to be paid in case of such breach, or if the contract contains any other stipulation by way of penalty, the party complaining of the breach is entitled, whether or not actual damage or loss is proved to have been caused thereby, to receive from the party who has broken the contract reasonable compensation not exceeding the amount so named or, as the case may be, the penalty stipulated for.',
+        simplifiedText: 'If your contract specifies a penalty for breach (e.g., "₹1 lakh per month of delay"), you can claim that amount without proving actual loss — but courts can reduce it if deemed excessive. Reasonable penalty clauses are enforceable in India. In property deals: if buyer defaults, seller can forfeit token money. If seller defaults, buyer can claim token money back plus interest.',
+        relevantTo: ['property_sale_agreement', 'startup_founders_agreement'],
+      },
+      {
+        number: '19',
+        title: 'Voidability of Agreements Without Free Consent',
+        text: 'When consent to an agreement is caused by coercion, fraud, or misrepresentation, the agreement is a contract voidable at the option of the party whose consent was so caused. A party to a contract, whose consent was caused by fraud or misrepresentation, may, if he thinks fit, insist that the contract shall be performed, and that he shall be put in the position in which he would have been if the representations made had been true.',
+        simplifiedText: 'If you were cheated into signing a contract (fraud, pressure, false promises): the contract is voidable — you can cancel it. You must act promptly once you discover the fraud. Options: (1) Cancel the contract and get your money/property back. (2) Enforce the contract as if the false promise were true. Keep all communications (WhatsApp, email) showing the misrepresentation — they are key evidence.',
+        relevantTo: ['consumer_complaint', 'property_sale_agreement', 'police_complaint'],
+      },
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
   // 8. INDUSTRIAL DISPUTES ACT, 1947
   // ══════════════════════════════════════════════════════════════════════════
   {
