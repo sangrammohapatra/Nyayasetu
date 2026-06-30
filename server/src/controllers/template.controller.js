@@ -37,12 +37,13 @@ function resolveAccess(template, plan, persona) {
     return { type: 'subscription', isAccessible: true };
   }
 
-  // Template has a pay-per-doc price → user can unlock individually
+  // Template has a pay-per-doc price → user must pay before accessing
   if (template.pricePayPerDoc > 0) {
     return {
       type: 'pay_per_doc',
-      isAccessible: true,
+      isAccessible: false,
       priceINR: template.pricePayPerDoc / 100,
+      requiredPlan,
     };
   }
 

@@ -395,7 +395,11 @@ function NewDocument() {
               >
                 <FeatureGate feature="pdf_download"
                   featureLabel={gateTemplate.name}
-                  description={`${gateTemplate.name} requires an upgraded plan. Upgrade to access this and ${templates.length - 2} more templates.`}
+                  description={
+                    gateTemplate.access?.type === 'pay_per_doc' && gateTemplate.access?.priceINR
+                      ? `Access "${gateTemplate.name}" for ₹${gateTemplate.access.priceINR}, or upgrade to the ${gateTemplate.access.requiredPlan || 'Basic'} plan to unlock all templates.`
+                      : `"${gateTemplate.name}" requires the ${getPlanRequired(gateTemplate)} plan. Upgrade to access this and ${templates.length - 2} more templates.`
+                  }
                 />
               </motion.div>
             </motion.div>
