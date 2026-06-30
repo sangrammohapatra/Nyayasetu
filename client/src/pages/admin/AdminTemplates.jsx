@@ -23,6 +23,9 @@ import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import IconButton from '@mui/material/IconButton';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
 
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GlassCard from '../../components/ui/GlassCard';
@@ -40,6 +43,235 @@ const COMPLEXITY_COLORS = {
   premium: { bg: 'rgba(106,27,154,0.1)', color: '#6a1b9a' },
 };
 
+const CATEGORY_ICONS = {
+  consumer: '🛒', property: '🏠', employment: '💼', family: '👨‍👩‍👧',
+  criminal: '⚖️', rti: '📑', civil: '🏛️', financial: '💰', labour: '👷', startup: '🚀',
+};
+
+const PLAN_ORDER = { free: 0, basic: 1, pro: 2, professional: 2, firm: 3 };
+const PREVIEW_PLANS = ['free', 'basic', 'pro'];
+
+const COMPLEXITY_CARD = {
+  simple:   { label: 'Simple',   color: '#2e7d32', bg: 'rgba(46,125,50,0.1)'  },
+  moderate: { label: 'Moderate', color: '#ed6c02', bg: 'rgba(230,81,0,0.1)'   },
+  complex:  { label: 'Complex',  color: '#d32f2f', bg: 'rgba(198,40,40,0.1)'  },
+  premium:  { label: 'Premium',  color: '#6a1b9a', bg: 'rgba(106,27,154,0.1)' },
+};
+const PLAN_BADGE = {
+  free:  { label: '🆓 FREE',  bg: 'rgba(46,125,50,0.12)',  color: '#2e7d32' },
+  basic: { label: '⭐ BASIC', bg: 'rgba(25,118,210,0.12)', color: '#1976d2' },
+  pro:   { label: '🚀 PRO',   bg: 'rgba(230,81,0,0.12)',   color: '#ed6c02' },
+};
+const TIME_MAP = { simple: '5–10 min', moderate: '10–20 min', complex: '20–40 min', premium: '30–60 min' };
+
+function getRequiredPlan(template) {
+  if (template.pricePayPerDoc === 0) return 'free';
+  const p = template.requiredPlan?.citizen;
+  if (!p || p === 'free') return 'free';
+  return p;
+}
+
+function canAccessWithPlan(template, plan) {
+  if (template.isAlwaysFree) return true;
+  const req = template.requiredPlan?.citizen || 'free';
+  return (PLAN_ORDER[plan] ?? 0) >= (PLAN_ORDER[req] ?? 0);
+}
+
+/* ---------------------------------------------------------------------------
+ * Citizen card replica — matches the visual from NewDocument.jsx
+ * ------------------------------------------------------------------------ */
+function CitizenCardReplica({ template, viewerPlan }) {
+  const canAccess = canAccessWithPlan(template, viewerPlan);
+  const isAlwaysFree = template.isAlwaysFree;
+  const catIcon = CATEGORY_ICONS[template.category] || '📄';
+  const requiredPlan = getRequiredPlan(template);
+  const complexity = COMPLEXITY_CARD[template.complexity] || COMPLEXITY_CARD.simple;
+  const planBadge = PLAN_BADGE[requiredPlan] || PLAN_BADGE.free;
+  const estTime = TIME_MAP[template.complexity] || '10 min';
+
+  return (
+    <Box sx={{
+      width: 220,
+      p: 2.5,
+      borderRadius: `${RADIUS.lg}px`,
+      border: '1.5px solid var(--color-border)',
+      background: 'var(--color-surface)',
+      position: 'relative',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 1,
+    }}>
+      {/* Always-free ribbon */}
+      {isAlwaysFree && (
+        <Box sx={{
+          position: 'absolute', top: 10, right: -24,
+          background: '#2e7d32', color: '#fff',
+          fontSize: '0.6rem', fontWeight: 800,
+          px: 3.5, py: 0.25, transform: 'rotate(30deg)',
+          letterSpacing: '0.05em',
+        }}>
+          FREE
+        </Box>
+      )}
+
+      {/* Category icon */}
+      <Box sx={{
+        width: 48, height: 48, borderRadius: `${RADIUS.md}px`,
+        background: 'rgba(25,118,210,0.1)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 24, flexShrink: 0,
+      }}>
+        {catIcon}
+      </Box>
+
+      {/* Name */}
+      <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.35, color: 'var(--color-text)', flex: 1 }}>
+        {template.name}
+      </Typography>
+
+      {/* Estimated time */}
+      <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
+        ⏱ {estTime}
+      </Typography>
+
+      {/* Badges */}
+      <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mt: 0.5 }}>
+        <Chip size="small" label={complexity.label}
+          sx={{ height: 19, fontSize: '0.67rem', fontWeight: 600, background: complexity.bg, color: complexity.color, border: 'none' }} />
+        <Chip size="small" label={planBadge.label}
+          sx={{ height: 19, fontSize: '0.67rem', fontWeight: 600, background: planBadge.bg, color: planBadge.color, border: 'none' }} />
+      </Box>
+
+      {/* Lock overlay */}
+      {!canAccess && (
+        <Box sx={{
+          position: 'absolute', inset: 0,
+          borderRadius: `${RADIUS.lg}px`,
+          background: 'rgba(248,250,255,0.75)',
+          backdropFilter: 'blur(2px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Typography sx={{ fontSize: 28 }}>🔒</Typography>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+ * Template preview modal
+ * ------------------------------------------------------------------------ */
+function TemplatePreviewModal({ template, onClose }) {
+  const [viewerPlan, setViewerPlan] = useState('free');
+  if (!template) return null;
+
+  return (
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3, background: 'var(--color-surface)' } }}>
+      <DialogTitle sx={{ fontWeight: 700, pr: 6, fontFamily: TYPOGRAPHY.fontFamily.display }}>
+        👁️ Preview: {template.name}
+        <IconButton onClick={onClose} size="small" sx={{ position: 'absolute', right: 12, top: 12 }}>✕</IconButton>
+      </DialogTitle>
+      <DialogContent>
+        {/* Plan selector */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+          <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', fontWeight: 600, mr: 0.5 }}>
+            Viewing as:
+          </Typography>
+          {PREVIEW_PLANS.map((p) => (
+            <Chip key={p} label={p} size="small" onClick={() => setViewerPlan(p)}
+              sx={{
+                cursor: 'pointer', fontWeight: 700, textTransform: 'capitalize',
+                background: viewerPlan === p ? 'var(--color-primary)' : 'transparent',
+                color: viewerPlan === p ? '#fff' : 'var(--color-text-secondary)',
+                border: '1px solid var(--color-border)',
+                '&:hover': { background: viewerPlan === p ? 'var(--color-primary)' : 'var(--color-overlay)' },
+              }}
+            />
+          ))}
+        </Box>
+
+        {/* Citizen card replica */}
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+          <CitizenCardReplica template={template} viewerPlan={viewerPlan} />
+        </Box>
+
+        <Divider sx={{ mb: 2, borderColor: 'var(--color-border)' }} />
+
+        {/* Access matrix */}
+        <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 1, display: 'block' }}>
+          Access by Plan
+        </Typography>
+        <Box sx={{ mb: 2.5 }}>
+          {PREVIEW_PLANS.map((p) => {
+            const accessible = canAccessWithPlan(template, p);
+            let label;
+            if (template.isAlwaysFree) {
+              label = { text: '✓ Always free', color: '#2e7d32' };
+            } else if (accessible) {
+              label = { text: '✓ Subscription access', color: '#2e7d32' };
+            } else if (template.pricePayPerDoc > 0) {
+              label = { text: `💳 Pay ₹${template.pricePayPerDoc / 100}`, color: '#0288d1' };
+            } else {
+              label = { text: '✗ Locked', color: '#d32f2f' };
+            }
+            return (
+              <Box key={p} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.75, borderBottom: '1px solid var(--color-border)' }}>
+                <Typography variant="caption" sx={{ textTransform: 'capitalize', fontWeight: 600, color: 'var(--color-text)' }}>{p}</Typography>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: label.color }}>{label.text}</Typography>
+              </Box>
+            );
+          })}
+        </Box>
+
+        {/* Template metadata */}
+        <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 1, display: 'block' }}>
+          Metadata
+        </Typography>
+        <Box sx={{ mb: 2.5 }}>
+          {[
+            ['Slug', template.slug],
+            ['Category', template.category],
+            ['Complexity', template.complexity],
+            ['Est. Time', TIME_MAP[template.complexity] || '—'],
+            ['Price', template.isAlwaysFree ? 'Always Free' : template.pricePayPerDoc === 0 ? '₹0 (plan-gated)' : `₹${template.pricePayPerDoc / 100}`],
+            ['Active', template.isActive ? 'Yes' : 'No'],
+            ['Featured', template.isFeatured ? 'Yes' : 'No'],
+          ].map(([label, value]) => (
+            <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, borderBottom: '1px solid var(--color-border)' }}>
+              <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>{label}</Typography>
+              <Typography variant="caption" sx={{ color: 'var(--color-text)', fontWeight: 500, fontFamily: label === 'Slug' ? 'monospace' : undefined }}>{String(value)}</Typography>
+            </Box>
+          ))}
+        </Box>
+
+        {/* System prompt addendum */}
+        {template.systemPromptAddendum && (
+          <>
+            <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 1, display: 'block' }}>
+              AI System Prompt Addendum
+            </Typography>
+            <Box sx={{
+              p: 1.5, borderRadius: `${RADIUS.md}px`,
+              background: 'var(--color-bg)',
+              border: '1px solid var(--color-border)',
+              fontFamily: 'monospace', fontSize: '0.75rem',
+              color: 'var(--color-text-secondary)', lineHeight: 1.6,
+              whiteSpace: 'pre-wrap',
+              maxHeight: 140, overflow: 'auto',
+            }}>
+              {template.systemPromptAddendum}
+            </Box>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+ * Template edit/create form
+ * ------------------------------------------------------------------------ */
 const EMPTY_FORM = {
   name: '', slug: '', category: 'consumer', complexity: 'simple',
   estimatedMinutes: 10, pricePayPerDoc: 0,
@@ -64,9 +296,7 @@ function TemplateForm({ template, onSave, onClose, saving }) {
 
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
 
-  const fieldSx = {
-    '& .MuiOutlinedInput-root': { borderRadius: `${RADIUS.md}px` },
-  };
+  const fieldSx = { '& .MuiOutlinedInput-root': { borderRadius: `${RADIUS.md}px` } };
 
   return (
     <Box sx={{ width: { xs: '100vw', sm: 480 }, p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -130,6 +360,9 @@ function TemplateForm({ template, onSave, onClose, saving }) {
   );
 }
 
+/* ---------------------------------------------------------------------------
+ * Main page
+ * ------------------------------------------------------------------------ */
 export default function AdminTemplates() {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -137,6 +370,7 @@ export default function AdminTemplates() {
   const [search, setSearch] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
+  const [previewTemplate, setPreviewTemplate] = useState(null);
   const [saving, setSaving] = useState(false);
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
 
@@ -209,7 +443,7 @@ export default function AdminTemplates() {
                   <TableCell>Complexity</TableCell>
                   <TableCell>Price</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell align="right">Edit</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -225,7 +459,7 @@ export default function AdminTemplates() {
                         <TableRow key={t._id} sx={{ '& td': { borderBottom: '1px solid var(--color-border)', py: 1 } }}>
                           <TableCell>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Typography sx={{ fontSize: 18 }}>{t.icon || '📄'}</Typography>
+                              <Typography sx={{ fontSize: 18 }}>{CATEGORY_ICONS[t.category] || '📄'}</Typography>
                               <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--color-text)' }}>{t.name}</Typography>
                             </Box>
                           </TableCell>
@@ -252,10 +486,16 @@ export default function AdminTemplates() {
                             </Box>
                           </TableCell>
                           <TableCell align="right">
-                            <Button size="small" variant="outlined" onClick={() => openEdit(t)}
-                              sx={{ fontSize: '0.7rem', py: 0.3, px: 1.2, borderRadius: `${RADIUS.md}px`, borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
-                              Edit
-                            </Button>
+                            <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'flex-end' }}>
+                              <Button size="small" variant="outlined" onClick={() => setPreviewTemplate(t)}
+                                sx={{ fontSize: '0.7rem', py: 0.3, px: 1.2, borderRadius: `${RADIUS.md}px`, borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}>
+                                Preview
+                              </Button>
+                              <Button size="small" variant="outlined" onClick={() => openEdit(t)}
+                                sx={{ fontSize: '0.7rem', py: 0.3, px: 1.2, borderRadius: `${RADIUS.md}px`, borderColor: 'var(--color-border)', color: 'var(--color-text)' }}>
+                                Edit
+                              </Button>
+                            </Box>
                           </TableCell>
                         </TableRow>
                       );
@@ -273,6 +513,7 @@ export default function AdminTemplates() {
         </GlassCard>
       </Box>
 
+      {/* Edit / create drawer */}
       <Drawer anchor="right" open={drawerOpen} onClose={() => { setDrawerOpen(false); setEditTarget(null); }}
         PaperProps={{ sx: { background: 'var(--color-surface)' } }}>
         <TemplateForm
@@ -282,6 +523,9 @@ export default function AdminTemplates() {
           saving={saving}
         />
       </Drawer>
+
+      {/* Citizen preview modal */}
+      <TemplatePreviewModal template={previewTemplate} onClose={() => setPreviewTemplate(null)} />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
