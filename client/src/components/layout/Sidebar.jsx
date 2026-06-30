@@ -17,6 +17,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import PeopleAltRounded from '@mui/icons-material/PeopleAltRounded';
 import GavelRounded from '@mui/icons-material/GavelRounded';
 import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded';
+import VerifiedUserRounded from '@mui/icons-material/VerifiedUserRounded';
 
 import Drawer from '@mui/material/Drawer';
 import Box from '@mui/material/Box';
@@ -53,8 +54,9 @@ const IC = {
   dashboard:     '/icons/dxoycpzg.json',
   users:         PeopleAltRounded,    // oqjlkyvy.json → 404 on CDN
   templates:     '/icons/wloilxuq.json',
-  lawyers:       GavelRounded,        // mxxgldoo.json → 404 on CDN
-  calendar:      CalendarMonthRounded, // abvsilmk.json → 404 on CDN
+  lawyers:       GavelRounded,           // mxxgldoo.json → 404 on CDN
+  notaries:      VerifiedUserRounded,    // represents official credential verification
+  calendar:      CalendarMonthRounded,  // abvsilmk.json → 404 on CDN
 };
 
 // ─── Nav definitions per persona — grouped by section ────────────────────────
@@ -92,6 +94,7 @@ function useNavItems(persona, t) {
       { icon: IC.users,     label: t('sidebar.users',     'Users'),      path: '/admin/users' },
       { icon: IC.templates, label: t('sidebar.templates', 'Templates'),  path: '/admin/templates' },
       { icon: IC.lawyers,   label: t('sidebar.lawyers',   'Lawyers'),    path: '/admin/lawyers' },
+      { icon: IC.notaries,  label: t('sidebar.notaries',  'Notaries'),   path: '/admin/notaries' },
       { icon: IC.myDocs,    label: t('sidebar.auditLog',  'Audit Log'),  path: '/admin/audit-logs' },
     ];
 
