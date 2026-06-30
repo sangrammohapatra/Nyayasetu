@@ -95,12 +95,15 @@ const CalendarPage = lazy(() => import("./pages/shared/CalendarPage"));
 const ThemeSwitcher = lazy(() => import("./components/layout/ThemeSwitcher"));
 const LawyerSearch = lazy(() => import("./components/lawyer/LawyerSearch"));
 const ConsultationsPage = lazy(() => import("./pages/lawyer/ConsultationsPage"));
-const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
-const AdminUsers     = lazy(() => import('./pages/admin/AdminUsers'));
-const AdminLawyers   = lazy(() => import('./pages/admin/AdminLawyers'));
-const AdminNotaries  = lazy(() => import('./pages/admin/AdminNotaries'));
-const AdminTemplates = lazy(() => import('./pages/admin/AdminTemplates'));
-const AdminAuditLog  = lazy(() => import('./pages/admin/AdminAuditLog'));
+const AdminDashboard     = lazy(() => import('./pages/admin/AdminDashboard'));
+const AdminUsers         = lazy(() => import('./pages/admin/AdminUsers'));
+const AdminLawyers       = lazy(() => import('./pages/admin/AdminLawyers'));
+const AdminNotaries      = lazy(() => import('./pages/admin/AdminNotaries'));
+const AdminTemplates     = lazy(() => import('./pages/admin/AdminTemplates'));
+const AdminAuditLog      = lazy(() => import('./pages/admin/AdminAuditLog'));
+const AdminPayments      = lazy(() => import('./pages/admin/AdminPayments'));
+const AdminConsultations = lazy(() => import('./pages/admin/AdminConsultations'));
+const AdminDocuments     = lazy(() => import('./pages/admin/AdminDocuments'));
 const LawSearch           = lazy(() => import('./pages/shared/LawSearch'));
 const EmergencyHelpline   = lazy(() => import('./pages/citizen/EmergencyHelpline'));
 const LandingPage         = lazy(() => import('./pages/public/LandingPage'));
@@ -464,6 +467,30 @@ const router = createBrowserRouter([
         element: (
           <Suspense fallback={<PageLoader />}>
             <AdminAuditLog />
+          </Suspense>
+        ),
+      },
+      {
+        path: "payments",
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <AdminPayments />
+          </Suspense>
+        ),
+      },
+      {
+        path: "consultations",
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <AdminConsultations />
+          </Suspense>
+        ),
+      },
+      {
+        path: "documents",
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <AdminDocuments />
           </Suspense>
         ),
       },

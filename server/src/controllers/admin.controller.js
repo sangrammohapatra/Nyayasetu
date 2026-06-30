@@ -11,10 +11,13 @@ const LawyerProfile = require('../models/LawyerProfile.model');
 const NotaryProfile = require('../models/NotaryProfile.model');
 const Document = require('../models/Document.model');
 const Payment = require('../models/Payment.model');
+const Consultation = require('../models/Consultation.model');
 const CaseTracker = require('../models/CaseTracker.model');
 const Notification = require('../models/Notification.model');
 const Subscription = require('../models/Subscription.model');
 const AuditLog = require('../models/AuditLog.model');
+
+const razorpayService = require('../services/payment/razorpayService');
 
 const whatsappService = require('../services/notification/whatsappService');
 const emailService = require('../services/notification/emailService');
@@ -855,6 +858,211 @@ const getAnalytics = asyncHandler(async (req, res) => {
   }
 });
 
+/* ---------------------------------------------------------------------------
+ * listPayments
+ * GET /v1/admin/payments?page&limit&status&type&search
+ * ------------------------------------------------------------------------ */
+const listPayments = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 20, status, type, search } = req.query;
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const filter = {};
+  if (status) filter.status = status;
+  if (type)   filter.type   = type;
+
+  if (search) {
+    const regex = new RegExp(search, 'i');
+    const users = await User.find({ $or: [{ name: regex }, { email: regex }] }).select('_id').lean();
+    filter.user = { $in: users.map((u) => u._id) };
+  }
+
+  const [payments, total] = await Promise.all([
+    Payment.find(filter)
+      .populate('user', 'name email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit))
+      .lean(),
+    Payment.countDocuments(filter),
+  ]);
+
+  return res.json({ payments, pagination: { total, page: Number(page), limit: Number(limit) } });
+});
+
+/* ---------------------------------------------------------------------------
+ * refundPayment
+ * POST /v1/admin/payments/:id/refund
+ * Body: { amount?: number (paise), reason?: string }
+ * ------------------------------------------------------------------------ */
+const refundPayment = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { amount, reason } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid payment id' });
+  }
+
+  const payment = await Payment.findById(id);
+  if (!payment) return res.status(404).json({ error: 'NOT_FOUND', message: 'Payment not found' });
+  if (payment.status !== 'paid') {
+    return res.status(400).json({ error: 'NOT_PAID', message: 'Only paid payments can be refunded' });
+  }
+  if (!payment.razorpayPaymentId) {
+    return res.status(400).json({ error: 'NO_PAYMENT_ID', message: 'No Razorpay payment ID on record' });
+  }
+
+  const refundAmount = amount ? Number(amount) : payment.amount;
+  if (refundAmount > payment.amount) {
+    return res.status(400).json({ error: 'EXCESSIVE_REFUND', message: 'Refund amount cannot exceed the original payment' });
+  }
+
+  const refund = await razorpayService.initiateRefund(
+    payment.razorpayPaymentId,
+    refundAmount,
+    { reason: reason || 'Admin refund', adminUserId: String(req.user.userId) }
+  );
+
+  payment.status       = refundAmount < payment.amount ? 'partially_refunded' : 'refunded';
+  payment.refundId     = refund.id;
+  payment.refundAmount = refundAmount;
+  payment.refundedAt   = new Date();
+  payment.refundReason = reason || 'Admin refund';
+  await payment.save();
+
+  logger.info('[admin.controller] Payment refunded', {
+    paymentId: id, refundId: refund.id, amount: refundAmount, adminUserId: req.user.userId,
+  });
+
+  return res.json({ ok: true, refundId: refund.id, status: payment.status, refundAmount });
+});
+
+/* ---------------------------------------------------------------------------
+ * listConsultations
+ * GET /v1/admin/consultations?page&limit&status&search
+ * ------------------------------------------------------------------------ */
+const listConsultations = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 20, status, search } = req.query;
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const filter = {};
+  if (status) filter.status = status;
+
+  if (search) {
+    const regex = new RegExp(search, 'i');
+    const users = await User.find({ $or: [{ name: regex }, { email: regex }] }).select('_id').lean();
+    const ids = users.map((u) => u._id);
+    filter.$or = [{ citizen: { $in: ids } }, { lawyer: { $in: ids } }];
+  }
+
+  const [consultations, total] = await Promise.all([
+    Consultation.find(filter)
+      .populate('citizen', 'name email')
+      .populate('lawyer', 'name email')
+      .select('citizen lawyer mode status fee isPaid scheduledAt caseArea subject cancelledBy cancellationReason createdAt')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit))
+      .lean(),
+    Consultation.countDocuments(filter),
+  ]);
+
+  return res.json({ consultations, pagination: { total, page: Number(page), limit: Number(limit) } });
+});
+
+/* ---------------------------------------------------------------------------
+ * cancelConsultation
+ * PATCH /v1/admin/consultations/:id/cancel
+ * Body: { reason?: string }
+ * ------------------------------------------------------------------------ */
+const cancelConsultation = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid consultation id' });
+  }
+
+  const consultation = await Consultation.findById(id);
+  if (!consultation) return res.status(404).json({ error: 'NOT_FOUND', message: 'Consultation not found' });
+
+  if (['cancelled', 'completed', 'rejected'].includes(consultation.status)) {
+    return res.status(400).json({
+      error: 'INVALID_STATUS',
+      message: `Cannot cancel a consultation that is already ${consultation.status}`,
+    });
+  }
+
+  consultation.status             = 'cancelled';
+  consultation.cancelledBy        = 'admin';
+  consultation.cancellationReason = reason || 'Cancelled by admin';
+  await consultation.save();
+
+  logger.info('[admin.controller] Consultation cancelled by admin', {
+    consultationId: id, adminUserId: req.user.userId,
+  });
+
+  return res.json({ ok: true, consultationId: id, status: 'cancelled' });
+});
+
+/* ---------------------------------------------------------------------------
+ * listDocuments
+ * GET /v1/admin/documents?page&limit&search&accessType&templateSlug
+ * ------------------------------------------------------------------------ */
+const listDocuments = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 20, search, accessType, templateSlug } = req.query;
+  const skip = (Number(page) - 1) * Number(limit);
+
+  // isDeleted: false is injected by the Document model's pre-query hook
+  const filter = {};
+  if (accessType)   filter.accessType   = accessType;
+  if (templateSlug) filter.templateSlug = templateSlug;
+
+  if (search) {
+    const regex = new RegExp(search, 'i');
+    const users = await User.find({ $or: [{ name: regex }, { email: regex }] }).select('_id').lean();
+    const ids = users.map((u) => u._id);
+    filter.$or = [{ user: { $in: ids } }, { title: regex }];
+  }
+
+  const [documents, total] = await Promise.all([
+    Document.find(filter)
+      .populate('user', 'name email')
+      .select('title templateSlug accessType isPaid isActive createdAt user')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit))
+      .lean(),
+    Document.countDocuments(filter),
+  ]);
+
+  return res.json({ documents, pagination: { total, page: Number(page), limit: Number(limit) } });
+});
+
+/* ---------------------------------------------------------------------------
+ * deleteDocument
+ * DELETE /v1/admin/documents/:id
+ * Soft-deletes the document (sets isDeleted = true, deletedAt = now)
+ * ------------------------------------------------------------------------ */
+const deleteDocument = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid document id' });
+  }
+
+  // findById triggers the pre-query hook which automatically adds isDeleted: false
+  const document = await Document.findById(id);
+  if (!document) return res.status(404).json({ error: 'NOT_FOUND', message: 'Document not found' });
+
+  await document.softDelete();
+
+  logger.info('[admin.controller] Document soft-deleted by admin', {
+    documentId: id, adminUserId: req.user.userId,
+  });
+
+  return res.json({ ok: true, documentId: id, deletedAt: document.deletedAt });
+});
+
 module.exports = {
   verifyLawyer,
   rejectLawyer,
@@ -872,4 +1080,10 @@ module.exports = {
   listTemplates,
   createTemplate,
   updateTemplate,
+  listPayments,
+  refundPayment,
+  listConsultations,
+  cancelConsultation,
+  listDocuments,
+  deleteDocument,
 };

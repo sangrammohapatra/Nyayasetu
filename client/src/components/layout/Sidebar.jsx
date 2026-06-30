@@ -90,12 +90,16 @@ function useNavItems(persona, t) {
 
     const admin = [
       { section: t('sidebar.section_admin', 'Administration') },
-      { icon: IC.dashboard, label: t('sidebar.dashboard', 'Dashboard'),  path: '/admin/dashboard' },
-      { icon: IC.users,     label: t('sidebar.users',     'Users'),      path: '/admin/users' },
-      { icon: IC.templates, label: t('sidebar.templates', 'Templates'),  path: '/admin/templates' },
-      { icon: IC.lawyers,   label: t('sidebar.lawyers',   'Lawyers'),    path: '/admin/lawyers' },
-      { icon: IC.notaries,  label: t('sidebar.notaries',  'Notaries'),   path: '/admin/notaries' },
-      { icon: IC.myDocs,    label: t('sidebar.auditLog',  'Audit Log'),  path: '/admin/audit-logs' },
+      { icon: IC.dashboard,     label: t('sidebar.dashboard',     'Dashboard'),     path: '/admin/dashboard' },
+      { icon: IC.users,         label: t('sidebar.users',         'Users'),         path: '/admin/users' },
+      { icon: IC.templates,     label: t('sidebar.templates',     'Templates'),     path: '/admin/templates' },
+      { icon: IC.lawyers,       label: t('sidebar.lawyers',       'Lawyers'),       path: '/admin/lawyers' },
+      { icon: IC.notaries,      label: t('sidebar.notaries',      'Notaries'),      path: '/admin/notaries' },
+      { section: t('sidebar.section_moderation', 'Moderation') },
+      { icon: IC.earnings,      label: t('sidebar.payments',      'Payments'),      path: '/admin/payments' },
+      { icon: IC.consultations, label: t('sidebar.consultations', 'Consultations'), path: '/admin/consultations' },
+      { icon: IC.myDocs,        label: t('sidebar.documents',     'Documents'),     path: '/admin/documents' },
+      { icon: IC.cases,         label: t('sidebar.auditLog',      'Audit Log'),     path: '/admin/audit-logs' },
     ];
 
     const notary = [

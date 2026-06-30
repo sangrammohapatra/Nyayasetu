@@ -67,4 +67,22 @@ router.get('/templates', adminController.listTemplates);
 router.post('/templates', adminController.createTemplate);
 router.put('/templates/:id', adminController.updateTemplate);
 
+/* ---------------------------------------------------------------------------
+ * Payment management
+ * ------------------------------------------------------------------------ */
+router.get('/payments', adminController.listPayments);
+router.post('/payments/:id/refund', adminController.refundPayment);
+
+/* ---------------------------------------------------------------------------
+ * Consultation management
+ * ------------------------------------------------------------------------ */
+router.get('/consultations', adminController.listConsultations);
+router.patch('/consultations/:id/cancel', adminController.cancelConsultation);
+
+/* ---------------------------------------------------------------------------
+ * Document moderation
+ * ------------------------------------------------------------------------ */
+router.get('/documents', adminController.listDocuments);
+router.delete('/documents/:id', adminController.deleteDocument);
+
 module.exports = router;
