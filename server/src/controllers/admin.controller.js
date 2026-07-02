@@ -619,7 +619,7 @@ const verifyNotary = asyncHandler(async (req, res) => {
       await emailService.sendEmail({
         to: notaryUser.email,
         subject: 'Your NyayaSetu notary profile is now verified ✅',
-        html: emailService.welcomeEmail(notaryUser.name || 'Notary'),
+        html: emailService.notaryApprovedEmail(notaryUser.name || 'Notary'),
       });
     } catch (err) {
       logger.warn('[admin.controller] verifyNotary email notify failed', { error: err.message });
@@ -1639,6 +1639,127 @@ const broadcastNotification = asyncHandler(async (req, res) => {
   return res.json({ ok: true, sent, failed });
 });
 
+/* ---------------------------------------------------------------------------
+ * listNotarizations / getNotarization
+ * Admin views of all notarization requests for oversight and dispute resolution.
+ * ------------------------------------------------------------------------ */
+const NotarizationRequest = require('../models/NotarizationRequest.model');
+
+const listNotarizations = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 20, status, search } = req.query;
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const filter = {};
+  if (status) filter.status = status;
+
+  let items, total;
+
+  if (search) {
+    // Resolve citizen/notary ids from User search
+    const searchedUsers = await User.find(
+      { $or: [{ name: new RegExp(search, 'i') }, { email: new RegExp(search, 'i') }] },
+      '_id'
+    ).lean();
+    const userIds = searchedUsers.map((u) => u._id);
+    filter.$or = [{ citizen: { $in: userIds } }, { notary: { $in: userIds } }];
+  }
+
+  [items, total] = await Promise.all([
+    NotarizationRequest.find(filter)
+      .populate('citizen', 'name email phone avatar')
+      .populate('notary', 'name email avatar')
+      .populate('notaryProfile', 'notaryRegistrationNumber registrationState')
+      .populate('document', 'title')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit)),
+    NotarizationRequest.countDocuments(filter),
+  ]);
+
+  return res.json({ items, total, page: Number(page), limit: Number(limit) });
+});
+
+const getNotarization = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid request id' });
+  }
+
+  const request = await NotarizationRequest.findById(id)
+    .populate('citizen', 'name email phone avatar')
+    .populate('notary', 'name email avatar')
+    .populate('notaryProfile', 'notaryRegistrationNumber registrationState averageRating totalEarnings pendingEarnings')
+    .populate('document', 'title template createdAt');
+
+  if (!request) return res.status(404).json({ error: 'NOT_FOUND', message: 'Request not found' });
+  return res.json(request);
+});
+
+/* ---------------------------------------------------------------------------
+ * listWithdrawals / processWithdrawal
+ * Admin management of notary payout requests.
+ * ------------------------------------------------------------------------ */
+const NotaryWithdrawal = require('../models/NotaryWithdrawal.model');
+
+const listWithdrawals = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 20, status } = req.query;
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const filter = {};
+  if (status) filter.status = status;
+
+  const [items, total] = await Promise.all([
+    NotaryWithdrawal.find(filter)
+      .populate('notaryUser', 'name email')
+      .populate('notaryProfile', 'notaryRegistrationNumber')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit)),
+    NotaryWithdrawal.countDocuments(filter),
+  ]);
+
+  return res.json({ items, total, page: Number(page), limit: Number(limit) });
+});
+
+const processWithdrawal = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status, reference, notes } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid withdrawal id' });
+  }
+  if (!['completed', 'failed', 'processing'].includes(status)) {
+    return res.status(400).json({ error: 'INVALID_STATUS', message: 'Status must be completed, failed, or processing' });
+  }
+
+  const withdrawal = await NotaryWithdrawal.findById(id);
+  if (!withdrawal) return res.status(404).json({ error: 'NOT_FOUND', message: 'Withdrawal not found' });
+  if (withdrawal.status === 'completed' || withdrawal.status === 'failed') {
+    return res.status(409).json({ error: 'ALREADY_PROCESSED', message: 'Withdrawal already finalized' });
+  }
+
+  withdrawal.status = status;
+  withdrawal.processedBy = req.user.userId;
+  withdrawal.processedAt = new Date();
+  if (reference) withdrawal.reference = reference.trim();
+  if (notes) withdrawal.notes = notes.trim();
+  await withdrawal.save();
+
+  // On completion, add to the notary's withdrawnAmount so balance stays accurate
+  if (status === 'completed') {
+    await NotaryProfile.findByIdAndUpdate(withdrawal.notaryProfile, {
+      $inc: { withdrawnAmount: withdrawal.amount },
+    });
+  }
+
+  await AuditLog.log(req, `admin.withdrawal.${status}`, 'NotaryWithdrawal', withdrawal._id, {
+    amount: withdrawal.amount,
+    reference,
+  });
+
+  return res.json({ message: `Withdrawal marked as ${status}`, withdrawal });
+});
+
 module.exports = {
   reauth,
   verifyLawyer,
@@ -1673,4 +1794,8 @@ module.exports = {
   resetUserQuota,
   bulkUserAction,
   broadcastNotification,
+  listNotarizations,
+  getNotarization,
+  listWithdrawals,
+  processWithdrawal,
 };

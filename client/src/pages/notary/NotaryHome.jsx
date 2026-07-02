@@ -15,7 +15,7 @@ import Chip from '@mui/material/Chip';
 import {
   fetchNotarizationRequests,
   selectNotarizationRequests,
-  selectNotaryLoading,
+  selectNotaryRequestsLoading,
 } from '../../store/slices/notarySlice';
 import { selectUser } from '../../store/slices/authSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
@@ -31,6 +31,7 @@ const STATUS_META = {
   stamped:       { label: 'Stamped',       color: '#2e7d32', bg: 'rgba(46,125,50,0.1)' },
   dispatched:    { label: 'Dispatched',    color: '#1b5e20', bg: 'rgba(27,94,32,0.1)' },
   rejected:      { label: 'Rejected',      color: '#c62828', bg: 'rgba(198,40,40,0.1)' },
+  cancelled:     { label: 'Cancelled',     color: '#757575', bg: 'rgba(117,117,117,0.1)' },
 };
 
 function StatCard({ icon, label, value, color }) {
@@ -52,12 +53,12 @@ export default function NotaryHome() {
   const navigate = useNavigate();
   const user = useSelector(selectUser);
   const requests = useSelector(selectNotarizationRequests);
-  const loading = useSelector(selectNotaryLoading);
+  const loading = useSelector(selectNotaryRequestsLoading);
 
   useEffect(() => { dispatch(fetchNotarizationRequests()); }, [dispatch]);
 
   const pending = requests.filter((r) => r.status === 'pending').length;
-  const actionNeeded = requests.filter((r) => ['pending', 'accepted', 'kyc_completed'].includes(r.status)).length;
+  const actionNeeded = requests.filter((r) => ['pending', 'kyc_completed'].includes(r.status)).length;
   const completed = requests.filter((r) => ['stamped', 'dispatched'].includes(r.status)).length;
   const recent = [...requests].slice(0, 5);
 

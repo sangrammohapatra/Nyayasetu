@@ -66,6 +66,10 @@ async function startServer() {
     // Register all socket handlers (auth + consultation chat events)
     initSocket(io);
 
+    // ── Notarization SLA monitor ───────────────────────────────────────────
+    const { start: startSlaMonitor } = require('./services/notarizationSla');
+    startSlaMonitor(io);
+
     // ── Start listening ────────────────────────────────────────────────────
     server.listen(PORT, () => {
       logger.info(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);

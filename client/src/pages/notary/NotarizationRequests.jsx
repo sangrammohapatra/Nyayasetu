@@ -33,7 +33,9 @@ import {
   rejectNotarizationRequest,
   markDispatched,
   selectNotarizationRequests,
-  selectNotaryLoading,
+  selectNotarizationRequestsHasMore,
+  selectNotarizationRequestsPage,
+  selectNotaryRequestsLoading,
 } from '../../store/slices/notarySlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GlassCard from '../../components/ui/GlassCard';
@@ -48,6 +50,7 @@ const STATUS_META = {
   stamped:       { label: 'Stamped',       color: '#2e7d32', bg: 'rgba(46,125,50,0.1)',   icon: '🔏' },
   dispatched:    { label: 'Dispatched',    color: '#1b5e20', bg: 'rgba(27,94,32,0.1)',    icon: '📦' },
   rejected:      { label: 'Rejected',      color: '#c62828', bg: 'rgba(198,40,40,0.1)',   icon: '❌' },
+  cancelled:     { label: 'Cancelled',     color: '#757575', bg: 'rgba(117,117,117,0.1)', icon: '🚫' },
 };
 
 const TABS = [
@@ -283,10 +286,14 @@ function RequestCard({ request, onAction, actionLoading }) {
   );
 }
 
+const PAGE_SIZE = 20;
+
 export default function NotarizationRequests() {
   const dispatch = useDispatch();
   const requests = useSelector(selectNotarizationRequests);
-  const loading = useSelector(selectNotaryLoading);
+  const hasMore = useSelector(selectNotarizationRequestsHasMore);
+  const currentPage = useSelector(selectNotarizationRequestsPage);
+  const loading = useSelector(selectNotaryRequestsLoading);
 
   const [tab, setTab] = useState(0);
   const [actionLoading, setActionLoading] = useState(null);
@@ -294,7 +301,11 @@ export default function NotarizationRequests() {
   const [scheduleTarget, setScheduleTarget] = useState(null);
   const [dispatchTarget, setDispatchTarget] = useState(null);
 
-  useEffect(() => { dispatch(fetchNotarizationRequests()); }, [dispatch]);
+  useEffect(() => { dispatch(fetchNotarizationRequests({ page: 1, limit: PAGE_SIZE })); }, [dispatch]);
+
+  const handleLoadMore = () => {
+    dispatch(fetchNotarizationRequests({ page: currentPage + 1, limit: PAGE_SIZE, append: true }));
+  };
 
   const filtered = TABS[tab].statuses
     ? requests.filter((r) => TABS[tab].statuses.includes(r.status))
@@ -362,7 +373,7 @@ export default function NotarizationRequests() {
           })}
         </Tabs>
 
-        {loading ? (
+        {loading && requests.length === 0 ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
             <CircularProgress sx={{ color: 'var(--color-primary)' }} />
           </Box>
@@ -374,20 +385,35 @@ export default function NotarizationRequests() {
             </Typography>
           </Box>
         ) : (
-          <AnimatePresence>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {filtered.map((req, i) => (
-                <motion.div
-                  key={req._id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
+          <>
+            <AnimatePresence>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {filtered.map((req, i) => (
+                  <motion.div
+                    key={req._id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                  >
+                    <RequestCard request={req} onAction={handleAction} actionLoading={actionLoading} />
+                  </motion.div>
+                ))}
+              </Box>
+            </AnimatePresence>
+
+            {hasMore && tab === TABS.length - 1 && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                <Button
+                  variant="outlined"
+                  onClick={handleLoadMore}
+                  disabled={loading}
+                  sx={{ borderRadius: 2, fontWeight: 600, borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
                 >
-                  <RequestCard request={req} onAction={handleAction} actionLoading={actionLoading} />
-                </motion.div>
-              ))}
-            </Box>
-          </AnimatePresence>
+                  {loading ? <CircularProgress size={18} sx={{ color: 'var(--color-primary)' }} /> : 'Load More'}
+                </Button>
+              </Box>
+            )}
+          </>
         )}
       </Box>
 

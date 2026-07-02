@@ -97,16 +97,18 @@ function useNavItems(persona, t) {
       { icon: IC.notaries,      label: t('sidebar.notaries',      'Notaries'),      path: '/admin/notaries' },
       { icon: IC.rtiTracker,    label: t('sidebar.rtiDashboard',  'RTI Dashboard'), path: '/admin/rti' },
       { section: t('sidebar.section_moderation', 'Moderation') },
-      { icon: IC.earnings,      label: t('sidebar.payments',      'Payments'),      path: '/admin/payments' },
-      { icon: IC.consultations, label: t('sidebar.consultations', 'Consultations'), path: '/admin/consultations' },
-      { icon: IC.myDocs,        label: t('sidebar.documents',     'Documents'),     path: '/admin/documents' },
-      { icon: IC.cases,         label: t('sidebar.auditLog',      'Audit Log'),     path: '/admin/audit-logs' },
+      { icon: IC.earnings,      label: t('sidebar.payments',        'Payments'),        path: '/admin/payments' },
+      { icon: IC.consultations, label: t('sidebar.consultations',   'Consultations'),   path: '/admin/consultations' },
+      { icon: IC.myDocs,        label: t('sidebar.documents',       'Documents'),       path: '/admin/documents' },
+      { icon: IC.notaries,      label: t('sidebar.notarizations',   'Notarizations'),   path: '/admin/notarizations' },
+      { icon: IC.cases,         label: t('sidebar.auditLog',        'Audit Log'),       path: '/admin/audit-logs' },
     ];
 
     const notary = [
       { section: 'Notary' },
       { icon: IC.home,          label: 'Home',           path: '/notary/home' },
       { icon: IC.consultations, label: 'Requests',       path: '/notary/requests' },
+      { icon: IC.earnings,      label: 'Earnings',       path: '/notary/earnings' },
       { icon: IC.calendar,      label: 'Calendar',       path: '/notary/calendar' },
       { icon: IC.dashboard,     label: 'My Profile',     path: '/notary/profile' },
     ];

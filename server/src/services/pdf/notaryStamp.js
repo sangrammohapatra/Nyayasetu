@@ -25,6 +25,14 @@ function formatDate(date) {
   });
 }
 
+// `document.content` is stored as plain text (see Document.model.js) — headings use
+// ALL-CAPS convention, matching the textToHtml() heuristic in generateDocument.job.js.
+// Strip any stray markup so a future rich-text/JSON-producing pipeline can't leak raw
+// tags into the printed notarized PDF.
+function cleanParagraph(para) {
+  return String(para).replace(/<[^>]+>/g, '').replace(/^#+\s*/, '').trim();
+}
+
 /**
  * generateNotarizedPDF
  *
@@ -102,27 +110,29 @@ exports.generateNotarizedPDF = async ({
       // ── Document Content ──────────────────────────────────────────────────────
       if (document.content) {
         const paragraphs = document.content.split(/\n{2,}/).filter(Boolean);
-        for (const para of paragraphs) {
+        for (const rawPara of paragraphs) {
+          const para = cleanParagraph(rawPara);
+          if (!para) continue;
           if (doc.y > pageH - 120) doc.addPage();
 
-          const isHeading = /^#+\s/.test(para.trim());
-          const isClause = /^\d+\.|^[IVX]+\./.test(para.trim());
+          const isHeading = para === para.toUpperCase() && para.length < 80 && /[A-Z]{3}/.test(para);
+          const isClause = /^\d+\.|^[ivxIVX]+\./.test(para);
 
           if (isHeading) {
             doc.font('Helvetica-Bold')
                .fontSize(12)
                .fillColor(COLORS.dark)
-               .text(para.replace(/^#+\s/, ''), ML, doc.y, { width: contentW });
+               .text(para, ML, doc.y, { width: contentW });
           } else if (isClause) {
             doc.font('Helvetica')
                .fontSize(10)
                .fillColor(COLORS.dark)
-               .text(para.trim(), ML, doc.y, { width: contentW, lineGap: 3 });
+               .text(para, ML, doc.y, { width: contentW, lineGap: 3 });
           } else {
             doc.font('Helvetica')
                .fontSize(10)
                .fillColor(COLORS.secondary)
-               .text(para.trim(), ML, doc.y, { width: contentW, lineGap: 3 });
+               .text(para, ML, doc.y, { width: contentW, lineGap: 3 });
           }
           doc.moveDown(0.75);
         }
@@ -134,18 +144,18 @@ exports.generateNotarizedPDF = async ({
       const sealY = 80;
 
       // Outer seal border — double rectangle
-      doc.rect(ML, sealY, contentW, 320)
+      doc.rect(ML, sealY, contentW, 380)
          .strokeColor(COLORS.seal)
          .lineWidth(2)
          .stroke();
 
-      doc.rect(ML + 6, sealY + 6, contentW - 12, 308)
+      doc.rect(ML + 6, sealY + 6, contentW - 12, 368)
          .strokeColor(COLORS.seal)
          .lineWidth(0.5)
          .stroke();
 
       // Seal fill
-      doc.rect(ML + 7, sealY + 7, contentW - 14, 306)
+      doc.rect(ML + 7, sealY + 7, contentW - 14, 366)
          .fill(COLORS.sealBg);
 
       // Seal icon area (circular emblem)
@@ -224,7 +234,7 @@ exports.generateNotarizedPDF = async ({
         dy += lineGap;
       }
 
-      // Footer note
+      // Footer note — starts after the last detail row (sealY+182 + 6×22 = sealY+314) with a small gap
       doc.font('Helvetica')
          .fontSize(7.5)
          .fillColor(COLORS.secondary)
@@ -232,7 +242,7 @@ exports.generateNotarizedPDF = async ({
            'This document has been notarized online in accordance with Indian Information Technology Act, 2000 and ' +
            'The Notaries Act, 1952 via Video KYC. The notary has verified the identity of the signatory and the ' +
            'authenticity of this document. Stamp Reference: ' + stampRef,
-           ML + 20, sealY + 310,
+           ML + 20, sealY + 328,
            { width: contentW - 40, align: 'center' }
          );
 

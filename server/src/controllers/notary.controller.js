@@ -3,6 +3,7 @@
 const multer = require('multer');
 const NotaryProfile = require('../models/NotaryProfile.model');
 const NotarizationRequest = require('../models/NotarizationRequest.model');
+const NotaryWithdrawal = require('../models/NotaryWithdrawal.model');
 const Document = require('../models/Document.model');
 const User = require('../models/User.model');
 const Notification = require('../models/Notification.model');
@@ -12,7 +13,6 @@ const videoProvider = require('../services/video/videoProvider');
 const logger = require('../utils/logger');
 const AuditLog = require('../models/AuditLog.model');
 const { PERSONAS, NOTARIZATION_FEE } = require('../config/constants');
-const { signTokenPair } = require('./auth.controller');
 
 // ─── Multer (certificate upload) ─────────────────────────────────────────────
 const upload = multer({
@@ -35,6 +35,10 @@ function generateStampRef() {
   const ts = Date.now().toString(36).toUpperCase();
   const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
   return `NS-${ts}-${rand}`;
+}
+
+function computeNotaryEarnings(commissionPercent) {
+  return Math.round(NOTARIZATION_FEE * (1 - (commissionPercent / 100)));
 }
 
 // ─── Public: Search Notaries ──────────────────────────────────────────────────
@@ -83,7 +87,13 @@ exports.getNotaryProfile = async (req, res) => {
 
     if (!profile) return res.status(404).json({ error: 'NOT_FOUND', message: 'Notary not found' });
 
-    await NotaryProfile.findByIdAndUpdate(req.params.id, { $inc: { profileViews: 1 } });
+    const isSelfOrAdmin = req.user && (
+      req.user.userId === String(profile.user?._id || profile.user) ||
+      req.user.persona === PERSONAS.ADMIN
+    );
+    if (!isSelfOrAdmin) {
+      await NotaryProfile.findByIdAndUpdate(req.params.id, { $inc: { profileViews: 1 } });
+    }
     res.json(profile);
   } catch (err) {
     logger.error('getNotaryProfile error:', err);
@@ -98,7 +108,7 @@ exports.applyAsNotary = async (req, res) => {
     const userId = req.user.userId;
 
     const existing = await NotaryProfile.findOne({ user: userId });
-    if (existing) {
+    if (existing && existing.verificationStatus !== 'rejected') {
       return res.status(409).json({ error: 'ALREADY_APPLIED', message: 'You have already applied as a notary' });
     }
 
@@ -140,23 +150,30 @@ exports.applyAsNotary = async (req, res) => {
       uploadedAt: new Date(),
     }];
 
-    const profile = await NotaryProfile.create(profileData);
+    let profile;
+    if (existing) {
+      // Re-application after rejection — reset verification state
+      profile = await NotaryProfile.findByIdAndUpdate(
+        existing._id,
+        {
+          $set: { ...profileData, verificationStatus: 'pending', isVerified: false },
+          $unset: { rejectionReason: '', rejectedAt: '', rejectedBy: '', verifiedAt: '', verifiedBy: '' },
+        },
+        { new: true }
+      );
+    } else {
+      profile = await NotaryProfile.create(profileData);
+    }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { persona: PERSONAS.NOTARY },
-      { new: true }
-    );
-
-    const { accessToken, refreshToken } = signTokenPair(updatedUser);
-    await updatedUser.addRefreshToken(refreshToken);
+    // Persona stays unchanged until admin approves — citizen retains full access during review
 
     await AuditLog.log(req, 'notary.applied', 'NotaryProfile', profile._id, {
       notaryRegistrationNumber,
       registrationState,
+      reapplication: !!existing,
     });
 
-    res.status(201).json({ message: 'Application submitted. Under review.', profile, accessToken, refreshToken });
+    res.status(201).json({ message: 'Application submitted. Under review.', profile });
   } catch (err) {
     logger.error('applyAsNotary error:', err);
     if (err.code === 11000) {
@@ -300,6 +317,17 @@ exports.verifyNotarizationPayment = async (req, res) => {
       return res.status(404).json({ error: 'NOT_FOUND', message: 'Request not found' });
     }
 
+    // Credit as pending earnings now that payment is confirmed, so admins/notaries
+    // have visibility into committed money even if the request later stalls before stamping.
+    if (notarizationReq.notaryProfile) {
+      const notaryProfile = await NotaryProfile.findById(notarizationReq.notaryProfile, 'platformCommissionPercent');
+      if (notaryProfile) {
+        await NotaryProfile.findByIdAndUpdate(notaryProfile._id, {
+          $inc: { pendingEarnings: computeNotaryEarnings(notaryProfile.platformCommissionPercent) },
+        });
+      }
+    }
+
     // Notify notary that payment has been received
     try {
       await Notification.createForUser({
@@ -407,26 +435,28 @@ exports.getNotarizationRequest = async (req, res) => {
 
 exports.acceptRequest = async (req, res) => {
   try {
-    const existing = await NotarizationRequest.findOne({
-      _id: req.params.id, notary: req.user.userId, status: 'pending',
-    });
-    if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Request not found' });
+    // Atomically claim the request — prevents double-accept on concurrent retries
+    const claimed = await NotarizationRequest.findOneAndUpdate(
+      { _id: req.params.id, notary: req.user.userId, status: 'pending' },
+      { status: 'accepted' },
+      { new: true }
+    );
+    if (!claimed) return res.status(404).json({ error: 'NOT_FOUND', message: 'Request not found' });
 
     // Create the Razorpay order now that notary has accepted — citizen will pay next
     const order = await razorpayService.createOrder({
       amount: NOTARIZATION_FEE,
       currency: 'INR',
-      receipt: `notarize_${existing._id}_${Date.now()}`,
+      receipt: `notarize_${claimed._id}_${Date.now()}`,
       notes: {
-        notarizationRequestId: String(existing._id),
-        citizenId: String(existing.citizen),
+        notarizationRequestId: String(claimed._id),
+        citizenId: String(claimed.citizen),
       },
     });
 
     const request = await NotarizationRequest.findByIdAndUpdate(
-      existing._id,
+      claimed._id,
       {
-        status: 'accepted',
         'payment.razorpayOrderId': order.id,
         'payment.amount': NOTARIZATION_FEE,
       },
@@ -436,7 +466,7 @@ exports.acceptRequest = async (req, res) => {
     // Notify citizen that request was accepted and payment is due
     try {
       await Notification.createForUser({
-        userId: existing.citizen,
+        userId: claimed.citizen,
         type: 'notarization_accepted',
         title: 'Notarization request accepted',
         body: 'The notary has accepted your request. Please complete the payment of ₹199 to proceed.',
@@ -596,10 +626,10 @@ exports.stampDocument = async (req, res) => {
       notaryStampRef: stampRef,
     });
 
-    // Update notary earnings + stats
-    const notaryEarnings = Math.round(NOTARIZATION_FEE * (1 - (notaryProfile.platformCommissionPercent / 100)));
+    // Move earnings from pending (credited at payment time) to confirmed + update stats
+    const notaryEarnings = computeNotaryEarnings(notaryProfile.platformCommissionPercent);
     await NotaryProfile.findByIdAndUpdate(notaryProfile._id, {
-      $inc: { totalEarnings: notaryEarnings, totalNotarizations: 1 },
+      $inc: { totalEarnings: notaryEarnings, totalNotarizations: 1, pendingEarnings: -notaryEarnings },
     });
 
     // Notify citizen that document is stamped and ready to download
@@ -635,17 +665,27 @@ exports.rejectRequest = async (req, res) => {
   try {
     const { reason } = req.body;
     const request = await NotarizationRequest.findOneAndUpdate(
-      { _id: req.params.id, notary: req.user.userId, status: { $in: ['pending', 'accepted'] } },
+      { _id: req.params.id, notary: req.user.userId, status: { $in: ['pending', 'accepted', 'kyc_scheduled'] } },
       { status: 'rejected', rejectionReason: reason?.trim() },
       { new: true }
     );
     if (!request) return res.status(404).json({ error: 'NOT_FOUND', message: 'Not found' });
 
     // Refund if payment was captured
+    let refundInitiated = false;
     if (request.payment?.status === 'paid' && request.payment?.razorpayPaymentId) {
       try {
         await razorpayService.refund(request.payment.razorpayPaymentId, request.payment.amount);
         await NotarizationRequest.findByIdAndUpdate(request._id, { 'payment.status': 'refunded' });
+        refundInitiated = true;
+        if (request.notaryProfile) {
+          const notaryProfile = await NotaryProfile.findById(request.notaryProfile, 'platformCommissionPercent');
+          if (notaryProfile) {
+            await NotaryProfile.findByIdAndUpdate(notaryProfile._id, {
+              $inc: { pendingEarnings: -computeNotaryEarnings(notaryProfile.platformCommissionPercent) },
+            });
+          }
+        }
       } catch (refundErr) {
         logger.error('Refund failed for notarization rejection:', refundErr);
       }
@@ -658,8 +698,8 @@ exports.rejectRequest = async (req, res) => {
         type: 'notarization_rejected',
         title: 'Notarization request declined',
         body: reason
-          ? `Your notarization request was declined. Reason: ${reason}.${request.payment?.status === 'refunded' ? ' A refund will be processed in 5-7 business days.' : ''}`
-          : `Your notarization request was declined by the notary.${request.payment?.status === 'refunded' ? ' A refund will be processed in 5-7 business days.' : ''}`,
+          ? `Your notarization request was declined. Reason: ${reason}.${refundInitiated ? ' A refund will be processed in 5-7 business days.' : ''}`
+          : `Your notarization request was declined by the notary.${refundInitiated ? ' A refund will be processed in 5-7 business days.' : ''}`,
         data: { notarizationRequestId: request._id },
         actionUrl: `/notarization/${request._id}`,
         io: req.app.get('io'),
@@ -671,6 +711,59 @@ exports.rejectRequest = async (req, res) => {
     res.json({ message: 'Request rejected', request });
   } catch (err) {
     logger.error('rejectRequest error:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An unexpected error occurred' });
+  }
+};
+
+// ─── Cancel Request (Citizen) ────────────────────────────────────────────────
+
+exports.cancelRequest = async (req, res) => {
+  try {
+    const request = await NotarizationRequest.findOneAndUpdate(
+      { _id: req.params.id, citizen: req.user.userId, status: { $in: ['pending', 'accepted'] } },
+      { status: 'cancelled' },
+      { new: true }
+    );
+    if (!request) return res.status(404).json({ error: 'NOT_FOUND', message: 'Request not found or cannot be cancelled' });
+
+    // Refund if payment was captured
+    let refundInitiated = false;
+    if (request.payment?.status === 'paid' && request.payment?.razorpayPaymentId) {
+      try {
+        await razorpayService.refund(request.payment.razorpayPaymentId, request.payment.amount);
+        await NotarizationRequest.findByIdAndUpdate(request._id, { 'payment.status': 'refunded' });
+        refundInitiated = true;
+        if (request.notaryProfile) {
+          const notaryProfile = await NotaryProfile.findById(request.notaryProfile, 'platformCommissionPercent');
+          if (notaryProfile) {
+            await NotaryProfile.findByIdAndUpdate(notaryProfile._id, {
+              $inc: { pendingEarnings: -computeNotaryEarnings(notaryProfile.platformCommissionPercent) },
+            });
+          }
+        }
+      } catch (refundErr) {
+        logger.error('Refund failed for notarization cancellation:', refundErr);
+      }
+    }
+
+    // Notify notary of cancellation
+    try {
+      await Notification.createForUser({
+        userId: request.notary,
+        type: 'notarization_cancelled',
+        title: 'Notarization request cancelled',
+        body: 'The citizen has cancelled the notarization request.',
+        data: { notarizationRequestId: request._id },
+        actionUrl: `/notary/requests/${request._id}`,
+        io: req.app.get('io'),
+      });
+    } catch (_) {}
+
+    await AuditLog.log(req, 'notarization.cancelled', 'NotarizationRequest', request._id, { refundInitiated });
+
+    res.json({ message: 'Request cancelled', request });
+  } catch (err) {
+    logger.error('cancelRequest error:', err);
     res.status(500).json({ error: 'SERVER_ERROR', message: 'An unexpected error occurred' });
   }
 };
@@ -782,12 +875,142 @@ exports.getDocumentNotarizationStatus = async (req, res) => {
       status: { $nin: ['rejected', 'cancelled'] },
     })
       .populate('notary', 'name avatar')
-      .populate('notaryProfile', 'notaryRegistrationNumber registrationState averageRating')
-      .sort({ createdAt: -1 });
+      .populate('notaryProfile', 'notaryRegistrationNumber registrationState averageRating');
 
     res.json({ notarizationRequest: request || null });
   } catch (err) {
     logger.error('getDocumentNotarizationStatus error:', err);
     res.status(500).json({ error: 'SERVER_ERROR', message: 'An unexpected error occurred' });
+  }
+};
+
+// ─── Save Bank Account (Notary) ───────────────────────────────────────────────
+
+exports.saveBankAccount = async (req, res) => {
+  try {
+    const { accountHolderName, accountNumber, ifscCode, bankName } = req.body;
+
+    if (!accountHolderName || !accountNumber || !ifscCode || !bankName) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'All bank account fields are required' });
+    }
+
+    const profile = await NotaryProfile.findOneAndUpdate(
+      { user: req.user.userId },
+      {
+        bankAccount: {
+          accountHolderName: accountHolderName.trim(),
+          accountNumber: accountNumber.trim(),
+          ifscCode: ifscCode.trim().toUpperCase(),
+          bankName: bankName.trim(),
+        },
+      },
+      { new: true, select: 'bankAccount totalEarnings withdrawnAmount' }
+    );
+
+    if (!profile) return res.status(404).json({ error: 'NOT_FOUND', message: 'Notary profile not found' });
+
+    await AuditLog.log(req, 'notary.bank_account.updated', 'NotaryProfile', profile._id, {
+      bankName,
+    });
+
+    res.json({ message: 'Bank account saved', bankAccount: profile.bankAccount });
+  } catch (err) {
+    logger.error('saveBankAccount error:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to save bank account' });
+  }
+};
+
+// ─── Request Withdrawal (Notary) ──────────────────────────────────────────────
+
+exports.requestWithdrawal = async (req, res) => {
+  try {
+    const { amount } = req.body;
+
+    if (!amount || amount < 1) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid withdrawal amount' });
+    }
+
+    const profile = await NotaryProfile.findOne({ user: req.user.userId });
+    if (!profile) return res.status(404).json({ error: 'NOT_FOUND', message: 'Notary profile not found' });
+
+    if (!profile.bankAccount?.accountNumber) {
+      return res.status(400).json({ error: 'NO_BANK_ACCOUNT', message: 'Please add your bank account before requesting a withdrawal' });
+    }
+
+    // Calculate pending withdrawal sum to prevent over-withdrawal
+    const pendingSum = await NotaryWithdrawal.aggregate([
+      { $match: { notaryProfile: profile._id, status: { $in: ['pending', 'processing'] } } },
+      { $group: { _id: null, total: { $sum: '$amount' } } },
+    ]);
+    const pendingTotal = pendingSum[0]?.total || 0;
+
+    const withdrawable = profile.totalEarnings - (profile.withdrawnAmount || 0) - pendingTotal;
+    if (amount > withdrawable) {
+      return res.status(400).json({
+        error: 'INSUFFICIENT_BALANCE',
+        message: `Withdrawable balance is ₹${(withdrawable / 100).toFixed(2)}`,
+      });
+    }
+
+    const acct = profile.bankAccount;
+    const masked = acct.accountNumber.replace(/.(?=.{4})/g, '*');
+
+    const withdrawal = await NotaryWithdrawal.create({
+      notaryProfile: profile._id,
+      notaryUser: req.user.userId,
+      amount,
+      bankSnapshot: {
+        accountHolderName: acct.accountHolderName,
+        maskedAccountNumber: masked,
+        ifscCode: acct.ifscCode,
+        bankName: acct.bankName,
+      },
+    });
+
+    await AuditLog.log(req, 'notary.withdrawal.requested', 'NotaryWithdrawal', withdrawal._id, {
+      amount,
+    });
+
+    res.status(201).json({ message: 'Withdrawal request submitted', withdrawal });
+  } catch (err) {
+    logger.error('requestWithdrawal error:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to request withdrawal' });
+  }
+};
+
+// ─── List Withdrawals (Notary) ────────────────────────────────────────────────
+
+exports.listWithdrawals = async (req, res) => {
+  try {
+    const profile = await NotaryProfile.findOne({ user: req.user.userId }, '_id totalEarnings pendingEarnings withdrawnAmount bankAccount');
+    if (!profile) return res.status(404).json({ error: 'NOT_FOUND', message: 'Notary profile not found' });
+
+    const withdrawals = await NotaryWithdrawal.find({ notaryProfile: profile._id }).sort({ createdAt: -1 });
+
+    const pendingSum = withdrawals
+      .filter((w) => ['pending', 'processing'].includes(w.status))
+      .reduce((s, w) => s + w.amount, 0);
+
+    const withdrawable = profile.totalEarnings - (profile.withdrawnAmount || 0) - pendingSum;
+
+    res.json({
+      totalEarnings: profile.totalEarnings,
+      pendingEarnings: profile.pendingEarnings || 0,
+      withdrawnAmount: profile.withdrawnAmount || 0,
+      withdrawable: Math.max(0, withdrawable),
+      hasBankAccount: !!profile.bankAccount?.accountNumber,
+      bankAccount: profile.bankAccount?.accountNumber
+        ? {
+            accountHolderName: profile.bankAccount.accountHolderName,
+            maskedAccountNumber: profile.bankAccount.accountNumber.replace(/.(?=.{4})/g, '*'),
+            ifscCode: profile.bankAccount.ifscCode,
+            bankName: profile.bankAccount.bankName,
+          }
+        : null,
+      withdrawals,
+    });
+  } catch (err) {
+    logger.error('listWithdrawals error:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to load withdrawals' });
   }
 };

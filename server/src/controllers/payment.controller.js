@@ -21,6 +21,8 @@ const Payment = require('../models/Payment.model');
 const Subscription = require('../models/Subscription.model');
 const Consultation = require('../models/Consultation.model');
 const LawyerProfile = require('../models/LawyerProfile.model');
+const NotarizationRequest = require('../models/NotarizationRequest.model');
+const Notification = require('../models/Notification.model');
 
 const razorpayService = require('../services/payment/razorpayService');
 const emailService = require('../services/notification/emailService');
@@ -603,7 +605,7 @@ const webhookHandler = asyncHandler(async (req, res) => {
   try {
     switch (eventType) {
       case 'payment.captured':
-        await handlePaymentCaptured(payload);
+        await handlePaymentCaptured(payload, req.app.get('io'));
         await AuditLog.log(req, 'payment.webhook.captured', 'Payment', null, {
           orderId: payload?.payment?.entity?.order_id,
           paymentId: payload?.payment?.entity?.id,
@@ -653,21 +655,23 @@ const webhookHandler = asyncHandler(async (req, res) => {
  * Webhook event handlers (all idempotent)
  * ------------------------------------------------------------------------ */
 
-async function handlePaymentCaptured(payload) {
+async function handlePaymentCaptured(payload, io = null) {
   const paymentEntity = payload && payload.payment && payload.payment.entity;
   if (!paymentEntity) return;
 
   const razorpayOrderId = paymentEntity.order_id;
   const razorpayPaymentId = paymentEntity.id;
 
+  let foundPaymentRecord = false;
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
       const payment = await Payment.findOne({ razorpayOrderId }).session(session);
       if (!payment) {
-        logger.warn('[payment.controller] handlePaymentCaptured: no Payment record', { razorpayOrderId });
+        logger.debug('[payment.controller] handlePaymentCaptured: no Payment record for orderId — may be a notarization order', { razorpayOrderId });
         return;
       }
+      foundPaymentRecord = true;
       if (payment.status === 'paid') return; // idempotent
 
       payment.status = 'paid';
@@ -716,6 +720,56 @@ async function handlePaymentCaptured(payload) {
     });
   } finally {
     await session.endSession();
+  }
+
+  // If no Payment record matched, check whether this is a notarization payment.
+  // Notarization orders are tracked on NotarizationRequest.payment, not a Payment doc.
+  if (!foundPaymentRecord) {
+    const notarizationReq = await NotarizationRequest.findOneAndUpdate(
+      { 'payment.razorpayOrderId': razorpayOrderId, 'payment.status': { $ne: 'paid' } },
+      {
+        'payment.status': 'paid',
+        'payment.razorpayPaymentId': razorpayPaymentId,
+        'payment.paidAt': new Date(),
+      },
+      { new: true }
+    );
+
+    if (notarizationReq) {
+      logger.info('[payment.controller] webhook: notarization payment captured', {
+        notarizationRequestId: notarizationReq._id,
+        razorpayPaymentId,
+      });
+      try {
+        await Notification.createForUser({
+          userId: notarizationReq.notary,
+          type: 'notarization_paid',
+          title: 'Notarization payment received',
+          body: 'The citizen has paid ₹199. You can now schedule the Video KYC session.',
+          data: { notarizationRequestId: notarizationReq._id },
+          actionUrl: `/notary/requests/${notarizationReq._id}`,
+          priority: 'high',
+          io,
+        });
+      } catch (err) {
+        logger.error('[payment.controller] webhook: notary notification failed', { error: err.message });
+      }
+      try {
+        await Notification.createForUser({
+          userId: notarizationReq.citizen,
+          type: 'payment_success',
+          title: 'Payment successful',
+          body: 'Your payment of ₹199 for notarization has been received. The notary will schedule a Video KYC shortly.',
+          data: { notarizationRequestId: notarizationReq._id },
+          actionUrl: `/notarization/${notarizationReq._id}`,
+          io,
+        });
+      } catch (err) {
+        logger.error('[payment.controller] webhook: citizen notification failed', { error: err.message });
+      }
+    } else {
+      logger.warn('[payment.controller] handlePaymentCaptured: orderId matched no Payment or NotarizationRequest', { razorpayOrderId });
+    }
   }
 }
 

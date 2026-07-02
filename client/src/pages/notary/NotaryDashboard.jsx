@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import Box from '@mui/material/Box';
@@ -20,42 +20,18 @@ import Alert from '@mui/material/Alert';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 
-import {
-  selectNotaryError,
-  selectNotaryLoading,
-} from '../../store/slices/notarySlice';
 import { selectUser } from '../../store/slices/authSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GlassCard from '../../components/ui/GlassCard';
 import GradientHeading from '../../components/ui/GradientHeading';
 import { RADIUS, TYPOGRAPHY } from '../../theme/tokens';
 import api from '../../services/api';
+import { INDIAN_STATES } from '../../constants/indianStates';
 
 const LANG_OPTIONS = ['en', 'hi', 'bn', 'mr', 'ta', 'te', 'gu', 'kn', 'ml', 'pa', 'ur'];
-const STATES = [
-  'Delhi', 'Maharashtra', 'Karnataka', 'Tamil Nadu', 'Uttar Pradesh',
-  'West Bengal', 'Gujarat', 'Rajasthan', 'Telangana', 'Kerala',
-  'Punjab', 'Haryana', 'Bihar', 'Odisha', 'Madhya Pradesh',
-  'Andhra Pradesh', 'Assam', 'Chhattisgarh', 'Goa', 'Jharkhand',
-  'Himachal Pradesh', 'Uttarakhand', 'Jammu & Kashmir',
-];
-
-function updateNotaryProfile(updates) {
-  return async (dispatch) => {
-    try {
-      const { data } = await api.put('/notaries/profile', updates);
-      return { payload: data };
-    } catch (err) {
-      return { error: err.response?.data?.message || 'Update failed' };
-    }
-  };
-}
 
 export default function NotaryDashboard() {
-  const dispatch = useDispatch();
   const user = useSelector(selectUser);
-  const loading = useSelector(selectNotaryLoading);
-  const storeError = useSelector(selectNotaryError);
 
   const [profile, setProfile] = useState(null);
   const [fetching, setFetching] = useState(true);
@@ -110,7 +86,8 @@ export default function NotaryDashboard() {
     setError(null);
     setSuccess(false);
     try {
-      await api.put('/notaries/profile', form);
+      const { data } = await api.put('/notaries/profile', form);
+      setProfile((p) => ({ ...p, ...data.profile }));
       setSuccess(true);
     } catch (err) {
       setError(err.response?.data?.message || 'Update failed. Please try again.');
@@ -238,7 +215,7 @@ export default function NotaryDashboard() {
               States You Practice In
             </Typography>
             <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-              {STATES.map((s) => (
+              {INDIAN_STATES.map((s) => (
                 <Chip
                   key={s} label={s} size="small"
                   onClick={() => toggleState(s)}

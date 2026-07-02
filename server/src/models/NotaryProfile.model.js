@@ -88,12 +88,6 @@ const notaryProfileSchema = new Schema(
       default: [],
     },
 
-    // ── Fee (fixed platform price ₹199 — notary sets own split expectation) ──
-    platformFee: {
-      type: Number,
-      default: 19900, // ₹199 in paise
-    },
-
     // ── Settings ─────────────────────────────────────────────────────────────
     isAcceptingRequests: { type: Boolean, default: true },
     availability: {
@@ -121,6 +115,14 @@ const notaryProfileSchema = new Schema(
     rejectedAt: { type: Date },
     rejectedBy: { type: Schema.Types.ObjectId, ref: 'User' },
 
+    // ── Bank Account (for payouts) ────────────────────────────────────────────
+    bankAccount: {
+      accountHolderName: { type: String, trim: true },
+      accountNumber: { type: String, trim: true },
+      ifscCode: { type: String, trim: true, uppercase: true },
+      bankName: { type: String, trim: true },
+    },
+
     // ── Revenue ──────────────────────────────────────────────────────────────
     platformCommissionPercent: {
       type: Number,
@@ -129,6 +131,10 @@ const notaryProfileSchema = new Schema(
       max: 30,
     },
     totalEarnings: { type: Number, default: 0 },
+    // Credited when payment is verified, moved to totalEarnings once the document is
+    // stamped/delivered. Lets admins see money collected for work not yet completed.
+    pendingEarnings: { type: Number, default: 0 },
+    withdrawnAmount: { type: Number, default: 0 },
 
     // ── Stats ─────────────────────────────────────────────────────────────────
     totalNotarizations: { type: Number, default: 0 },

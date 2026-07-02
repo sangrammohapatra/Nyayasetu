@@ -106,6 +106,7 @@ const AdminPayments      = lazy(() => import('./pages/admin/AdminPayments'));
 const AdminConsultations = lazy(() => import('./pages/admin/AdminConsultations'));
 const AdminDocuments     = lazy(() => import('./pages/admin/AdminDocuments'));
 const AdminRTI           = lazy(() => import('./pages/admin/AdminRTI'));
+const AdminNotarizations = lazy(() => import('./pages/admin/AdminNotarizations'));
 const LawSearch           = lazy(() => import('./pages/shared/LawSearch'));
 const EmergencyHelpline   = lazy(() => import('./pages/citizen/EmergencyHelpline'));
 const LandingPage         = lazy(() => import('./pages/public/LandingPage'));
@@ -115,6 +116,7 @@ const NotaryVerificationPending = lazy(() => import('./pages/notary/NotaryVerifi
 const NotaryHome            = lazy(() => import('./pages/notary/NotaryHome'));
 const NotaryDashboard       = lazy(() => import('./pages/notary/NotaryDashboard'));
 const NotarizationRequests  = lazy(() => import('./pages/notary/NotarizationRequests'));
+const NotaryEarnings        = lazy(() => import('./pages/notary/NotaryEarnings'));
 
 // RTI Tracker
 const RTITracker = lazy(() => import('./pages/citizen/RTITracker'));
@@ -506,6 +508,14 @@ const router = createBrowserRouter([
           </Suspense>
         ),
       },
+      {
+        path: "notarizations",
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <AdminNotarizations />
+          </Suspense>
+        ),
+      },
     ],
   },
 
@@ -546,6 +556,14 @@ const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageLoader />}>
                 <NotaryDashboard />
+              </Suspense>
+            ),
+          },
+          {
+            path: "earnings",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <NotaryEarnings />
               </Suspense>
             ),
           },

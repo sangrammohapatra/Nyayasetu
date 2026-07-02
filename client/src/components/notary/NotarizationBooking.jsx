@@ -27,8 +27,8 @@ import Alert from '@mui/material/Alert';
 import {
   createNotarizationRequest,
   clearPendingRequest,
-  selectNotaryLoading,
-  selectNotaryError,
+  selectNotaryBookingLoading,
+  selectNotaryBookingError,
 } from '../../store/slices/notarySlice';
 import { RADIUS, TYPOGRAPHY } from '../../theme/tokens';
 import GradientHeading from '../ui/GradientHeading';
@@ -44,8 +44,8 @@ const slideVariants = {
 
 export default function NotarizationBooking({ open, onClose, document, onSuccess }) {
   const dispatch = useDispatch();
-  const loading = useSelector(selectNotaryLoading);
-  const error = useSelector(selectNotaryError);
+  const loading = useSelector(selectNotaryBookingLoading);
+  const error = useSelector(selectNotaryBookingError);
 
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
@@ -53,7 +53,7 @@ export default function NotarizationBooking({ open, onClose, document, onSuccess
   const [notes, setNotes] = useState('');
   const [wantCourier, setWantCourier] = useState(false);
   const [courierAddress, setCourierAddress] = useState({
-    name: '', line1: '', city: '', state: '', pincode: '', phone: '',
+    name: '', line1: '', line2: '', city: '', state: '', pincode: '', phone: '',
   });
   const [done, setDone] = useState(false);
 
@@ -254,13 +254,14 @@ export default function NotarizationBooking({ open, onClose, document, onSuccess
                       {[
                         { key: 'name',    label: 'Full Name' },
                         { key: 'line1',   label: 'Address Line 1' },
+                        { key: 'line2',   label: 'Address Line 2 (Apartment, Floor, etc.)', required: false },
                         { key: 'city',    label: 'City' },
                         { key: 'state',   label: 'State' },
                         { key: 'pincode', label: 'PIN Code' },
                         { key: 'phone',   label: 'Mobile Number' },
-                      ].map(({ key, label }) => (
+                      ].map(({ key, label, required: req = true }) => (
                         <TextField
-                          key={key} size="small" label={label} required
+                          key={key} size="small" label={label} required={req}
                           value={courierAddress[key]}
                           onChange={(e) => setCourierAddress((a) => ({ ...a, [key]: e.target.value }))}
                           sx={{ '& .MuiOutlinedInput-root': { borderRadius: `${RADIUS.md}px` } }}

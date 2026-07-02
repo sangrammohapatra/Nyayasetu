@@ -300,6 +300,29 @@ function welcomeEmail(name) {
   });
 }
 
+/** Notary profile approved email — sent when an admin verifies a notary application. */
+function notaryApprovedEmail(name) {
+  const safeName = escapeHtml(name || 'there');
+  const content = `
+    <p>Congratulations, <strong>${safeName}</strong> 🎉</p>
+    <p>Your notary profile has been verified and is now live on NyayaSetu. Citizens can find and book you for online notarization.</p>
+    <ul style="padding-left:20px;line-height:1.8;">
+      <li>Review incoming requests from your <strong>Notary Dashboard</strong></li>
+      <li>Accept a request, then schedule a <strong>Video KYC</strong> session with the citizen</li>
+      <li>After KYC, stamp the document to complete the notarization and get paid</li>
+    </ul>
+    <p style="margin-top:20px;">Keep your profile and availability up to date to receive more requests.</p>
+  `;
+
+  return emailShell({
+    heading: `You're Verified, ${safeName}!`,
+    contentHtml: content,
+    ctaLabel: 'Go to Notary Dashboard',
+    ctaUrl: `${process.env.CLIENT_URL || 'https://nyayasetu.in'}/notary/dashboard`,
+    footerNote: 'You can reply to this email if you need help — a real human will read it.',
+  });
+}
+
 /** OTP email — for users who prefer email-based OTP instead of SMS. */
 function otpEmail(otp) {
   const content = `
@@ -333,5 +356,6 @@ module.exports = {
   hearingReminderEmail,
   documentReadyEmail,
   welcomeEmail,
+  notaryApprovedEmail,
   otpEmail,
 };

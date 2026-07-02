@@ -103,6 +103,18 @@ router.get('/rti', adminController.listRTI);
 router.patch('/rti/:id/extend-deadline', adminController.extendRTIDeadline);
 
 /* ---------------------------------------------------------------------------
+ * Notarization requests (admin oversight + dispute resolution)
+ * ------------------------------------------------------------------------ */
+router.get('/notarizations', adminController.listNotarizations);
+router.get('/notarizations/:id', adminController.getNotarization);
+
+/* ---------------------------------------------------------------------------
+ * Notary withdrawal requests (payout management)
+ * ------------------------------------------------------------------------ */
+router.get('/withdrawals', adminController.listWithdrawals);
+router.post('/withdrawals/:id/process', adminController.processWithdrawal);
+
+/* ---------------------------------------------------------------------------
  * Broadcast notifications
  * ------------------------------------------------------------------------ */
 router.post('/notifications/broadcast', adminController.broadcastNotification);

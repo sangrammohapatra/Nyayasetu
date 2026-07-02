@@ -5,7 +5,7 @@
  * Accepts an `onSelect` callback with the chosen notary profile object.
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 
@@ -21,9 +21,10 @@ import Avatar from '@mui/material/Avatar';
 import {
   searchNotaries,
   selectNotaryResults,
-  selectNotaryLoading,
+  selectNotarySearchLoading,
 } from '../../store/slices/notarySlice';
 import { RADIUS } from '../../theme/tokens';
+import { INDIAN_STATES } from '../../constants/indianStates';
 
 const LANG_OPTIONS = [
   { code: 'en', name: 'English' },
@@ -36,12 +37,6 @@ const LANG_OPTIONS = [
   { code: 'kn', name: 'Kannada' },
   { code: 'ml', name: 'Malayalam' },
   { code: 'pa', name: 'Punjabi' },
-];
-
-const STATES_SHORT = [
-  'Delhi', 'Maharashtra', 'Karnataka', 'Tamil Nadu', 'Uttar Pradesh',
-  'West Bengal', 'Gujarat', 'Rajasthan', 'Telangana', 'Kerala',
-  'Punjab', 'Haryana', 'Bihar', 'Odisha', 'Madhya Pradesh',
 ];
 
 function StarRating({ score }) {
@@ -62,9 +57,10 @@ function StarRating({ score }) {
 export default function NotarySearch({ selectedNotary, onSelect }) {
   const dispatch = useDispatch();
   const notaries = useSelector(selectNotaryResults);
-  const loading = useSelector(selectNotaryLoading);
+  const loading = useSelector(selectNotarySearchLoading);
 
   const [filters, setFilters] = useState({ state: '', language: '' });
+  const debounceRef = useRef(null);
 
   const load = useCallback(
     (f = filters) => dispatch(searchNotaries({ state: f.state || undefined, language: f.language || undefined })),
@@ -73,10 +69,13 @@ export default function NotarySearch({ selectedNotary, onSelect }) {
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => () => clearTimeout(debounceRef.current), []);
+
   const handleFilter = (key, val) => {
     const next = { ...filters, [key]: val };
     setFilters(next);
-    load(next);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => load(next), 350);
   };
 
   return (
@@ -89,7 +88,7 @@ export default function NotarySearch({ selectedNotary, onSelect }) {
           sx={{ flex: 1, minWidth: 130, '& .MuiOutlinedInput-root': { borderRadius: `${RADIUS.md}px` } }}
         >
           <MenuItem value="">All States</MenuItem>
-          {STATES_SHORT.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+          {INDIAN_STATES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
         </TextField>
 
         <TextField

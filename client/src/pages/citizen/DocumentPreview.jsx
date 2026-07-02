@@ -53,6 +53,7 @@ import { TYPOGRAPHY } from '../../theme/tokens';
 import { openCheckout } from '../../services/razorpay';
 import { RADIUS, SHADOWS } from '../../theme/tokens';
 import api from '../../services/api';
+import socketService from '../../services/socket';
 
 // ─── Approval status meta ─────────────────────────────────────────────────────
 
@@ -832,6 +833,20 @@ function DocumentPreview() {
   // Fetch notarization status for this document
   useEffect(() => {
     if (documentId) dispatch(getDocumentNotarizationStatus(documentId));
+  }, [documentId, dispatch]);
+
+  // Re-fetch notarization status when any notarization-related socket notification arrives
+  useEffect(() => {
+    const handleNotification = (notification) => {
+      if (
+        notification.type?.startsWith('notarization_') ||
+        notification.type === 'payment_success'
+      ) {
+        dispatch(getDocumentNotarizationStatus(documentId));
+      }
+    };
+    socketService.on('notification', handleNotification);
+    return () => socketService.off('notification', handleNotification);
   }, [documentId, dispatch]);
 
   // Stop polling once the AI has filled in the content

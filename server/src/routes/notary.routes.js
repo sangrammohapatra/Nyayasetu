@@ -23,6 +23,7 @@
  *   PATCH  /v1/notarizations/:id/complete-kyc     completeKYC (notary)
  *   PATCH  /v1/notarizations/:id/stamp            stampDocument (notary)
  *   PATCH  /v1/notarizations/:id/reject           rejectRequest (notary)
+ *   PATCH  /v1/notarizations/:id/cancel           cancelRequest (citizen)
  *   PATCH  /v1/notarizations/:id/request-courier  requestCourier (citizen)
  *   PATCH  /v1/notarizations/:id/dispatch         markDispatched (notary)
  *   POST   /v1/notarizations/:id/rate             rateNotary (citizen)
@@ -72,7 +73,28 @@ notaryProfileRouter.get(
   }
 );
 
-notaryProfileRouter.get('/:id', verifyToken, notaryController.getNotaryProfile);
+notaryProfileRouter.get(
+  '/me/withdrawals',
+  verifyToken,
+  requirePersona(PERSONAS.NOTARY),
+  notaryController.listWithdrawals
+);
+
+notaryProfileRouter.put(
+  '/bank-account',
+  verifyToken,
+  requirePersona(PERSONAS.NOTARY),
+  notaryController.saveBankAccount
+);
+
+notaryProfileRouter.post(
+  '/withdraw',
+  verifyToken,
+  requirePersona(PERSONAS.NOTARY),
+  notaryController.requestWithdrawal
+);
+
+notaryProfileRouter.get('/:id', optionalAuth, notaryController.getNotaryProfile);
 
 // ─── Notarization Request Router ──────────────────────────────────────────────
 // Mount at: app.use('/v1/notarizations', notarizationRouter)
@@ -137,6 +159,13 @@ notarizationRouter.patch(
   verifyToken,
   requirePersona(PERSONAS.NOTARY),
   notaryController.rejectRequest
+);
+
+notarizationRouter.patch(
+  '/:id/cancel',
+  verifyToken,
+  requirePersona(PERSONAS.CITIZEN),
+  notaryController.cancelRequest
 );
 
 notarizationRouter.patch(
