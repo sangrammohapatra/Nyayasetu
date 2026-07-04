@@ -74,8 +74,16 @@ const notificationSlice = createSlice({
       .addCase(markNotificationRead.fulfilled, (state, action) => {
         const id = action.meta.arg;
         const item = state.items.find((n) => n._id === id);
+        // Only decrement the badge if this item was actually unread before —
+        // a double-click / race on an already-read notification would
+        // otherwise decrement twice and under-count unread notifications.
+        const wasUnread = item ? !item.isRead : true;
         if (item) item.isRead = true;
-        state.unreadTotal = action.payload.unreadTotal ?? Math.max(0, state.unreadTotal - 1);
+        if (action.payload.unreadTotal !== undefined) {
+          state.unreadTotal = action.payload.unreadTotal;
+        } else if (wasUnread) {
+          state.unreadTotal = Math.max(0, state.unreadTotal - 1);
+        }
       })
 
       .addCase(markAllNotificationsRead.fulfilled, (state) => {

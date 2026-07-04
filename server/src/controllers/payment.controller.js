@@ -191,6 +191,32 @@ const verifyDocumentPayment = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Payment signature verification failed' });
   }
 
+  // Bind the order to the entity it was actually created for. The signature only
+  // proves paymentId <-> orderId <-> Razorpay; without this check, a paid order for
+  // a cheap document/consultation could be replayed against an expensive one.
+  const orderPayment = await Payment.findOne({ razorpayOrderId: orderId }).select('user relatedEntity relatedEntityType type').lean();
+  if (!orderPayment) {
+    return res.status(404).json({ error: 'Payment record not found' });
+  }
+  if (documentId) {
+    if (
+      orderPayment.relatedEntityType !== 'Document' ||
+      String(orderPayment.relatedEntity) !== String(documentId)
+    ) {
+      await AuditLog.log(req, 'payment.document.entity_mismatch', 'Payment', null, { orderId, documentId }, false);
+      return res.status(400).json({ error: 'Payment does not match the specified document' });
+    }
+  }
+  if (consultationId) {
+    if (
+      orderPayment.relatedEntityType !== 'Consultation' ||
+      String(orderPayment.relatedEntity) !== String(consultationId)
+    ) {
+      await AuditLog.log(req, 'payment.consultation.entity_mismatch', 'Payment', null, { orderId, consultationId }, false);
+      return res.status(400).json({ error: 'Payment does not match the specified consultation' });
+    }
+  }
+
   // Verify document ownership before marking the payment as paid, so a payment
   // for another user's documentId is never settled without unlocking anything.
   if (documentId) {
@@ -287,16 +313,17 @@ const verifyDocumentPayment = asyncHandler(async (req, res) => {
 /* ---------------------------------------------------------------------------
  * createSubscriptionOrder
  * POST /v1/subscriptions/create
- * Body: { plan, billingCycle, persona }
+ * Body: { plan, billingCycle }
  * ------------------------------------------------------------------------ */
 const createSubscriptionOrder = asyncHandler(async (req, res) => {
   const userId = req.user.userId;
-  const userPersona = req.user.persona;
 
-  const { plan, billingCycle, persona } = req.body;
+  const { plan, billingCycle } = req.body;
 
-  // Persona from body, falling back to token persona
-  const effectivePersona = persona || userPersona;
+  // Persona always comes from the verified JWT, never the request body —
+  // otherwise a citizen account could claim persona: 'lawyer' to buy (and get
+  // activated on) a lawyer-tier plan with no re-verification of actual persona.
+  const effectivePersona = req.user.persona;
 
   if (!plan || !billingCycle) {
     return res.status(400).json({ error: 'plan and billingCycle are required' });
@@ -355,7 +382,7 @@ const createSubscriptionOrder = asyncHandler(async (req, res) => {
 /* ---------------------------------------------------------------------------
  * verifySubscription
  * POST /v1/subscriptions/verify
- * Body: { orderId, paymentId, signature, plan, billingCycle, persona }
+ * Body: { orderId, paymentId, signature, plan, billingCycle }
  * ------------------------------------------------------------------------ */
 const verifySubscription = asyncHandler(async (req, res) => {
   const userId = req.user.userId;
@@ -365,7 +392,6 @@ const verifySubscription = asyncHandler(async (req, res) => {
     signature,
     plan,
     billingCycle,
-    persona,
   } = req.body;
 
   if (!orderId || !paymentId || !signature || !plan || !billingCycle) {
@@ -384,10 +410,44 @@ const verifySubscription = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Payment signature verification failed' });
   }
 
-  const effectivePersona = persona || req.user.persona;
+  // Persona always comes from the verified JWT, never the request body — see
+  // createSubscriptionOrder for why. This also has to agree with the order's
+  // own notes.persona in the cross-check below, since that order was created
+  // under the same rule.
+  const effectivePersona = req.user.persona;
   const amount = getPlanAmount(effectivePersona, plan, billingCycle);
   if (!amount) {
     return res.status(400).json({ error: 'Invalid plan / billingCycle combination' });
+  }
+
+  // Cross-check the claimed plan/billingCycle/persona/amount against what the
+  // Razorpay order was actually created for. Without this, a valid signature for
+  // a cheap order could be replayed with a different (more expensive) plan claim.
+  let razorpayOrder;
+  try {
+    razorpayOrder = await razorpayService.fetchOrder(orderId);
+  } catch (err) {
+    logger.error('[payment.controller] verifySubscription: failed to fetch order', { orderId, error: err.message });
+    return res.status(502).json({ error: 'Payment gateway error — please try again' });
+  }
+
+  const orderNotes = razorpayOrder?.notes || {};
+  const orderMatches =
+    String(orderNotes.userId) === String(userId) &&
+    orderNotes.plan === plan &&
+    orderNotes.billingCycle === billingCycle &&
+    orderNotes.persona === effectivePersona &&
+    Number(razorpayOrder.amount) === amount;
+
+  if (!orderMatches) {
+    logger.warn('[payment.controller] verifySubscription: order/claim mismatch', {
+      userId,
+      orderId,
+      claimed: { plan, billingCycle, persona: effectivePersona, amount },
+      order: { notes: orderNotes, amount: razorpayOrder.amount },
+    });
+    await AuditLog.log(req, 'payment.subscription.order_mismatch', 'Subscription', null, { orderId, plan, billingCycle }, false);
+    return res.status(400).json({ error: 'Payment order does not match the requested plan' });
   }
 
   const validUntil = getSubscriptionValidUntil(billingCycle);
@@ -680,12 +740,16 @@ const webhookHandler = asyncHandler(async (req, res) => {
         logger.debug('[payment.controller] Unhandled webhook event', { eventType });
     }
   } catch (handlerErr) {
-    // Log but return 200 to prevent Razorpay retries for application-level errors
+    // Return a non-2xx so Razorpay retries the delivery — the handlers are all
+    // idempotent (status-guarded upserts), so a retry is safe. Swallowing this
+    // into a 200 previously meant a transient DB error during processing
+    // permanently failed to update Payment/Subscription state with no recovery.
     logger.error('[payment.controller] webhookHandler: handler threw', {
       eventType,
       error: handlerErr.message,
       stack: handlerErr.stack,
     });
+    return res.status(500).json({ error: 'Webhook processing failed — will be retried' });
   }
 
   return res.status(200).json({ ok: true });

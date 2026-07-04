@@ -6,6 +6,7 @@ const DocumentTemplate = require('../models/DocumentTemplate.model');
 const JurisdictionRule = require('../models/JurisdictionRule.model');
 const User             = require('../models/User.model');
 const LawyerProfile    = require('../models/LawyerProfile.model');
+const CaseTracker      = require('../models/CaseTracker.model');
 const AuditLog         = require('../models/AuditLog.model');
 const Notification     = require('../models/Notification.model');
 const { getSignedPdfUrl } = require('../services/storage/storageProvider');
@@ -14,6 +15,7 @@ const { explainClause }   = require('../services/ai/clauseExplainer');
 const asyncHandler     = require('../utils/asyncHandler');
 const { createError }  = require('../middleware/error.middleware');
 const logger           = require('../utils/logger');
+const { buildBullRedisOpts } = require('../utils/bullRedisOpts');
 const {
   SESSION_STATUS,
   DOCUMENT_ACCESS_TYPES,
@@ -24,18 +26,6 @@ const {
 // ─── Bull queue (lazy init — Redis may not be available in test) ───────────────
 
 let _documentQueue = null;
-
-function buildBullRedisOpts(url) {
-  const parsed = new URL(url.replace(/^rediss?:\/\//, 'http://'));
-  const isLocal = ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname);
-  if (isLocal) return { url };
-  return {
-    host:     parsed.hostname,
-    port:     Number(parsed.port) || 6380,
-    password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
-    tls:      { rejectUnauthorized: false, servername: parsed.hostname },
-  };
-}
 
 function getDocumentQueue() {
   if (!_documentQueue) {
@@ -73,6 +63,11 @@ function resolveAccessType(user, template, plan) {
  * Validates the session is ready, creates a Document stub, enqueues the
  * generation job, and returns 202 with a pollUrl.
  */
+// A GENERATING session is only reclaimable once it's been stuck this long —
+// distinguishes an actually-crashed Bull job from a concurrent request that
+// just claimed the session milliseconds ago.
+const STUCK_GENERATING_MS = 3 * 60 * 1000;
+
 const generateDocument = asyncHandler(async (req, res) => {
   const { sessionId } = req.body;
   const { userId, plan } = req.user;
@@ -92,13 +87,31 @@ const generateDocument = asyncHandler(async (req, res) => {
     );
   }
 
-  // Recover stuck "generating" sessions (Bull job failed without resetting status)
-  if (session.status === SESSION_STATUS.GENERATING) {
-    session.status = SESSION_STATUS.DATA_COMPLETE;
-    await session.save();
+  // ── Atomically claim the session for generation ───────────────────────────
+  // Replaces the old read-then-write status flip: two concurrent requests for
+  // the same session could both pass the check above and both flip status to
+  // GENERATING, creating two Document stubs / Bull jobs from one session. This
+  // update only succeeds for one caller — the other gets `claimedSession: null`.
+  const stuckCutoff = new Date(Date.now() - STUCK_GENERATING_MS);
+  const claimedSession = await ChatSession.findOneAndUpdate(
+    {
+      _id: sessionId,
+      user: userId,
+      $or: [
+        { status: SESSION_STATUS.DATA_COMPLETE },
+        { status: SESSION_STATUS.GENERATING, updatedAt: { $lt: stuckCutoff } },
+      ],
+    },
+    { $set: { status: SESSION_STATUS.GENERATING } },
+    { new: true }
+  ).populate('template');
+
+  if (!claimedSession) {
+    throw createError(409, 'GENERATION_IN_PROGRESS',
+      'This session is already being generated. Please wait for it to finish.');
   }
 
-  const template = session.template;
+  const template = claimedSession.template;
   if (!template) throw createError(500, 'TEMPLATE_MISSING', 'Session template missing');
 
   // ── Load user for access type resolution ──────────────────────────────────
@@ -108,9 +121,32 @@ const generateDocument = asyncHandler(async (req, res) => {
   const accessType = resolveAccessType(user, template, plan);
   const isPaid     = accessType !== DOCUMENT_ACCESS_TYPES.FREE_TIER || template.isAlwaysFree;
 
-  // ── Update session status ─────────────────────────────────────────────────
-  session.status = SESSION_STATUS.GENERATING;
-  await session.save();
+  // ── Atomically claim a free-tier quota slot ───────────────────────────────
+  // Moved here (from the Bull job's success path) so the claim itself is the
+  // enforcement point — checkFreeQuota's read-then-later-increment left a
+  // window where concurrent requests could both pass the check. If generation
+  // ultimately fails, the job refunds this slot (see generateDocument.job.js)
+  // so a failure never permanently costs the user a document credit.
+  if (!isPaid) {
+    const quotaLimit = user.freeUsage?.docsLimit ?? 0;
+    const quotaClaimed = await User.findOneAndUpdate(
+      { _id: userId, 'freeUsage.docsGenerated': { $lt: quotaLimit } },
+      { $inc: { 'freeUsage.docsGenerated': 1 } },
+      { new: true }
+    );
+    if (!quotaClaimed) {
+      // Release the session claim so the user isn't stuck at GENERATING with
+      // nothing actually generating.
+      await ChatSession.findByIdAndUpdate(sessionId, { $set: { status: SESSION_STATUS.DATA_COMPLETE } });
+      return res.status(403).json({
+        error: 'QUOTA_EXCEEDED',
+        message: `You have used all ${quotaLimit} free document credit${quotaLimit === 1 ? '' : 's'} this month. Upgrade to continue.`,
+        used: user.freeUsage?.docsGenerated ?? 0,
+        limit: quotaLimit,
+        upgradeUrl: '/pricing',
+      });
+    }
+  }
 
   // ── Create Document stub ──────────────────────────────────────────────────
   const document = await DocumentModel.create({
@@ -118,14 +154,14 @@ const generateDocument = asyncHandler(async (req, res) => {
     session:      sessionId,
     template:     template._id,
     templateSlug: template.slug,
-    title:        `${template.name}${session.userState ? ` — ${session.userState}` : ''}`,
+    title:        `${template.name}${claimedSession.userState ? ` — ${claimedSession.userState}` : ''}`,
     content:      '',           // Populated by the Bull job
     contentHtml:  '',
-    language:     session.userLanguage || 'en',
+    language:     claimedSession.userLanguage || 'en',
     accessType,
     isPaid,
     jurisdiction: {
-      state:    session.userState,
+      state:    claimedSession.userState,
       district: user.district,
     },
     version: 1,
@@ -504,6 +540,11 @@ const linkCase = asyncHandler(async (req, res) => {
   if (!document || document.isDeleted) throw createError(404, 'DOCUMENT_NOT_FOUND', 'Document not found');
   if (!document.user.equals(userId))   throw createError(403, 'FORBIDDEN', 'Access denied');
 
+  if (caseId) {
+    const caseDoc = await CaseTracker.findOne({ _id: caseId, user: userId }).select('_id').lean();
+    if (!caseDoc) throw createError(404, 'CASE_NOT_FOUND', 'Case not found');
+  }
+
   document.linkedCase = caseId || null;
   await document.save();
 
@@ -734,7 +775,7 @@ const lawyerEditDocument = asyncHandler(async (req, res) => {
       { sharedDocument: documentId },
       { _id: document.linkedConsultation },
     ],
-    lawyer: lawyerProf._id,
+    lawyer: userId,
   }).select('_id').lean();
   if (!linked) throw createError(403, 'FORBIDDEN', 'You are not the reviewing lawyer for this document');
 
@@ -803,7 +844,7 @@ const getDocumentForLawyer = asyncHandler(async (req, res) => {
   const lawyerProf = await LawyerProfile.findOne({ user: userId }).select('_id').lean();
   if (!lawyerProf) throw createError(403, 'FORBIDDEN', 'Lawyer profile not found');
   const ConsultModel = require('../models/Consultation.model');
-  const consultation = await ConsultModel.findOne({ _id: consultationId, lawyer: lawyerProf._id })
+  const consultation = await ConsultModel.findOne({ _id: consultationId, lawyer: userId })
     .select('sharedDocument citizen')
     .lean();
 

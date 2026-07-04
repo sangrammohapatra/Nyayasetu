@@ -131,7 +131,7 @@ async function runSlaChecks(io) {
  *                     persist to DB even without it)
  */
 function start(io = null) {
-  const INTERVAL = 60 * HOUR;
+  const INTERVAL = HOUR;
   logger.info('[notarizationSla] SLA monitor started (interval: 1 h)');
 
   runSlaChecks(io).catch((err) =>

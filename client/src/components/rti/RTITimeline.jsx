@@ -66,7 +66,28 @@ const STATUS_ORDER = [
   'withdrawn',
 ];
 
-function getStageState(stage, currentStatus) {
+// 'withdrawn' is reachable from any status (drafted through cic_decided), so it
+// carries no information on its own about how far the application actually
+// progressed before withdrawal. Infer the furthest reached stage from which
+// date fields are populated, so earlier stages still render as 'done' instead
+// of falling through to 'pending' (which would misrepresent progress made
+// before the withdrawal).
+function inferProgressBeforeWithdrawal({ filedDate, firstAppealFiledDate, cicFiledDate }) {
+  if (cicFiledDate) return 'cic_filed';
+  if (firstAppealFiledDate) return 'first_appeal_filed';
+  if (filedDate) return 'filed';
+  return 'drafted';
+}
+
+function getStageState(stage, currentStatus, dates = {}) {
+  if (currentStatus === 'withdrawn') {
+    // The application was never resolved — show "Resolved" as bypassed rather
+    // than 'done' (STATUS_ORDER would otherwise mark it 'done' simply because
+    // 'withdrawn' sorts after 'closed' in the array).
+    if (stage.key === 'closed') return 'skipped';
+    return getStageState(stage, inferProgressBeforeWithdrawal(dates), dates);
+  }
+
   const idx = STATUS_ORDER.indexOf(currentStatus);
 
   if (stage.key === 'response') {
@@ -115,7 +136,7 @@ export default function RTITimeline({ status, filedDate, responseDeadline, first
   return (
     <Box sx={{ pl: 1 }}>
       {STAGES.map((stage, i) => {
-        const state  = getStageState(stage, status);
+        const state  = getStageState(stage, status, { filedDate, firstAppealFiledDate, cicFiledDate });
         const colors = STATE_COLORS[state];
         const isLast = i === STAGES.length - 1;
         const dateNote = stageDates[stage.key];

@@ -187,18 +187,47 @@ exports.sendMessage = asyncHandler(async (req, res) => {
   if (session.user.toString() !== userId) return res.status(403).json({ error: 'Unauthorized' });
 
   // ── 2. Quota check ───────────────────────────────────────────────────────
+  // Atomically claim a slot (reset-if-new-day, then claim-if-under-limit —
+  // same two-step pattern as triage.controller.js) instead of the old
+  // read-getDailyUsage()-then-later-save, which let two concurrent sends
+  // both pass a stale read and both get through past the limit.
   const user = await User.findById(userId).select('persona subscription firstName').lean();
   const plan = user?.subscription?.plan || 'free';
   const { limit, unlimited } = NyayaBotSession.getQuotaConfig(user.persona?.toLowerCase(), plan);
-  const used = await NyayaBotSession.getDailyUsage(userId);
 
-  if (!unlimited && used >= limit) {
-    return res.status(402).json({
-      error: 'NYAYABOT_QUOTA_EXCEEDED',
-      message: `You have used all ${limit} NyayaBot messages for today. Your quota resets at midnight IST.`,
-      quota: { used, limit, remaining: 0, unlimited: false },
-      upgradeUrl: '/pricing',
-    });
+  let used;
+  if (!unlimited) {
+    const todayStart = NyayaBotSession.todayMidnightIST();
+    const now = new Date();
+
+    await User.updateOne(
+      {
+        _id: userId,
+        $or: [
+          { 'freeUsage.nyayabotResetDate': { $lt: todayStart } },
+          { 'freeUsage.nyayabotResetDate': { $exists: false } },
+          { 'freeUsage.nyayabotResetDate': null },
+        ],
+      },
+      { $set: { 'freeUsage.nyayabotUsed': 0, 'freeUsage.nyayabotResetDate': now } }
+    );
+
+    const slotGranted = await User.findOneAndUpdate(
+      { _id: userId, 'freeUsage.nyayabotUsed': { $lt: limit } },
+      { $inc: { 'freeUsage.nyayabotUsed': 1 } },
+      { new: true, select: 'freeUsage.nyayabotUsed' }
+    );
+
+    if (!slotGranted) {
+      return res.status(402).json({
+        error: 'NYAYABOT_QUOTA_EXCEEDED',
+        message: `You have used all ${limit} NyayaBot messages for today. Your quota resets at midnight IST.`,
+        quota: { used: limit, limit, remaining: 0, unlimited: false },
+        upgradeUrl: '/pricing',
+      });
+    }
+
+    used = slotGranted.freeUsage.nyayabotUsed;
   }
 
   // ── 3. Init SSE ──────────────────────────────────────────────────────────
@@ -245,8 +274,10 @@ exports.sendMessage = asyncHandler(async (req, res) => {
     session.messages.push(botMsg);
     await session.save();
 
-    const newUsed = used + 1;
-    const remaining = unlimited ? null : Math.max(0, limit - newUsed);
+    // `used` already reflects this message (the atomic claim above incremented
+    // it before generation started), unlike the old getDailyUsage()-based
+    // count which was read before this message existed and needed a +1.
+    const remaining = unlimited ? null : Math.max(0, limit - used);
 
     // ── 7. Send SSE events ───────────────────────────────────────────────
     sseWrite(res, 'message', {
@@ -259,7 +290,7 @@ exports.sendMessage = asyncHandler(async (req, res) => {
       disclaimer: aiResult.disclaimer,
     });
 
-    sseWrite(res, 'quota', { used: newUsed, limit: unlimited ? null : limit, remaining, unlimited });
+    sseWrite(res, 'quota', { used: unlimited ? null : used, limit: unlimited ? null : limit, remaining, unlimited });
     sseWrite(res, 'done', { sessionId });
   } catch (err) {
     logger.error('NyayaBot message generation failed', { sessionId, error: err.message });

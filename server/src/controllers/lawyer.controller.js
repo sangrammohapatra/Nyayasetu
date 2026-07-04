@@ -158,20 +158,22 @@ const getLawyerProfile = asyncHandler(async (req, res) => {
       return res.status(404).json({ error: 'Lawyer not found' });
     }
 
-    // Last 5 ratings with reviewer first name
+    // Last 5 ratings with reviewer first name.
+    // Consultation.lawyer refs User (not LawyerProfile), and the citizen's
+    // rating of the consultation lives in `citizenRating`, not `rating`.
     const ratedConsultations = await Consultation.find(
-      { lawyer: profile._id, 'rating.score': { $exists: true, $ne: null } },
-      { 'rating.score': 1, 'rating.review': 1, 'rating.createdAt': 1, citizen: 1 }
+      { lawyer: profile.user?._id || profile.user, 'citizenRating.score': { $exists: true, $ne: null } },
+      { 'citizenRating.score': 1, 'citizenRating.review': 1, 'citizenRating.ratedAt': 1, citizen: 1 }
     )
-      .sort({ 'rating.createdAt': -1 })
+      .sort({ 'citizenRating.ratedAt': -1 })
       .limit(5)
       .populate('citizen', 'name')
       .lean();
 
     const recentRatings = ratedConsultations.map(c => ({
-      score: c.rating.score,
-      review: c.rating.review,
-      createdAt: c.rating.createdAt,
+      score: c.citizenRating.score,
+      review: c.citizenRating.review,
+      createdAt: c.citizenRating.ratedAt,
       // Redact to "First L." — a citizen's full name on a public profile can identify
       // them as having sought advice on a sensitive matter (family, criminal, property).
       citizenName: redactReviewerName(c.citizen && c.citizen.name),

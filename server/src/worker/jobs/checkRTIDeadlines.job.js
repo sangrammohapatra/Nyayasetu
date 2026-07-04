@@ -34,7 +34,7 @@ async function checkRTIDeadlines(job, rtiAlertQueue) {
     alertsEnabled:    true,
     status:           'filed',
     responseDeadline: { $gte: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000), $lte: day35 },
-  }).populate('user', 'name email phone whatsappOptIn preferredLanguage');
+  }).populate('user', 'name email phone whatsappNumber whatsappOptIn preferredLanguage');
 
   logger.info(`[checkRTIDeadlines] Found ${rtis.length} RTIs in alert window`);
   await job.progress(20);
@@ -97,6 +97,8 @@ async function checkRTIDeadlines(job, rtiAlertQueue) {
           userId:     rti.user?._id?.toString(),
           userEmail:  rti.user?.email,
           userName:   rti.user?.name,
+          userPhone:  rti.user?.whatsappNumber || rti.user?.phone,
+          whatsappOptIn: !!rti.user?.whatsappOptIn,
           rtiTitle:   rti.title,
           ministry:   rti.ministry,
           deadline:   rti.responseDeadline,
@@ -126,6 +128,8 @@ async function checkRTIDeadlines(job, rtiAlertQueue) {
           userId:     rti.user?._id?.toString(),
           userEmail:  rti.user?.email,
           userName:   rti.user?.name,
+          userPhone:  rti.user?.whatsappNumber || rti.user?.phone,
+          whatsappOptIn: !!rti.user?.whatsappOptIn,
           rtiTitle:   rti.title,
           ministry:   rti.ministry,
           deadline:   rti.responseDeadline,

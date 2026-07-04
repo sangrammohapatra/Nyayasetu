@@ -16,13 +16,15 @@ const { createError }      = require('../middleware/error.middleware');
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 // A citizen who paid for one session shouldn't get indefinite free access to
-// the lawyer once it's marked complete — chat closes 48h after completedAt.
+// the lawyer once the engagement is over — chat closes 48h after the
+// consultation reaches any terminal state (not just 'completed').
 const CHAT_RETENTION_HOURS = 48;
+const CLOSED_STATUSES = ['completed', 'rejected', 'cancelled', 'no_show'];
 
 // Consultation.lawyer stores User._id (set from lawyerProfile.user._id at
 // booking time in createConsultation) — compare directly, no LawyerProfile lookup needed.
 async function assertParty(consultationId, userId) {
-  const c = await Consultation.findById(consultationId).select('citizen lawyer status completedAt');
+  const c = await Consultation.findById(consultationId).select('citizen lawyer status endedAt updatedAt');
   if (!c) throw createError(404, 'NOT_FOUND', 'Consultation not found');
 
   const isCitizen = c.citizen.toString() === userId;
@@ -31,10 +33,16 @@ async function assertParty(consultationId, userId) {
     throw createError(403, 'FORBIDDEN', 'You are not a party to this consultation');
   }
 
-  if (c.status === 'completed' && c.completedAt) {
-    const hoursSinceCompletion = (Date.now() - new Date(c.completedAt).getTime()) / (1000 * 60 * 60);
-    if (hoursSinceCompletion > CHAT_RETENTION_HOURS) {
-      throw createError(403, 'CHAT_EXPIRED', `Chat access closes ${CHAT_RETENTION_HOURS} hours after the consultation is marked complete.`);
+  if (CLOSED_STATUSES.includes(c.status)) {
+    // 'completed' has a dedicated endedAt timestamp; rejected/cancelled/no_show
+    // don't, so updatedAt (bumped when the status-change save happened) is the
+    // best available proxy for when the consultation actually closed.
+    const closedAt = c.status === 'completed' ? (c.endedAt || c.updatedAt) : c.updatedAt;
+    if (closedAt) {
+      const hoursSinceClosed = (Date.now() - new Date(closedAt).getTime()) / (1000 * 60 * 60);
+      if (hoursSinceClosed > CHAT_RETENTION_HOURS) {
+        throw createError(403, 'CHAT_EXPIRED', `Chat access closes ${CHAT_RETENTION_HOURS} hours after the consultation ends.`);
+      }
     }
   }
 

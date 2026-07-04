@@ -14,7 +14,7 @@ function getClient() {
   return _client;
 }
 
-const MODEL    = 'claude-sonnet-4-20250514';
+const MODEL    = 'claude-sonnet-5';
 const MAX_TOKENS = 4096;
 
 // ─── Retry helper ──────────────────────────────────────────────────────────────

@@ -129,6 +129,7 @@ router.get(
  */
 router.post(
   '/sessions/:id/message',
+  checkFreeQuota('ai_chat'),
   validate([
     param('id').isMongoId().withMessage('Invalid session ID'),
     body('message')

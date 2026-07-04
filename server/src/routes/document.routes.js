@@ -1,5 +1,5 @@
 const express = require('express');
-const { body, param, validationResult } = require('express-validator');
+const { body, param, query, validationResult } = require('express-validator');
 
 const {
   generateDocument,
@@ -72,7 +72,17 @@ router.post(
  * GET /v1/documents
  * List the authenticated user's documents (paginated).
  */
-router.get('/', listDocuments);
+router.get(
+  '/',
+  validate([
+    query('page').optional().isInt({ min: 1 }).withMessage('page must be a positive integer'),
+    query('limit').optional().isInt({ min: 1, max: 20 }).withMessage('limit must be between 1 and 20'),
+    query('category').optional().isString().trim().isLength({ max: 100 }).withMessage('Invalid category'),
+    query('status').optional().isString().trim().isLength({ max: 50 }).withMessage('Invalid status'),
+    query('sessionId').optional().isMongoId().withMessage('Invalid sessionId'),
+  ]),
+  listDocuments
+);
 
 /**
  * GET /v1/documents/:id

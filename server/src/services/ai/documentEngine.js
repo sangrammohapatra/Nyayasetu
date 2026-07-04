@@ -1,5 +1,5 @@
-const { generate } = require('./aiProvider');
-const logger       = require('../../utils/logger');
+const aiProvider = require('./aiProvider');
+const logger     = require('../../utils/logger');
 
 // ─── Indian Kanoon URL builder ────────────────────────────────────────────────
 
@@ -22,23 +22,50 @@ function buildKanoonUrl(actName, section) {
 // ─── System prompt builder ────────────────────────────────────────────────────
 
 /**
- * buildDocumentPrompt — constructs the full document generation prompt.
+ * buildUserDataMessage — the citizen-controlled free text collected via the
+ * chat session. Kept structurally separate from buildDocumentSystemPrompt's
+ * instructions (own user-role message, not concatenated into the instruction
+ * string) so prompt-injection text typed into a question answer has no
+ * structural path to being treated as an instruction.
  *
- * This is the most important prompt in NyayaSetu — it must produce a
- * jurisdiction-aware, citation-rich, professionally formatted legal document.
- *
- * @param {object} session           — ChatSession (has collectedData, userState, userLanguage)
- * @param {object} template          — DocumentTemplate
- * @param {object} jurisdictionRule  — JurisdictionRule for state+docType (may be null)
- * @param {Array}  legalActSections  — Array of { act, sections[] } from LegalAct
+ * @param {object} session   — ChatSession (has collectedData)
+ * @param {object} template  — DocumentTemplate (for question labels)
  */
-function buildDocumentPrompt(session, template, jurisdictionRule, legalActSections) {
+function buildUserDataMessage(session, template) {
   const collectedData = session.toCollectedDataObject
     ? session.toCollectedDataObject()
     : (session.collectedData instanceof Map
         ? Object.fromEntries(session.collectedData)
         : session.collectedData || {});
 
+  const dataContext = Object.entries(collectedData)
+    .map(([k, v]) => {
+      const question = (template.questionFlow || []).find((q) => q.key === k);
+      const label    = question?.label || k.replace(/_/g, ' ');
+      return `  ${label}: ${v}`;
+    })
+    .join('\n');
+
+  return `=== USER INFORMATION (collected via conversation) ===
+${dataContext || '(No data collected)'}
+
+Generate the document JSON now, following the system instructions exactly.`;
+}
+
+/**
+ * buildDocumentSystemPrompt — constructs the full document generation
+ * instructions (jurisdiction, applicable laws, output format/quality rules).
+ * Contains no citizen-supplied free text — see buildUserDataMessage for that.
+ *
+ * This is the most important prompt in NyayaSetu — it must produce a
+ * jurisdiction-aware, citation-rich, professionally formatted legal document.
+ *
+ * @param {object} session           — ChatSession (has userState, userLanguage)
+ * @param {object} template          — DocumentTemplate
+ * @param {object} jurisdictionRule  — JurisdictionRule for state+docType (may be null)
+ * @param {Array}  legalActSections  — Array of { act, sections[] } from LegalAct
+ */
+function buildDocumentSystemPrompt(session, template, jurisdictionRule, legalActSections) {
   const state    = session.userState    || 'India';
   const language = session.userLanguage || 'en';
   const today    = new Date().toLocaleDateString('en-IN', {
@@ -81,15 +108,6 @@ Relevant Sections:
 ${sectionText || '  (No specific sections loaded)'}`;
   }).join('\n\n---\n\n');
 
-  // ── Collected user data ───────────────────────────────────────────────────
-  const dataContext = Object.entries(collectedData)
-    .map(([k, v]) => {
-      const question = (template.questionFlow || []).find((q) => q.key === k);
-      const label    = question?.label || k.replace(/_/g, ' ');
-      return `  ${label}: ${v}`;
-    })
-    .join('\n');
-
   // ── Document language instruction ─────────────────────────────────────────
   const langInstruction = language !== 'en'
     ? `\n\nLANGUAGE: The document text must be in formal English (standard for Indian courts), but clauseExplanations and nextSteps[].instruction should be provided in BOTH English AND the user's language (${language}). Use simple, clear language in explanations.`
@@ -106,9 +124,6 @@ ${sectionText || '  (No specific sections loaded)'}`;
 ${template.name}
 Category: ${template.category}
 Complexity: ${template.complexity}
-
-=== USER INFORMATION (collected via conversation) ===
-${dataContext || '(No data collected)'}
 
 === JURISDICTION ===
 State/UT: ${state}
@@ -233,32 +248,52 @@ function enrichCitations(citations) {
  * }>}
  */
 async function generateDocument(session, template, jurisdictionRule, legalActSections) {
-  const prompt = buildDocumentPrompt(session, template, jurisdictionRule, legalActSections);
+  const systemPrompt = buildDocumentSystemPrompt(session, template, jurisdictionRule, legalActSections);
+  const userMessage  = buildUserDataMessage(session, template);
 
   logger.info(`[documentEngine] Generating document: ${template.slug}, state: ${session.userState}, session: ${session._id}`);
-  logger.debug(`[documentEngine] Prompt length: ${prompt.length} chars`);
+  logger.debug(`[documentEngine] System prompt length: ${systemPrompt.length} chars`);
+
+  // Use chat() so systemPrompt is placed in the provider's native system role,
+  // structurally isolated from the citizen's collected answers in userMessage —
+  // instead of concatenating both into a single generate() prompt, which gives
+  // prompt-injection text in a question answer no structural barrier.
+  const callAI = async (extraInstruction = '') => {
+    const content = extraInstruction ? `${userMessage}\n\n${extraInstruction}` : userMessage;
+    const raw = await aiProvider.chat(
+      [{ role: 'user', content }],
+      systemPrompt,
+      false, // stream
+      true   // jsonMode
+    );
+    const text = typeof raw === 'string' ? raw : JSON.stringify(raw);
+    const cleaned = text
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/, '')
+      .replace(/```\s*$/, '')
+      .trim();
+    return JSON.parse(cleaned);
+  };
 
   // ── First attempt ─────────────────────────────────────────────────────────
   let parsed;
 
   try {
-    parsed = await generate(prompt, true);
+    parsed = await callAI();
     validateDocumentJson(parsed);
   } catch (firstErr) {
     logger.warn(`[documentEngine] First attempt failed: ${firstErr.message}. Retrying with stricter prompt…`);
 
-    // ── Retry with a stricter, more explicit prompt ────────────────────────
-    const stricterPrompt = `${prompt}
-
-REMINDER: Your previous response could not be parsed as valid JSON. 
-You MUST respond with ONLY a raw JSON object. 
+    // ── Retry with a stricter, more explicit reminder ──────────────────────
+    const reminder = `REMINDER: Your previous response could not be parsed as valid JSON.
+You MUST respond with ONLY a raw JSON object.
 DO NOT include any text before the opening { or after the closing }.
 DO NOT use markdown code fences.
 DO NOT include comments.
 The response must be directly parseable by JSON.parse() with zero modifications.`;
 
     try {
-      parsed = await generate(stricterPrompt, true);
+      parsed = await callAI(reminder);
       validateDocumentJson(parsed);
     } catch (secondErr) {
       logger.error(`[documentEngine] Both attempts failed for session ${session._id}`, {
@@ -417,7 +452,7 @@ async function reviewDocument(documentText, session, template, jurisdictionRule)
   logger.info(`[documentEngine] Pass 2 review: ${template.slug}, session: ${session._id}`);
 
   try {
-    const parsed = await generate(prompt, true);
+    const parsed = await aiProvider.generate(prompt, true);
     validateReviewJson(parsed);
 
     const validCategories = ['completeness', 'jurisdiction', 'missing_details', 'uncertain'];
@@ -455,6 +490,7 @@ async function reviewDocument(documentText, session, template, jurisdictionRule)
 module.exports = {
   generateDocument,
   reviewDocument,
-  buildDocumentPrompt,
+  buildDocumentSystemPrompt,
+  buildUserDataMessage,
   buildKanoonUrl,
 };

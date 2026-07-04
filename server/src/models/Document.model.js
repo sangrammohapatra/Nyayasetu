@@ -325,6 +325,17 @@ const documentSchema = new Schema(
     isActive: { type: Boolean, default: true },
     isDeleted: { type: Boolean, default: false, index: true },
     deletedAt: { type: Date, default: null },
+
+    // ── Diagnostics ───────────────────────────────────────────────────────────
+    // Populated by worker/jobs/generateDocument.job.js on generation failure so
+    // the reason is queryable from the DB instead of only living in log output.
+    metadata: {
+      generationError: { type: String, trim: true, default: null },
+      failedAt:         { type: Date, default: null },
+      // Guards the free-tier quota refund against firing more than once for
+      // the same document (see generateDocument.job.js's error handler).
+      quotaRefunded:    { type: Boolean, default: false },
+    },
   },
   {
     timestamps: true,

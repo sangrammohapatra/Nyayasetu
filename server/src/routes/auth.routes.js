@@ -73,6 +73,30 @@ const refreshLimiter = rateLimit({
   }),
 });
 
+/**
+ * loginPasswordLimiter — 5 attempts per phone/email per 15 minutes.
+ * Keyed by the account identifier (not IP) so guessing can't be spread across
+ * IPs faster than it can be spread across identifiers, and unrelated accounts
+ * on the same IP/network aren't penalised by one attacker.
+ */
+const loginPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const email = req.body?.email;
+    if (email) return String(email).toLowerCase().trim();
+    const raw = req.body?.phone || req.ip;
+    return String(raw).replace(/\D/g, '').slice(-10);
+  },
+  handler: (_req, res) => res.status(429).json({
+    error: 'LOGIN_RATE_LIMIT',
+    message: 'Too many login attempts. Please wait 15 minutes or sign in with OTP.',
+    retryAfter: 900,
+  }),
+});
+
 const whatsappEntryLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
   max: 10,
@@ -345,12 +369,14 @@ router.post('/logout', verifyToken, logout);
 /**
  * POST /v1/auth/login-password
  * Sign in with phone/email + password (for users who have set a password via /set-password).
+ * Rate-limited: 5 attempts per identifier per 15 min.
  *
  * Body:  { phone, password } OR { email, password }
  * Resp:  { accessToken, refreshToken, user }
  */
 router.post(
   '/login-password',
+  loginPasswordLimiter,
   validate([
     requirePhoneOrEmail,
     optionalPhoneValidator,

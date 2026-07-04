@@ -677,6 +677,16 @@ const rejectNotary = asyncHandler(async (req, res) => {
 
   const notaryUser = profile.user;
 
+  // Invalidate any active sessions so a rejected/revoked notary cannot keep
+  // operating — matches rejectLawyer's session-revocation behavior.
+  if (notaryUser) {
+    await User.findByIdAndUpdate(notaryUser._id, { $set: { refreshTokens: [] } });
+    const redis = getRedisClient();
+    if (redis) {
+      await redis.set(`user:suspended:${notaryUser._id}`, '1', 'EX', 3600);
+    }
+  }
+
   if (notaryUser && notaryUser.whatsappOptIn && notaryUser.whatsappNumber) {
     try {
       const reasonText = reason ? `\n\nReason: ${reason}` : '';

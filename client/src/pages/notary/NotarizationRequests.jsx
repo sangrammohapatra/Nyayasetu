@@ -41,6 +41,7 @@ import AnimatedPage from '../../components/ui/AnimatedPage';
 import GlassCard from '../../components/ui/GlassCard';
 import GradientHeading from '../../components/ui/GradientHeading';
 import { RADIUS, TYPOGRAPHY } from '../../theme/tokens';
+import { NOTARIZATION_FEE_DISPLAY } from '../../constants/notarization';
 
 const STATUS_META = {
   pending:       { label: 'Pending',       color: '#ed6c02', bg: 'rgba(237,108,2,0.1)',    icon: '📬' },
@@ -165,7 +166,7 @@ function RequestCard({ request, onAction, actionLoading }) {
 
       {/* Payment badge */}
       {request.payment?.status === 'paid' ? (
-        <Chip label="✓ ₹199 Paid" size="small"
+        <Chip label={`✓ ${NOTARIZATION_FEE_DISPLAY} Paid`} size="small"
           sx={{ height: 18, fontSize: '0.62rem', fontWeight: 700, mb: 1.25,
             background: 'rgba(27,94,32,0.1)', color: '#1b5e20', border: 'none' }} />
       ) : request.status === 'accepted' ? (
@@ -226,6 +227,7 @@ function RequestCard({ request, onAction, actionLoading }) {
             </Button>
             <Button size="small" variant="outlined"
               onClick={() => onAction('reject', request._id)}
+              disabled={actionLoading === request._id}
               sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 600, flex: 1, borderColor: '#c62828', color: '#c62828' }}>
               ❌ Reject
             </Button>
@@ -239,7 +241,7 @@ function RequestCard({ request, onAction, actionLoading }) {
             textAlign: 'center',
           }}>
             <Typography variant="caption" sx={{ color: '#ff6d00', fontWeight: 700 }}>
-              ⏳ Awaiting citizen payment (₹199)
+              ⏳ Awaiting citizen payment ({NOTARIZATION_FEE_DISPLAY})
             </Typography>
             <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', display: 'block', mt: 0.25 }}>
               You can schedule the KYC session once payment is confirmed.

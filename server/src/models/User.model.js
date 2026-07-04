@@ -52,6 +52,9 @@ const freeUsageSchema = new Schema(
     // Legal Helpline triage — daily reset (not monthly)
     triageUsed:      { type: Number, default: 0, min: 0 },
     triageResetDate: { type: Date,   default: null },
+    // NyayaBot messages — daily reset (not monthly)
+    nyayabotUsed:      { type: Number, default: 0, min: 0 },
+    nyayabotResetDate: { type: Date,   default: null },
   },
   { _id: false },
 );
@@ -359,23 +362,29 @@ userSchema.statics.findByPhone = function (phone) {
 };
 
 // ─── Post-delete Cascade ──────────────────────────────────────────────────────
-// Fires after User.findOneAndDelete() and User.findByIdAndDelete().
+// Fires after User.findOneAndDelete(), User.findByIdAndDelete(), and the
+// document-instance userDoc.deleteOne() / userDoc.remove().
 // Lazy requires prevent circular-dependency issues at module load time.
 
-userSchema.post('findOneAndDelete', async function (doc) {
-  if (!doc) return;
-  const uid = doc._id;
+async function cascadeDeleteUser(uid) {
+  if (!uid) return;
 
-  const LawyerProfile   = require('./LawyerProfile.model');
-  const NotaryProfile   = require('./NotaryProfile.model');
-  const Document        = require('./Document.model');
-  const RTIApplication  = require('./RTIApplication.model');
-  const CaseTracker     = require('./CaseTracker.model');
-  const ChatSession     = require('./ChatSession.model');
-  const NyayaBotSession = require('./NyayaBotSession');
-  const Notification    = require('./Notification.model');
-  const Subscription    = require('./Subscription.model');
-  const Payment         = require('./Payment.model');
+  const LawyerProfile       = require('./LawyerProfile.model');
+  const NotaryProfile       = require('./NotaryProfile.model');
+  const Document            = require('./Document.model');
+  const RTIApplication      = require('./RTIApplication.model');
+  const CaseTracker         = require('./CaseTracker.model');
+  const ChatSession         = require('./ChatSession.model');
+  const NyayaBotSession     = require('./NyayaBotSession');
+  const Notification        = require('./Notification.model');
+  const Subscription        = require('./Subscription.model');
+  const Payment             = require('./Payment.model');
+  const Consultation        = require('./Consultation.model');
+  const ConsultationMessage = require('./ConsultationMessage.model');
+  const NotarizationRequest = require('./NotarizationRequest.model');
+  const LawyerWithdrawal    = require('./LawyerWithdrawal.model');
+  const NotaryWithdrawal    = require('./NotaryWithdrawal.model');
+  const AuditLog            = require('./AuditLog.model');
 
   await Promise.all([
     // Hard delete — records owned solely by this user
@@ -388,9 +397,39 @@ userSchema.post('findOneAndDelete', async function (doc) {
     NyayaBotSession.deleteMany({ user: uid }),
     Notification.deleteMany({ user: uid }),
     Subscription.deleteMany({ user: uid }),
+    LawyerWithdrawal.deleteMany({ lawyerUser: uid }),
+    NotaryWithdrawal.deleteMany({ notaryUser: uid }),
+    // Consultation/NotarizationRequest reference the user as either party —
+    // hard-deleting either side would leave the other party's record dangling,
+    // so remove the whole engagement when either party is deleted.
+    Consultation.find({ $or: [{ citizen: uid }, { lawyer: uid }] }).select('_id').lean()
+      .then(async (consultations) => {
+        const ids = consultations.map((c) => c._id);
+        if (!ids.length) return;
+        await Promise.all([
+          ConsultationMessage.deleteMany({ consultation: { $in: ids } }),
+          Consultation.deleteMany({ _id: { $in: ids } }),
+        ]);
+      }),
+    NotarizationRequest.deleteMany({ $or: [{ citizen: uid }, { notary: uid }] }),
     // Anonymise — financial records must be retained; only the user ref is removed
     Payment.updateMany({ user: uid }, { $unset: { user: '' } }),
+    // Audit trail must be retained for compliance; only the actor ref is removed
+    AuditLog.updateMany({ user: uid }, { $unset: { user: '' } }),
   ]);
+}
+
+userSchema.post('findOneAndDelete', async function (doc) {
+  if (!doc) return;
+  await cascadeDeleteUser(doc._id);
+});
+
+userSchema.post('deleteOne', { document: true, query: false }, async function () {
+  await cascadeDeleteUser(this._id);
+});
+
+userSchema.post('remove', { document: true, query: false }, async function () {
+  await cascadeDeleteUser(this._id);
 });
 
 module.exports = mongoose.model("User", userSchema);

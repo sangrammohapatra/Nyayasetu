@@ -8,8 +8,8 @@
 
 import { io } from 'socket.io-client';
 
-const SERVER_URL = import.meta.env.VITE_API_BASE_URL
-  ? import.meta.env.VITE_API_BASE_URL.replace('/v1', '')
+const SERVER_URL = import.meta.env.VITE_API_URL
+  ? import.meta.env.VITE_API_URL.replace('/v1', '')
   : 'http://localhost:5000';
 
 class SocketService {

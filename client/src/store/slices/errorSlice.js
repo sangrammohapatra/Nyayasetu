@@ -142,7 +142,7 @@ export const selectErrorsInWindow = (windowMs) => (state) => {
 export const logErrorToService = (error) => async (dispatch) => {
   try {
     // In production, send error to external service (Sentry, LogRocket, etc.)
-    if (process.env.NODE_ENV === "production") {
+    if (import.meta.env.PROD) {
       await fetch("https://your-error-tracking-service.com/log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

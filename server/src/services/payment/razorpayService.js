@@ -202,6 +202,28 @@ async function cancelSubscription(subscriptionId, cancelAtCycleEnd = true) {
 }
 
 /* ---------------------------------------------------------------------------
+ * fetchOrder
+ *
+ * @param {string} orderId  Razorpay order_id (order_*)
+ * @returns {Promise<object>} Razorpay order object (includes `notes`, `amount`)
+ * ------------------------------------------------------------------------ */
+async function fetchOrder(orderId) {
+  if (!orderId) throw new Error('orderId is required');
+
+  try {
+    const order = await getClient().orders.fetch(orderId);
+    return order;
+  } catch (err) {
+    logger.error('[razorpayService] fetchOrder failed', {
+      orderId,
+      status: err.statusCode,
+      error: err.error || err.message,
+    });
+    throw err;
+  }
+}
+
+/* ---------------------------------------------------------------------------
  * fetchPayment
  *
  * @param {string} paymentId  Razorpay payment_id (pay_*)
@@ -261,6 +283,7 @@ module.exports = {
   verifyWebhookSignature,
   createSubscription,
   cancelSubscription,
+  fetchOrder,
   fetchPayment,
   initiateRefund,
 };

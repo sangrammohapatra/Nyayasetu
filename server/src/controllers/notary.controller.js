@@ -302,8 +302,11 @@ exports.verifyNotarizationPayment = async (req, res) => {
       return res.status(400).json({ error: 'INVALID_SIGNATURE', message: 'Payment verification failed' });
     }
 
-    const notarizationReq = await NotarizationRequest.findByIdAndUpdate(
-      pending._id,
+    // Guard the write with the same status filter used to read `pending` above,
+    // so two concurrent/replayed calls can't both pass the read and both credit
+    // earnings — only the request that wins this atomic update proceeds.
+    const notarizationReq = await NotarizationRequest.findOneAndUpdate(
+      { _id: pending._id, 'payment.status': 'pending' },
       {
         'payment.status': 'paid',
         'payment.razorpayPaymentId': razorpayPaymentId,
@@ -443,16 +446,32 @@ exports.acceptRequest = async (req, res) => {
     );
     if (!claimed) return res.status(404).json({ error: 'NOT_FOUND', message: 'Request not found' });
 
-    // Create the Razorpay order now that notary has accepted — citizen will pay next
-    const order = await razorpayService.createOrder({
-      amount: NOTARIZATION_FEE,
-      currency: 'INR',
-      receipt: `notarize_${claimed._id}_${Date.now()}`,
-      notes: {
-        notarizationRequestId: String(claimed._id),
-        citizenId: String(claimed.citizen),
-      },
-    });
+    // Create the Razorpay order now that notary has accepted — citizen will pay next.
+    // If this throws, revert the atomic claim above so the request isn't left stuck at
+    // "accepted" with no order — the citizen could never pay and the notary could
+    // never retry accept.
+    let order;
+    try {
+      order = await razorpayService.createOrder(
+        NOTARIZATION_FEE,
+        'INR',
+        `notarize_${claimed._id}_${Date.now()}`,
+        {
+          notarizationRequestId: String(claimed._id),
+          citizenId: String(claimed.citizen),
+        }
+      );
+    } catch (orderErr) {
+      await NotarizationRequest.findOneAndUpdate(
+        { _id: claimed._id, status: 'accepted' },
+        { status: 'pending' }
+      );
+      logger.error('acceptRequest: Razorpay order creation failed, reverted to pending', {
+        requestId: claimed._id,
+        error: orderErr.message,
+      });
+      return res.status(502).json({ error: 'PAYMENT_GATEWAY_ERROR', message: 'Failed to set up payment — please try accepting again.' });
+    }
 
     const request = await NotarizationRequest.findByIdAndUpdate(
       claimed._id,
@@ -575,19 +594,22 @@ exports.completeKYC = async (req, res) => {
 
 exports.stampDocument = async (req, res) => {
   try {
-    const request = await NotarizationRequest.findOne({
-      _id: req.params.id,
-      notary: req.user.userId,
-      status: 'kyc_completed',
-    }).populate('document').populate('notaryProfile');
+    // Atomically claim the request by flipping status kyc_completed -> stamped
+    // BEFORE doing any PDF generation/upload/earnings work. This closes the
+    // double-click / retry race: only the request that wins this update proceeds;
+    // every other concurrent request sees no matching document and 404s.
+    const stampRef = generateStampRef();
+    const claimed = await NotarizationRequest.findOneAndUpdate(
+      { _id: req.params.id, notary: req.user.userId, status: 'kyc_completed' },
+      { status: 'stamped', stampedAt: new Date(), notaryStampRef: stampRef },
+      { new: true }
+    ).populate('document').populate('notaryProfile');
 
-    if (!request) return res.status(404).json({ error: 'NOT_FOUND', message: 'Not found' });
+    if (!claimed) return res.status(404).json({ error: 'NOT_FOUND', message: 'Not found' });
 
+    const request = claimed;
     const notaryProfile = request.notaryProfile;
     const notary = await User.findById(req.user.userId);
-
-    // Generate stamp reference
-    const stampRef = generateStampRef();
 
     // Build notarized PDF using pdfGenerator with notary stamp overlay
     const { generateNotarizedPDF } = require('../services/pdf/notaryStamp');
@@ -597,7 +619,7 @@ exports.stampDocument = async (req, res) => {
       notaryRegistrationNumber: notaryProfile.notaryRegistrationNumber,
       registrationState: notaryProfile.registrationState,
       stampRef,
-      stampedAt: new Date(),
+      stampedAt: request.stampedAt,
     });
 
     // Upload notarized PDF
@@ -607,15 +629,10 @@ exports.stampDocument = async (req, res) => {
       mimetype: 'application/pdf',
     });
 
-    // Update request + document
+    // Persist the generated PDF URL on the already-claimed request
     const updatedRequest = await NotarizationRequest.findByIdAndUpdate(
       request._id,
-      {
-        status: 'stamped',
-        notarizedPdfUrl: uploaded.url,
-        stampedAt: new Date(),
-        notaryStampRef: stampRef,
-      },
+      { notarizedPdfUrl: uploaded.url },
       { new: true }
     );
 

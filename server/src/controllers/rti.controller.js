@@ -237,7 +237,28 @@ const updateStatus = asyncHandler(async (req, res) => {
       `Cannot transition from '${rti.status}' to '${status}'`);
   }
 
+  // Each appeal-stage status has a companion date that records when that stage
+  // actually happened. Without requiring it here, status could say e.g. "first
+  // appeal filed" while firstAppealFiledDate stays null — status and the
+  // supporting data drift out of sync.
+  const STATUS_REQUIRES_DATE = {
+    first_appeal_filed:   { field: 'firstAppealFiledDate',   value: firstAppealFiledDate },
+    first_appeal_decided: { field: 'firstAppealDecisionDate', value: firstAppealDecisionDate },
+    cic_filed:            { field: 'cicFiledDate',           value: cicFiledDate },
+    cic_decided:          { field: 'cicDecisionDate',        value: cicDecisionDate },
+  };
+  const dateRequirement = status && STATUS_REQUIRES_DATE[status];
+  if (dateRequirement && !dateRequirement.value) {
+    throw createError(400, 'DATE_REQUIRED',
+      `${dateRequirement.field} is required when setting status to '${status}'`);
+  }
+
   if (status) rti.status = status;
+  // Mirror markAsFiled: the pre-save hook only computes responseDeadline /
+  // firstAppealDeadline off filedDate, so the generic status endpoint must
+  // also set it when transitioning into 'filed' or those deadlines (and the
+  // Bull.js reminder queries that key off them) never get populated.
+  if (status === 'filed' && !rti.filedDate) rti.filedDate = new Date();
   if (referenceNumber) rti.referenceNumber = referenceNumber.trim();
   if (notes !== undefined) rti.notes = notes?.trim();
 

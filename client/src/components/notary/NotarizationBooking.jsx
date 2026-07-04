@@ -27,12 +27,14 @@ import Alert from '@mui/material/Alert';
 import {
   createNotarizationRequest,
   clearPendingRequest,
+  clearNotaryError,
   selectNotaryBookingLoading,
   selectNotaryBookingError,
 } from '../../store/slices/notarySlice';
 import { RADIUS, TYPOGRAPHY } from '../../theme/tokens';
 import GradientHeading from '../ui/GradientHeading';
 import NotarySearch from './NotarySearch';
+import { NOTARIZATION_FEE_DISPLAY } from '../../constants/notarization';
 
 const STEPS = ['Select Notary', 'Details'];
 
@@ -67,6 +69,7 @@ export default function NotarizationBooking({ open, onClose, document, onSuccess
       setStep(0); setSelectedNotary(null); setNotes('');
       setWantCourier(false); setDone(false);
       dispatch(clearPendingRequest());
+      dispatch(clearNotaryError());
       onClose();
     }
   };
@@ -156,7 +159,7 @@ export default function NotarizationBooking({ open, onClose, document, onSuccess
             </Typography>
             <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3, lineHeight: 1.6 }}>
               Your request has been sent to <strong>{selectedNotary?.user?.name}</strong>.
-              Once they accept, you'll be prompted to pay <strong>₹199</strong> to proceed.
+              Once they accept, you'll be prompted to pay <strong>{NOTARIZATION_FEE_DISPLAY}</strong> to proceed.
             </Typography>
             <Chip
               label="📋 Awaiting notary acceptance"
@@ -202,7 +205,7 @@ export default function NotarizationBooking({ open, onClose, document, onSuccess
                         {selectedNotary?.registrationState} • {selectedNotary?.experience} yrs exp
                       </Typography>
                     </Box>
-                    <Chip label="₹199" size="small" sx={{ ml: 'auto', fontWeight: 800, color: 'var(--color-primary)', background: 'transparent', border: '1.5px solid var(--color-primary)' }} />
+                    <Chip label={NOTARIZATION_FEE_DISPLAY} size="small" sx={{ ml: 'auto', fontWeight: 800, color: 'var(--color-primary)', background: 'transparent', border: '1.5px solid var(--color-primary)' }} />
                   </Box>
 
                   {/* How it works */}
@@ -216,7 +219,7 @@ export default function NotarizationBooking({ open, onClose, document, onSuccess
                     {[
                       '1. You send this request (free)',
                       '2. Notary reviews and accepts',
-                      '3. You pay ₹199 to confirm',
+                      `3. You pay ${NOTARIZATION_FEE_DISPLAY} to confirm`,
                       '4. Video KYC session is scheduled',
                       '5. Notarized PDF delivered',
                     ].map((s) => (

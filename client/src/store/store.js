@@ -39,7 +39,13 @@ import rtiReducer from './slices/rtiSlice';
 const authPersistConfig = {
   key: "nyayasetu_auth",
   storage,
-  whitelist: ["token", "refreshToken", "user"], // never persist loading / error
+  // token/refreshToken are deliberately NOT whitelisted here — tokenStore
+  // (services/tokenStore.js) is the single source of truth for those, backed
+  // by its own localStorage keys (nyayasetu_token / nyayasetu_refresh_token).
+  // Also persisting them via redux-persist would duplicate the same secret
+  // across two localStorage entries with no indication either copy is
+  // authoritative, doubling the XSS attack surface for credential theft.
+  whitelist: ["user"], // never persist loading / error
 };
 
 const uiPersistConfig = {

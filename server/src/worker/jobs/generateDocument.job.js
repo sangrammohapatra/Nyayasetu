@@ -140,13 +140,6 @@ module.exports = async function processGenerateDocument(job) {
     document.pdfSizeBytes   = pdfBuffer.length;
     await document.save();
 
-    // ── 5b. Increment free-tier quota — only on success ───────────────────────
-    // Quota is consumed here (not in the HTTP controller) so that a failed job
-    // never permanently costs the user a document slot.
-    if (document.accessType === 'free_tier' && !document.isPaid) {
-      await User.findByIdAndUpdate(userId, { $inc: { 'freeUsage.docsGenerated': 1 } });
-    }
-
     await job.progress(90);
     logger.info(`[job/generateDocument] PDF uploaded: ${storageKey}`);
 
@@ -191,6 +184,29 @@ module.exports = async function processGenerateDocument(job) {
             'metadata.failedAt': new Date(),
           },
         });
+
+        // Refund the free-tier quota slot claimed at request time (see
+        // document.controller.js generateDocument), so a failed job never
+        // permanently costs the user a document credit.
+        //
+        // Only refund once Bull has exhausted all retries — this catch block
+        // runs on every failed attempt, and a retry may still succeed. Bull
+        // increments job.attemptsMade *after* this processor returns (see
+        // Job#moveToFailed in bull/lib/job.js), so attemptsMade here is the
+        // count of attempts *before* this one; attemptsMade + 1 is the attempt
+        // number that just failed.
+        const isFinalAttempt = (job.attemptsMade + 1) >= (job.opts.attempts || 1);
+        if (isFinalAttempt && document.accessType === 'free_tier' && !document.isPaid) {
+          // Guard against a double-refund if this code path is ever reached
+          // more than once for the same document (e.g. manual Bull retry).
+          const refunded = await DocumentModel.findOneAndUpdate(
+            { _id: documentId, 'metadata.quotaRefunded': { $ne: true } },
+            { $set: { 'metadata.quotaRefunded': true } },
+          );
+          if (refunded) {
+            await User.findByIdAndUpdate(userId, { $inc: { 'freeUsage.docsGenerated': -1 } });
+          }
+        }
       }
       if (session) {
         await ChatSession.findByIdAndUpdate(sessionId, {

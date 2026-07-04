@@ -60,6 +60,15 @@ const sessionLimiter = rateLimit({
     res.status(429).json({ error: 'RATE_LIMITED', message: 'Too many sessions created. Try again later.' }),
 });
 
+// ─── PUBLIC: SHARED SESSION (no auth) ────────────────────────────────────────
+// Must be registered before router.use(verifyToken) below — Express runs
+// middleware in registration order, so a route declared after verifyToken has
+// already been through it and a no-op middleware cannot undo that.
+router.get(
+  '/shared/:shareToken',
+  ctrl.getSharedSession
+);
+
 // ─── All routes below require authentication ───────────────────────────────────
 router.use(verifyToken);
 
@@ -175,20 +184,5 @@ router.post(
 
 // ─── QUOTA STATUS ─────────────────────────────────────────────────────────────
 router.get('/quota', ctrl.getQuota);
-
-// ─── PUBLIC: SHARED SESSION (no auth) ────────────────────────────────────────
-// Note: This intentionally overrides verifyToken for the /shared/* path.
-// Place this AFTER verifyToken.use() — router applies middleware per-route so
-// we manually bypass by declaring before the handler (verifyToken already ran
-// for all others; this specific route was added last and will match).
-router.get(
-  '/shared/:shareToken',
-  // Remove auth requirement for this one route:
-  (req, res, next) => {
-    // Skip verifyToken check — already attached to router
-    next();
-  },
-  ctrl.getSharedSession
-);
 
 module.exports = router;

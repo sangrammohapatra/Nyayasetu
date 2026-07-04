@@ -57,8 +57,8 @@ const LANGUAGE_INSTRUCTIONS = {
 async function loadJurisdictionContext(jurisdiction) {
   if (!jurisdiction) return '';
   try {
-    const JurisdictionRule = require('../models/JurisdictionRule');
-    const LegalAct = require('../models/LegalAct');
+    const JurisdictionRule = require('../../models/JurisdictionRule.model');
+    const LegalAct = require('../../models/LegalAct.model');
 
     const rules = await JurisdictionRule.find({ state: jurisdiction }).limit(8).lean();
     const actIds = [...new Set(rules.flatMap((r) => r.applicableActs || []))];
@@ -83,13 +83,13 @@ async function loadContextSnippet(contextType, contextRefId) {
   if (!contextType || contextType === 'general' || !contextRefId) return '';
   try {
     if (contextType === 'document') {
-      const Document = require('../models/Document');
+      const Document = require('../../models/Document.model');
       const doc = await Document.findById(contextRefId).select('title template content').lean();
       if (!doc) return '';
       return `The user has an existing document: "${doc.title}". Tailor your advice to this document context.`;
     }
     if (contextType === 'case') {
-      const CaseTracker = require('../models/CaseTracker');
+      const CaseTracker = require('../../models/CaseTracker.model');
       const c = await CaseTracker.findById(contextRefId).select('caseTitle cnrNumber court state').lean();
       if (!c) return '';
       return `The user is tracking case "${c.caseTitle}" (CNR: ${c.cnrNumber}) at ${c.court}, ${c.state}. Use this as context.`;
@@ -303,7 +303,7 @@ async function suggestTemplatesForQuery(query) {
   if (!matchedSlugs.size) return [];
 
   try {
-    const DocumentTemplate = require('../models/DocumentTemplate');
+    const DocumentTemplate = require('../../models/DocumentTemplate.model');
     const templates = await DocumentTemplate.find({ slug: { $in: [...matchedSlugs] } })
       .select('slug title category complexity pricePayPerDoc')
       .limit(3)

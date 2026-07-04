@@ -143,9 +143,14 @@ export const deactivateAccount = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       await api.delete('/profile/account');
+      // Wipe every persisted slice — same as logout — so the next user on a
+      // shared device can't rehydrate this account's documents/chat history.
       localStorage.removeItem('nyayasetu_token');
       localStorage.removeItem('nyayasetu_refresh_token');
       localStorage.removeItem('nyayasetu_auth');
+      localStorage.removeItem('nyayasetu_ui');
+      localStorage.removeItem('nyayasetu_documents');
+      localStorage.removeItem('nyayasetu_chat');
       return null;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to deactivate account');

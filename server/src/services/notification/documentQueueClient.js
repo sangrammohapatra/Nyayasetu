@@ -3,6 +3,7 @@
 const Bull = require('bull');
 
 const logger = require('../../utils/logger');
+const { buildBullRedisOpts } = require('../../utils/bullRedisOpts');
 const { QUEUE_NAMES } = require('../../config/constants');
 const Document = require('../../models/Document.model');
 const ChatSession = require('../../models/ChatSession.model');
@@ -24,7 +25,8 @@ function getDocumentQueue() {
 
   const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 
-  documentQueueInstance = new Bull(QUEUE_NAMES.DOCUMENTS, redisUrl, {
+  documentQueueInstance = new Bull(QUEUE_NAMES.DOCUMENTS, {
+    redis: buildBullRedisOpts(redisUrl),
     defaultJobOptions: {
       attempts: 3,
       backoff: { type: 'exponential', delay: 5000 },

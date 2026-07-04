@@ -9,7 +9,7 @@
  *   4. Preview & save / download PDF
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
@@ -473,6 +473,11 @@ export default function NewRTI() {
 
   const [step, setStep] = useState(0);
   const [description, setDescription] = useState('');
+  // Tracks the description the current aiDraft was generated from, so editing
+  // the description after a draft exists forces regeneration instead of
+  // silently reusing stale AI-generated questions/ministry.
+  const [lastDraftedDescription, setLastDraftedDescription] = useState(null);
+  const draftedDescriptionRef = useRef('');
 
   const [form, setForm] = useState({
     title:            '',
@@ -512,11 +517,13 @@ export default function NewRTI() {
         subjects:       aiDraft.subjects?.length ? aiDraft.subjects : [''],
         aiDrafted:      true,
       }));
+      setLastDraftedDescription(draftedDescriptionRef.current);
       setStep(1);
     }
   }, [aiDraft]);
 
   const handleAIDraft = async () => {
+    draftedDescriptionRef.current = description;
     await dispatch(aiDraftRTI({ description }));
   };
 
@@ -633,7 +640,7 @@ export default function NewRTI() {
               variant="contained"
               disabled={!canProceed() || aiLoading}
               onClick={() => {
-                if (step === 0 && !aiDraft) {
+                if (step === 0 && (!aiDraft || description !== lastDraftedDescription)) {
                   handleAIDraft();
                 } else {
                   setStep((s) => s + 1);

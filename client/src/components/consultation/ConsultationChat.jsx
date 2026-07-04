@@ -127,7 +127,8 @@ export default function ConsultationChat({ consultationId, open, onClose, otherP
     if (!open) return;
 
     const handleMessage = (message) => {
-      dispatch(receiveMessage({ consultationId, message }));
+      if (!message?.consultation) return;
+      dispatch(receiveMessage({ consultationId: message.consultation, message }));
     };
     const handleTyping = ({ isTyping }) => {
       setTyping(isTyping);

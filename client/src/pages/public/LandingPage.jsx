@@ -1002,6 +1002,7 @@ function LiveHelplineSection() {
   const [emailError, setEmailError]   = useState('');
   const [description, setDescription] = useState('');
   const [result, setResult]           = useState(null);
+  const [submitError, setSubmitError] = useState('');
 
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -1023,6 +1024,7 @@ function LiveHelplineSection() {
     e.preventDefault();
     if (description.trim().length < 10) return;
 
+    setSubmitError('');
     setPhase('loading');
     try {
       const { data } = await api.post('/triage/public', {
@@ -1035,6 +1037,9 @@ function LiveHelplineSection() {
       if (err?.response?.status === 403) {
         setPhase('exceeded');
       } else {
+        // Network blip or 500 — surface it instead of silently reverting to
+        // input with no explanation, which just looks like the button did nothing.
+        setSubmitError(err?.response?.data?.message || 'Something went wrong. Please try again.');
         setPhase('input');
       }
     }
@@ -1173,6 +1178,16 @@ function LiveHelplineSection() {
                   <Typography sx={{ fontSize: '0.82rem', color: DARK.textSub, mb: 2 }}>
                     Write in any language — Hindi, Tamil, Bengali, or English.
                   </Typography>
+                  {submitError && (
+                    <Box sx={{
+                      mb: 2, p: 1.5, borderRadius: `${RADIUS.md}px`,
+                      background: 'rgba(255,23,68,0.1)', border: '1px solid rgba(255,23,68,0.3)',
+                    }}>
+                      <Typography sx={{ fontSize: '0.82rem', color: '#FF6B81' }}>
+                        {submitError}
+                      </Typography>
+                    </Box>
+                  )}
                   <form onSubmit={handleSubmit}>
                     <TextField
                       fullWidth multiline minRows={5}

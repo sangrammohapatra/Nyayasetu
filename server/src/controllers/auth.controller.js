@@ -743,8 +743,11 @@ const logout = asyncHandler(async (req, res) => {
 // ─── whatsappEntry ────────────────────────────────────────────────────────────
 
 const whatsappEntry = asyncHandler(async (req, res) => {
-  const rawPhone = req.query.phone || req.body.phone;
-  const waToken = req.query.wa_token || req.body.wa_token;
+  // Route validators (auth.routes.js) check req.body only — prefer it so the
+  // value actually used matches the value actually validated. Query params
+  // are a fallback for callers that don't have a request body to set.
+  const rawPhone = req.body.phone || req.query.phone;
+  const waToken = req.body.wa_token || req.query.wa_token;
 
   if (!rawPhone || !waToken)
     throw createError(400, "MISSING_PARAMS", "phone and wa_token are required");

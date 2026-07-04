@@ -231,6 +231,10 @@ function Login() {
     password: '', confirmPassword: '',
   });
   const sessionOtpVerified = useRef(false);
+  // The exact email that was actually verified (via OTP, or already on file for
+  // a password-authenticated account) — regData.email is freely editable on
+  // Step 0, so sessionOtpVerified alone isn't enough to skip re-verification.
+  const verifiedEmailRef = useRef(null);
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [showRegConfirmPassword, setShowRegConfirmPassword] = useState(false);
   const [regOtp, setRegOtp] = useState('');
@@ -346,6 +350,8 @@ function Login() {
       const profileIncomplete = !user?.name || !user?.state;
       if (result.payload.isNewUser || profileIncomplete) {
         sessionOtpVerified.current = true;
+        const verifiedEmail = identifierIsEmail ? identifier : (user?.email || null);
+        verifiedEmailRef.current = verifiedEmail ? verifiedEmail.trim().toLowerCase() : null;
         setRegData((prev) => ({
           ...prev,
           name: user?.name || prev.name,
@@ -381,6 +387,8 @@ function Login() {
       const user = result.payload.user;
       if (!user?.name || !user?.state) {
         sessionOtpVerified.current = true;
+        const verifiedEmail = identifierIsEmail ? identifier : (user?.email || null);
+        verifiedEmailRef.current = verifiedEmail ? verifiedEmail.trim().toLowerCase() : null;
         setRegData((prev) => ({
           ...prev,
           name: user?.name || prev.name,
@@ -424,8 +432,11 @@ function Login() {
     if (Object.keys(errs).length > 0) { setRegErrors(errs); return; }
     setRegErrors({});
 
-    // Skip email OTP if already verified in this session (via login OTP flow)
-    if (sessionOtpVerified.current) {
+    // Skip email OTP only if the email currently in the form is still the exact
+    // one that was verified this session (via login OTP/password flow) — the
+    // field is freely editable on this step, so the flag alone isn't sufficient.
+    const enteredEmail = regData.email?.trim().toLowerCase();
+    if (sessionOtpVerified.current && verifiedEmailRef.current && enteredEmail === verifiedEmailRef.current) {
       setRegDirection(1);
       setRegStep(2);
       return;

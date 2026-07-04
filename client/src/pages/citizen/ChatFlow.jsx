@@ -51,7 +51,7 @@ const LANGUAGES = [
 /* ---------------------------------------------------------------------------
  * Document generating animation overlay
  * ------------------------------------------------------------------------ */
-function GeneratingOverlay() {
+function GeneratingOverlay({ error, onRetry, onGoToDocuments }) {
   const { t } = useTranslation();
   const prefersReducedMotion = useReducedMotion();
   return (
@@ -67,28 +67,53 @@ function GeneratingOverlay() {
         alignItems: 'center', justifyContent: 'center', gap: 20,
       }}
     >
-      <motion.div
-        animate={prefersReducedMotion ? undefined : { rotate: 360 }}
-        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-        style={{ fontSize: 64 }}
-      >
-        ⚖️
-      </motion.div>
-      <Typography variant="h5" sx={{
-        fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, color: 'var(--color-primary)',
-      }}>
-        {t('myDocs.generating', 'Generating your document…')}
-      </Typography>
-      <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', textAlign: 'center', maxWidth: 280 }}>
-        {t('myDocs.generating_desc', 'Our AI is crafting a professional legal document tailored to your situation.')}
-      </Typography>
-      <Box sx={{ width: 240 }}>
-        <LinearProgress sx={{
-          height: 5, borderRadius: 3,
-          background: 'var(--color-border)',
-          '& .MuiLinearProgress-bar': { background: 'var(--color-primary)', borderRadius: 3 },
-        }} />
-      </Box>
+      {error ? (
+        <>
+          <Box style={{ fontSize: 64 }}>⚠️</Box>
+          <Typography variant="h5" sx={{
+            fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, color: 'var(--color-text)',
+            textAlign: 'center', maxWidth: 340,
+          }}>
+            {t('myDocs.generating_timeout_title', "This is taking longer than expected")}
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', textAlign: 'center', maxWidth: 320 }}>
+            {error}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+            <Button variant="contained" onClick={onRetry} sx={{ borderRadius: `${RADIUS.full}px`, fontWeight: 700 }}>
+              {t('common.retry', 'Retry')}
+            </Button>
+            <Button variant="outlined" onClick={onGoToDocuments} sx={{ borderRadius: `${RADIUS.full}px`, fontWeight: 600 }}>
+              {t('myDocs.go_to_documents', 'My Documents')}
+            </Button>
+          </Box>
+        </>
+      ) : (
+        <>
+          <motion.div
+            animate={prefersReducedMotion ? undefined : { rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+            style={{ fontSize: 64 }}
+          >
+            ⚖️
+          </motion.div>
+          <Typography variant="h5" sx={{
+            fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, color: 'var(--color-primary)',
+          }}>
+            {t('myDocs.generating', 'Generating your document…')}
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', textAlign: 'center', maxWidth: 280 }}>
+            {t('myDocs.generating_desc', 'Our AI is crafting a professional legal document tailored to your situation.')}
+          </Typography>
+          <Box sx={{ width: 240 }}>
+            <LinearProgress sx={{
+              height: 5, borderRadius: 3,
+              background: 'var(--color-border)',
+              '& .MuiLinearProgress-bar': { background: 'var(--color-primary)', borderRadius: 3 },
+            }} />
+          </Box>
+        </>
+      )}
     </motion.div>
   );
 }
@@ -247,6 +272,8 @@ function ChatFlow() {
   const [inputValue, setInputValue] = useState('');
   const [templateMeta, setTemplateMeta] = useState(null);
   const [showGenerating, setShowGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState(null);
+  const retryGenerationRef = useRef(null);
   const [langOpen, setLangOpen] = useState(false);
   // 'checking' while querying for existing sessions, 'resume-dialog' when one is found, 'ready' otherwise
   const [initPhase, setInitPhase] = useState('checking');
@@ -315,10 +342,10 @@ function ChatFlow() {
     if (!dataComplete || navigatedRef.current || !session) return;
     navigatedRef.current = true;
     setShowGenerating(true);
+    setGenerationError(null);
 
     let poll;
-    let pollCount = 0;
-    const MAX_POLLS = 60; // 5 minutes at 5-second intervals
+    let cancelled = false;
 
     async function startGeneration() {
       let documentId;
@@ -334,12 +361,25 @@ function ChatFlow() {
         } catch (_) {}
       }
 
-      if (!documentId) return;
+      if (cancelled) return;
+      if (!documentId) {
+        setGenerationError('We could not start generating your document. Please try again.');
+        return;
+      }
+
+      let pollCount = 0;
+      const MAX_POLLS = 60; // 5 minutes at 5-second intervals
 
       poll = setInterval(async () => {
         pollCount += 1;
         if (pollCount > MAX_POLLS) {
           clearInterval(poll);
+          // Surface the timeout instead of leaving the overlay spinning forever
+          // with no way out except reloading — matches DocumentPreview.jsx's
+          // equivalent poll, which surfaces a timeout message on give-up.
+          setGenerationError(
+            'Document generation is taking longer than usual. You can retry, or check "My Documents" later — it may finish in the background.'
+          );
           return;
         }
         try {
@@ -358,9 +398,14 @@ function ChatFlow() {
       }, 5000);
     }
 
+    retryGenerationRef.current = () => {
+      setGenerationError(null);
+      startGeneration();
+    };
+
     startGeneration();
 
-    return () => clearInterval(poll);
+    return () => { cancelled = true; clearInterval(poll); };
   }, [dataComplete, session, navigate]);
 
   const handleSend = useCallback(async () => {
@@ -756,7 +801,14 @@ function ChatFlow() {
 
       {/* Generating overlay */}
       <AnimatePresence>
-        {showGenerating && <GeneratingOverlay key="gen-overlay" />}
+        {showGenerating && (
+          <GeneratingOverlay
+            key="gen-overlay"
+            error={generationError}
+            onRetry={() => retryGenerationRef.current?.()}
+            onGoToDocuments={() => navigate('/citizen/documents')}
+          />
+        )}
       </AnimatePresence>
 
       {/* Error snackbar */}

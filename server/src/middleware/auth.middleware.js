@@ -10,7 +10,7 @@ const User = require('../models/User.model');
  * verifyToken — extracts the JWT Bearer token from the Authorization header,
  * verifies it with JWT_SECRET, and attaches the decoded payload to req.user.
  *
- * req.user shape: { userId, persona, plan }   ← Rule #12: payload contains ONLY these three
+ * req.user shape: { userId, persona, plan, iat }   ← Rule #12: payload contains ONLY these four
  *
  * Throws 401 if token is missing, malformed, or expired.
  * The error middleware maps JsonWebTokenError / TokenExpiredError → 401 automatically.
@@ -42,6 +42,7 @@ const verifyToken = asyncHandler(async (req, res, next) => {
     userId:  decoded.userId,
     persona: decoded.persona?.toLowerCase(),
     plan:    decoded.plan,
+    iat:     decoded.iat,
   };
 
   next();
@@ -159,6 +160,9 @@ const requireLawyer = requirePersona('lawyer', 'admin');
 /** requireCitizen — allows citizens and admins */
 const requireCitizen = requirePersona('citizen', 'admin');
 
+/** requireNotary — allows notaries and admins */
+const requireNotary = requirePersona('notary', 'admin');
+
 module.exports = {
   verifyToken,
   optionalAuth,
@@ -166,5 +170,6 @@ module.exports = {
   requireAdmin,
   requireLawyer,
   requireCitizen,
+  requireNotary,
   requireCompleteProfile,
 };

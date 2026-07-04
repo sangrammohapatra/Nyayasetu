@@ -26,6 +26,7 @@ import GlassCard from '../../components/ui/GlassCard';
 import GradientHeading from '../../components/ui/GradientHeading';
 import { RADIUS, TYPOGRAPHY } from '../../theme/tokens';
 import api from '../../services/api';
+import { NOTARIZATION_FEE_DISPLAY, DEFAULT_NOTARY_COMMISSION_PERCENT, DEFAULT_NOTARY_SHARE_RUPEES } from '../../constants/notarization';
 import { INDIAN_STATES } from '../../constants/indianStates';
 
 const LANG_OPTIONS = ['en', 'hi', 'bn', 'mr', 'ta', 'te', 'gu', 'kn', 'ml', 'pa', 'ur'];
@@ -237,10 +238,10 @@ export default function NotaryDashboard() {
               <Typography sx={{ fontSize: 24 }}>💰</Typography>
               <Box>
                 <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)' }}>
-                  Platform Fee: ₹199 (fixed)
+                  Platform Fee: {NOTARIZATION_FEE_DISPLAY} (fixed)
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
-                  You receive 85% (₹169.15) after platform commission. Citizens always pay ₹199.
+                  You receive {100 - DEFAULT_NOTARY_COMMISSION_PERCENT}% (₹{DEFAULT_NOTARY_SHARE_RUPEES}) after platform commission. Citizens always pay {NOTARIZATION_FEE_DISPLAY}.
                 </Typography>
               </Box>
             </Box>

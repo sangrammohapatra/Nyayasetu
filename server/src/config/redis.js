@@ -17,7 +17,11 @@ async function connectRedis() {
     const isLocal = ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname);
     const isTLS   = redisUrl.startsWith('rediss://') || !isLocal;
     redisClient = new Redis(redisUrl.replace(/^redis:\/\//, isTLS ? 'rediss://' : 'redis://'), {
-      ...(isTLS ? { tls: { rejectUnauthorized: false, servername: parsed.hostname } } : {}),
+      // rejectUnauthorized left at its secure default (true) — managed Redis
+      // providers (Upstash, Redis Cloud, etc.) present valid certificates, and
+      // disabling validation would let a network-level attacker MITM the
+      // connection undetected. servername keeps SNI correct.
+      ...(isTLS ? { tls: { servername: parsed.hostname } } : {}),
       maxRetriesPerRequest: 3,
       retryStrategy(times) {
         if (times > 10) {

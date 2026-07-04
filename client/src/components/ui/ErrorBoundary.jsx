@@ -62,14 +62,14 @@ class ErrorBoundary extends React.Component {
       );
     }
 
-    if (process.env.NODE_ENV === 'production' && window.errorTracker) {
+    if (import.meta.env.PROD && window.errorTracker) {
       window.errorTracker.captureException(error, {
         contexts: { react: { componentStack: errorInfo.componentStack } },
         tags: { errorId },
       });
     }
 
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.error('ErrorBoundary caught an error:', error, errorInfo);
     }
   }
@@ -107,7 +107,7 @@ function ErrorFallbackUI({ error, errorInfo, errorId, onReset }) {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const prefersReducedMotion = useReducedMotion();
 
-  const isDevelopment = process.env.NODE_ENV === 'development';
+  const isDevelopment = import.meta.env.DEV;
   const isNetworkError =
     error?.message?.toLowerCase().includes('fetch') ||
     error?.message?.toLowerCase().includes('network');

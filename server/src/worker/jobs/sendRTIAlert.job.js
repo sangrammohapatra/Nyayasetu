@@ -11,6 +11,16 @@
 
 const logger = require('../../utils/logger');
 
+// Short plain-text summaries for SMS/WhatsApp fallback (no HTML there).
+const ALERT_TEXT_SUMMARY = {
+  day25: (title, ministry, deadline) =>
+    `NyayaSetu: Your RTI "${title}" (${ministry}) has 5 days left for the PIO to respond. Deadline: ${new Date(deadline).toLocaleDateString('en-IN')}. Track it: ${process.env.CLIENT_URL}/citizen/rti`,
+  day30: (title, ministry) =>
+    `NyayaSetu: The 30-day response deadline for your RTI "${title}" (${ministry}) expires today/tomorrow. Check for a response or file a First Appeal: ${process.env.CLIENT_URL}/citizen/rti`,
+  overdue: (title, ministry) =>
+    `NyayaSetu: The 30-day RTI response deadline for "${title}" (${ministry}) has passed. You can now file a First Appeal: ${process.env.CLIENT_URL}/citizen/rti`,
+};
+
 const ALERT_MESSAGES = {
   day25: {
     subject: (title) => `RTI Reminder: ${title} — 5 Days Left for Response`,
@@ -55,6 +65,7 @@ async function sendRTIAlert(job) {
   const {
     rtiId, alertType, daysLeft,
     userId, userEmail, userName,
+    userPhone, whatsappOptIn,
     rtiTitle, ministry, deadline,
   } = job.data;
 
@@ -84,6 +95,7 @@ async function sendRTIAlert(job) {
   }
 
   const name = userName || 'Citizen';
+  let delivered = false;
 
   // ── Send Email ─────────────────────────────────────────────────────────────
   if (userEmail) {
@@ -116,10 +128,53 @@ async function sendRTIAlert(job) {
       });
 
       logger.info(`[sendRTIAlert] Email sent to ${userEmail} for RTI ${rtiId} (${alertType})`);
+      delivered = true;
     } catch (emailErr) {
       logger.error(`[sendRTIAlert] Email failed for RTI ${rtiId}: ${emailErr.message}`);
-      // Non-fatal — continue to mark alert as sent
+      // Non-fatal — fall through to WhatsApp/SMS fallback below
     }
+  }
+
+  // ── Fallback: WhatsApp / SMS ───────────────────────────────────────────────
+  // Only needed if email wasn't sent (missing address or delivery failure) —
+  // without this, a user with no email on file, or a transient email outage,
+  // permanently never received the alert through any channel.
+  if (!delivered && userPhone) {
+    const textSummary = ALERT_TEXT_SUMMARY[alertType]?.(
+      rtiTitle || 'Your RTI Application',
+      ministry || 'Department',
+      deadline
+    );
+
+    if (whatsappOptIn) {
+      try {
+        const { sendMessage: sendWhatsApp } = require('../../services/notification/whatsappService');
+        await sendWhatsApp(userPhone, textSummary);
+        logger.info(`[sendRTIAlert] WhatsApp sent to ${userPhone} for RTI ${rtiId} (${alertType})`);
+        delivered = true;
+      } catch (waErr) {
+        logger.error(`[sendRTIAlert] WhatsApp failed for RTI ${rtiId}: ${waErr.message}`);
+      }
+    }
+
+    if (!delivered) {
+      try {
+        const { sendSMS } = require('../../services/notification/smsService');
+        await sendSMS(userPhone, textSummary);
+        logger.info(`[sendRTIAlert] SMS sent to ${userPhone} for RTI ${rtiId} (${alertType})`);
+        delivered = true;
+      } catch (smsErr) {
+        logger.error(`[sendRTIAlert] SMS failed for RTI ${rtiId}: ${smsErr.message}`);
+      }
+    }
+  }
+
+  if (!delivered) {
+    // Don't mark alertSent — leave it false so the next checkRTIDeadlines cron
+    // run (daily) re-enqueues this alert instead of it being silently and
+    // permanently dropped.
+    logger.warn(`[sendRTIAlert] All delivery channels failed/unavailable for RTI ${rtiId} (${alertType}); will retry on next scan`);
+    return { sent: false, alertType, rtiId };
   }
 
   // ── Mark alert as sent in DB ───────────────────────────────────────────────

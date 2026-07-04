@@ -25,6 +25,7 @@ import {
 } from '../../store/slices/notarySlice';
 import { RADIUS } from '../../theme/tokens';
 import { INDIAN_STATES } from '../../constants/indianStates';
+import { NOTARIZATION_FEE_DISPLAY } from '../../constants/notarization';
 
 const LANG_OPTIONS = [
   { code: 'en', name: 'English' },
@@ -109,7 +110,7 @@ export default function NotarySearch({ selectedNotary, onSelect }) {
       }}>
         <Typography sx={{ fontSize: 16 }}>💰</Typography>
         <Typography variant="caption" sx={{ color: 'var(--color-primary)', fontWeight: 700 }}>
-          Fixed fee ₹199 — includes Video KYC + digital notary seal
+          Fixed fee {NOTARIZATION_FEE_DISPLAY} — includes Video KYC + digital notary seal
         </Typography>
       </Box>
 
@@ -194,7 +195,7 @@ export default function NotarySearch({ selectedNotary, onSelect }) {
 
                   <Box sx={{ flexShrink: 0, textAlign: 'right' }}>
                     <Typography variant="body2" sx={{ fontWeight: 800, color: 'var(--color-primary)' }}>
-                      ₹199
+                      {NOTARIZATION_FEE_DISPLAY}
                     </Typography>
                     {isSelected && (
                       <Typography sx={{ fontSize: 18, color: 'var(--color-primary)', mt: 0.25 }}>✓</Typography>

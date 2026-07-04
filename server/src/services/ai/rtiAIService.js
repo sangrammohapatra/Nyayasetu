@@ -82,11 +82,23 @@ Generate a precise RTI application with specific questions to obtain the informa
 
     let parsed;
     try {
-      const raw = await aiProvider.generate(
-        `${SYSTEM_PROMPT}\n\n${userPrompt}`,
-        true
+      // Use chat() so SYSTEM_PROMPT is placed in the provider's native system role
+      // (Anthropic `system` param / Gemini `systemInstruction`), structurally isolated
+      // from the citizen's free-text description — instead of concatenating both into
+      // a single generate() prompt, which gives prompt-injection text no barrier.
+      const raw = await aiProvider.chat(
+        [{ role: 'user', content: userPrompt }],
+        SYSTEM_PROMPT,
+        false, // stream
+        true   // jsonMode
       );
-      parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      const text = typeof raw === 'string' ? raw : JSON.stringify(raw);
+      const cleaned = text
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/, '')
+        .replace(/```\s*$/, '')
+        .trim();
+      parsed = JSON.parse(cleaned);
     } catch (err) {
       logger.error('[RTIAIService] AI call or parse failed:', err.message);
       throw err;

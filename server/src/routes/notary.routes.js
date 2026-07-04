@@ -32,8 +32,7 @@
 const express = require('express');
 
 const notaryController = require('../controllers/notary.controller');
-const { verifyToken, optionalAuth, requirePersona } = require('../middleware/auth.middleware');
-const { PERSONAS } = require('../config/constants');
+const { verifyToken, optionalAuth, requireCitizen, requireNotary } = require('../middleware/auth.middleware');
 
 // ─── Notary Profile Router ────────────────────────────────────────────────────
 // Mount at: app.use('/v1/notaries', notaryProfileRouter)
@@ -52,7 +51,7 @@ notaryProfileRouter.post(
 notaryProfileRouter.put(
   '/profile',
   verifyToken,
-  requirePersona(PERSONAS.NOTARY),
+  requireNotary,
   notaryController.updateNotaryProfile
 );
 
@@ -60,7 +59,7 @@ notaryProfileRouter.put(
 notaryProfileRouter.get(
   '/me/profile',
   verifyToken,
-  requirePersona(PERSONAS.NOTARY),
+  requireNotary,
   async (req, res) => {
     try {
       const NotaryProfile = require('../models/NotaryProfile.model');
@@ -76,21 +75,21 @@ notaryProfileRouter.get(
 notaryProfileRouter.get(
   '/me/withdrawals',
   verifyToken,
-  requirePersona(PERSONAS.NOTARY),
+  requireNotary,
   notaryController.listWithdrawals
 );
 
 notaryProfileRouter.put(
   '/bank-account',
   verifyToken,
-  requirePersona(PERSONAS.NOTARY),
+  requireNotary,
   notaryController.saveBankAccount
 );
 
 notaryProfileRouter.post(
   '/withdraw',
   verifyToken,
-  requirePersona(PERSONAS.NOTARY),
+  requireNotary,
   notaryController.requestWithdrawal
 );
 
@@ -104,14 +103,14 @@ const notarizationRouter = express.Router();
 notarizationRouter.post(
   '/',
   verifyToken,
-  requirePersona(PERSONAS.CITIZEN),
+  requireCitizen,
   notaryController.createNotarizationRequest
 );
 
 notarizationRouter.post(
   '/verify-payment',
   verifyToken,
-  requirePersona(PERSONAS.CITIZEN),
+  requireCitizen,
   notaryController.verifyNotarizationPayment
 );
 
@@ -129,63 +128,63 @@ notarizationRouter.get('/:id', verifyToken, notaryController.getNotarizationRequ
 notarizationRouter.patch(
   '/:id/accept',
   verifyToken,
-  requirePersona(PERSONAS.NOTARY),
+  requireNotary,
   notaryController.acceptRequest
 );
 
 notarizationRouter.patch(
   '/:id/schedule-kyc',
   verifyToken,
-  requirePersona(PERSONAS.NOTARY),
+  requireNotary,
   notaryController.scheduleKYC
 );
 
 notarizationRouter.patch(
   '/:id/complete-kyc',
   verifyToken,
-  requirePersona(PERSONAS.NOTARY),
+  requireNotary,
   notaryController.completeKYC
 );
 
 notarizationRouter.patch(
   '/:id/stamp',
   verifyToken,
-  requirePersona(PERSONAS.NOTARY),
+  requireNotary,
   notaryController.stampDocument
 );
 
 notarizationRouter.patch(
   '/:id/reject',
   verifyToken,
-  requirePersona(PERSONAS.NOTARY),
+  requireNotary,
   notaryController.rejectRequest
 );
 
 notarizationRouter.patch(
   '/:id/cancel',
   verifyToken,
-  requirePersona(PERSONAS.CITIZEN),
+  requireCitizen,
   notaryController.cancelRequest
 );
 
 notarizationRouter.patch(
   '/:id/request-courier',
   verifyToken,
-  requirePersona(PERSONAS.CITIZEN),
+  requireCitizen,
   notaryController.requestCourier
 );
 
 notarizationRouter.patch(
   '/:id/dispatch',
   verifyToken,
-  requirePersona(PERSONAS.NOTARY),
+  requireNotary,
   notaryController.markDispatched
 );
 
 notarizationRouter.post(
   '/:id/rate',
   verifyToken,
-  requirePersona(PERSONAS.CITIZEN),
+  requireCitizen,
   notaryController.rateNotary
 );
 

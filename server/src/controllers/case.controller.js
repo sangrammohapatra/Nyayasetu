@@ -63,7 +63,6 @@ const addCase = asyncHandler(async (req, res) => {
   const user = await User.findById(userId).select('freeUsage subscription state district email phone whatsappNumber whatsappOptIn');
   if (!user) throw createError(404, 'USER_NOT_FOUND', 'User not found');
 
-  // ── Quota check: cases tracked ─────────────────────────────────────────────
   const now = new Date();
   const isSubscribed =
     user.subscription?.plan &&
@@ -71,21 +70,8 @@ const addCase = asyncHandler(async (req, res) => {
     user.subscription?.validUntil &&
     now < new Date(user.subscription.validUntil);
 
-  if (!isSubscribed) {
-    const used  = user.freeUsage?.casesTracked  ?? 0;
-    const limit = user.freeUsage?.casesLimit    ?? 1;
-    if (used >= limit) {
-      return res.status(403).json({
-        error:      'QUOTA_EXCEEDED',
-        message:    `Free plan allows tracking ${limit} case. Upgrade to track more cases.`,
-        used,
-        limit,
-        upgradeUrl: '/pricing',
-      });
-    }
-  }
-
   // ── Duplicate check ────────────────────────────────────────────────────────
+  // Runs before the quota claim so a duplicate CNR never wastes a free slot.
   const existing = await CaseTracker.findOne({ user: userId, cnrNumber: cnr });
   if (existing) {
     return res.status(409).json({
@@ -93,6 +79,28 @@ const addCase = asyncHandler(async (req, res) => {
       message: 'You are already tracking this case.',
       caseId:  existing._id,
     });
+  }
+
+  // ── Atomically claim a free-tier quota slot ───────────────────────────────
+  // Replaces the old read-then-later-increment: two concurrent addCase calls
+  // could both read used < limit before either incremented, letting a
+  // free-tier user exceed casesLimit.
+  if (!isSubscribed) {
+    const quotaLimit = user.freeUsage?.casesLimit ?? 1;
+    const quotaClaimed = await User.findOneAndUpdate(
+      { _id: userId, 'freeUsage.casesTracked': { $lt: quotaLimit } },
+      { $inc: { 'freeUsage.casesTracked': 1 } },
+      { new: true }
+    );
+    if (!quotaClaimed) {
+      return res.status(403).json({
+        error:      'QUOTA_EXCEEDED',
+        message:    `Free plan allows tracking ${quotaLimit} case. Upgrade to track more cases.`,
+        used:       user.freeUsage?.casesTracked ?? 0,
+        limit:      quotaLimit,
+        upgradeUrl: '/pricing',
+      });
+    }
   }
 
   // ── Fetch from eCourts ─────────────────────────────────────────────────────
@@ -111,37 +119,41 @@ const addCase = asyncHandler(async (req, res) => {
     null;
 
   // ── Create CaseTracker document ────────────────────────────────────────────
-  const caseDoc = await CaseTracker.create({
-    user:         userId,
-    cnrNumber:    cnr,
-    caseTitle:    ecourtsData?.caseTitle    || `Case ${cnr}`,
-    caseType:     ecourtsData?.caseType     || null,
-    caseNumber:   ecourtsData?.caseNumber   || null,
-    filingDate:   ecourtsData?.filingDate   || null,
-    court:        ecourtsData?.court        || null,
-    courtCode:    ecourtsData?.courtCode    || null,
-    bench:        ecourtsData?.bench        || null,
-    state:        resolvedState,
-    district:     district || user.district || null,
-    parties:      ecourtsData?.parties      || [],
-    hearings:     ecourtsData?.hearings     || [],
-    nextHearingDate: ecourtsData?.nextHearingDate || null,
-    caseStatus:   ecourtsData?.caseStatus   || 'pending',
-    alertDaysBefore: Math.min(7, Math.max(1, alertDaysBefore)),
-    alertChannels: {
-      whatsapp: alertChannels.whatsapp ?? (user.whatsappOptIn || false),
-      email:    alertChannels.email    ?? false,
-      web:      alertChannels.web      ?? true,
-    },
-    alertsEnabled: true,
-    lastSyncedAt:  ecourtsData ? new Date() : null,
-    rawEcourtsData: ecourtsData || null,
-    countedTowardFreeQuota: !isSubscribed,
-  });
-
-  // ── Increment usage counter ────────────────────────────────────────────────
-  if (!isSubscribed) {
-    await User.findByIdAndUpdate(userId, { $inc: { 'freeUsage.casesTracked': 1 } });
+  let caseDoc;
+  try {
+    caseDoc = await CaseTracker.create({
+      user:         userId,
+      cnrNumber:    cnr,
+      caseTitle:    ecourtsData?.caseTitle    || `Case ${cnr}`,
+      caseType:     ecourtsData?.caseType     || null,
+      caseNumber:   ecourtsData?.caseNumber   || null,
+      filingDate:   ecourtsData?.filingDate   || null,
+      court:        ecourtsData?.court        || null,
+      courtCode:    ecourtsData?.courtCode    || null,
+      bench:        ecourtsData?.bench        || null,
+      state:        resolvedState,
+      district:     district || user.district || null,
+      parties:      ecourtsData?.parties      || [],
+      hearings:     ecourtsData?.hearings     || [],
+      nextHearingDate: ecourtsData?.nextHearingDate || null,
+      caseStatus:   ecourtsData?.caseStatus   || 'pending',
+      alertDaysBefore: Math.min(7, Math.max(1, alertDaysBefore)),
+      alertChannels: {
+        whatsapp: alertChannels.whatsapp ?? (user.whatsappOptIn || false),
+        email:    alertChannels.email    ?? false,
+        web:      alertChannels.web      ?? true,
+      },
+      alertsEnabled: true,
+      lastSyncedAt:  ecourtsData ? new Date() : null,
+      rawEcourtsData: ecourtsData || null,
+      countedTowardFreeQuota: !isSubscribed,
+    });
+  } catch (err) {
+    // Release the claimed slot — nothing was actually created.
+    if (!isSubscribed) {
+      await User.findByIdAndUpdate(userId, { $inc: { 'freeUsage.casesTracked': -1 } });
+    }
+    throw err;
   }
 
   await AuditLog.log(req, 'case.added', 'CaseTracker', caseDoc._id, { cnrNumber: cnr });

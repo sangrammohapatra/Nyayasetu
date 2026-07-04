@@ -151,7 +151,7 @@ export function useApiErrorHandler() {
       }
 
       // In development, log full error
-      if (process.env.NODE_ENV === "development" && showDetail) {
+      if (import.meta.env.DEV && showDetail) {
         console.error("API Error:", {
           status,
           data,

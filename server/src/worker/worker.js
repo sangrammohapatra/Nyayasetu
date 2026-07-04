@@ -28,28 +28,14 @@ const { BullAdapter } = require('@bull-board/api/bullAdapter');
 const { ExpressAdapter } = require('@bull-board/express');
 
 const logger = require('../utils/logger');
+const { buildBullRedisOpts } = require('../utils/bullRedisOpts');
 
 // ─── MongoDB connection ────────────────────────────────────────────────────────
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/nyayasetu';
 const REDIS_URL  = process.env.REDIS_URL  || 'redis://localhost:6379';
 
-function buildRedisOpts(url) {
-  // Normalise URL so URL() can parse it
-  const parsed = new URL(url.replace(/^rediss?:\/\//, 'http://'));
-  const isLocal = ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname);
-  if (isLocal) return { url };
-
-  // Non-local Redis (Upstash, Redis Cloud, etc.) — always use TLS + SNI
-  return {
-    host:     parsed.hostname,
-    port:     Number(parsed.port) || 6380,
-    password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
-    tls:      { rejectUnauthorized: false, servername: parsed.hostname },
-  };
-}
-
-const REDIS_OPTS = { redis: buildRedisOpts(REDIS_URL) };
+const REDIS_OPTS = { redis: buildBullRedisOpts(REDIS_URL) };
 
 async function connectMongo() {
   try {

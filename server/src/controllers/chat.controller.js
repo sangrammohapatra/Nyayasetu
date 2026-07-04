@@ -74,14 +74,21 @@ const createSession = asyncHandler(async (req, res) => {
     user.subscription?.validUntil &&
     new Date() < new Date(user.subscription.validUntil);
 
+  // Atomically claim a slot up front (rather than read-then-later-increment)
+  // so two concurrent createSession calls can't both pass a stale read and
+  // both create a session, letting a free-tier user exceed aiChatsLimit.
   if (!isSubscribed) {
-    const used  = user.freeUsage?.aiChatsUsed  ?? 0;
-    const limit = user.freeUsage?.aiChatsLimit  ?? 5;
-    if (used >= limit) {
+    const limit = user.freeUsage?.aiChatsLimit ?? 5;
+    const quotaClaimed = await User.findOneAndUpdate(
+      { _id: userId, 'freeUsage.aiChatsUsed': { $lt: limit } },
+      { $inc: { 'freeUsage.aiChatsUsed': 1 } },
+      { new: true }
+    );
+    if (!quotaClaimed) {
       return res.status(403).json({
         error:       'QUOTA_EXCEEDED',
         message:     `You have used all ${limit} free AI chat sessions this month.`,
-        used,
+        used:        user.freeUsage?.aiChatsUsed ?? 0,
         limit,
         resetDate:   user.freeUsage?.resetDate,
         upgradeUrl:  '/pricing',
@@ -116,22 +123,26 @@ const createSession = asyncHandler(async (req, res) => {
   // ── Create session ────────────────────────────────────────────────────────
   const sessionLanguage = language || user.preferredLanguage || 'en';
 
-  const session = await ChatSession.create({
-    user:           userId,
-    template:       template._id,
-    templateSlug,
-    status:         SESSION_STATUS.ACTIVE,
-    source,
-    userState,
-    userLanguage:   sessionLanguage,
-    totalQuestions: template.questionFlow?.filter((q) => q.isRequired).length || 0,
-    collectedData:  new Map(),
-    messages:       [],
-  });
-
-  // ── Increment AI chat usage ────────────────────────────────────────────────
-  if (!isSubscribed) {
-    await User.findByIdAndUpdate(userId, { $inc: { 'freeUsage.aiChatsUsed': 1 } });
+  let session;
+  try {
+    session = await ChatSession.create({
+      user:           userId,
+      template:       template._id,
+      templateSlug,
+      status:         SESSION_STATUS.ACTIVE,
+      source,
+      userState,
+      userLanguage:   sessionLanguage,
+      totalQuestions: template.questionFlow?.filter((q) => q.isRequired).length || 0,
+      collectedData:  new Map(),
+      messages:       [],
+    });
+  } catch (err) {
+    // Release the claimed slot — nothing was actually created.
+    if (!isSubscribed) {
+      await User.findByIdAndUpdate(userId, { $inc: { 'freeUsage.aiChatsUsed': -1 } });
+    }
+    throw err;
   }
 
   // ── Kick off first AI question ─────────────────────────────────────────────

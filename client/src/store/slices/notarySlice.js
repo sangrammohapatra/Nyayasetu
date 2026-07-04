@@ -175,6 +175,8 @@ const notarySlice = createSlice({
     actionError: null,
 
     documentNotarizationStatus: null,
+    documentNotarizationStatusLoading: false,
+    documentNotarizationStatusError: null,
   },
   reducers: {
     clearNotaryError(state) {
@@ -263,8 +265,17 @@ const notarySlice = createSlice({
       .addCase(markDispatched.fulfilled, (state, action) => { state.actionLoading = false; updateRequestInList(state, action.payload); })
       .addCase(markDispatched.rejected, (state, action) => { state.actionLoading = false; state.actionError = action.payload; })
 
+      .addCase(getDocumentNotarizationStatus.pending, (state) => {
+        state.documentNotarizationStatusLoading = true;
+        state.documentNotarizationStatusError = null;
+      })
       .addCase(getDocumentNotarizationStatus.fulfilled, (state, action) => {
+        state.documentNotarizationStatusLoading = false;
         state.documentNotarizationStatus = action.payload.notarizationRequest || null;
+      })
+      .addCase(getDocumentNotarizationStatus.rejected, (state, action) => {
+        state.documentNotarizationStatusLoading = false;
+        state.documentNotarizationStatusError = action.payload;
       });
   },
 });
@@ -279,6 +290,8 @@ export const selectNotarizationRequestsPage = (state) => state.notary.requestsPa
 export const selectNotarizationRequestsHasMore = (state) => state.notary.requestsHasMore;
 export const selectPendingNotarizationRequest = (state) => state.notary.pendingRequest;
 export const selectDocumentNotarizationStatus = (state) => state.notary.documentNotarizationStatus;
+export const selectDocumentNotarizationStatusLoading = (state) => state.notary.documentNotarizationStatusLoading;
+export const selectDocumentNotarizationStatusError = (state) => state.notary.documentNotarizationStatusError;
 
 export const selectNotarySearchLoading = (state) => state.notary.searchLoading;
 export const selectNotarySearchError = (state) => state.notary.searchError;

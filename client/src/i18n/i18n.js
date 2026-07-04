@@ -31,18 +31,13 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import HttpBackend from 'i18next-http-backend';
 import LanguageDetector from 'i18next-browser-languagedetector';
+// Only English is bundled — it's the fallbackLng, so it must be available
+// immediately with no network round-trip. Every other language is fetched
+// lazily by HttpBackend from /locales/{{lng}}/translation.json on demand.
+// Statically importing all 12 here (as this file used to) defeats the
+// backend entirely: i18next only calls it for languages missing from
+// `resources`, so every user downloaded all 12 languages' strings up front.
 import enLang from '../../public/locales/en/translation.json';
-import hiLang from '../../public/locales/hi/translation.json';
-import bnLang from '../../public/locales/bn/translation.json';
-import mrLang from '../../public/locales/mr/translation.json';
-import taLang from '../../public/locales/ta/translation.json';
-import teLang from '../../public/locales/te/translation.json';
-import guLang from '../../public/locales/gu/translation.json';
-import knLang from '../../public/locales/kn/translation.json';
-import mlLang from '../../public/locales/ml/translation.json';
-import paLang from '../../public/locales/pa/translation.json';
-import urLang from '../../public/locales/ur/translation.json';
-import odLang from '../../public/locales/od/translation.json';
 // ─── Supported language codes ─────────────────────────────────────────────────
 
 export const SUPPORTED_LANGUAGES = ['en', 'hi', 'bn', 'mr', 'ta', 'te', 'gu', 'kn', 'ml', 'pa', 'ur', 'od'];
@@ -95,39 +90,12 @@ i18n
       en: {
         translation: enLang,
       },
-      hi: {
-        translation: hiLang,
-      },
-      bn: {
-        translation: bnLang,
-      },
-      mr: {
-        translation: mrLang,
-      },
-      ta: {
-        translation: taLang,
-      },
-      te: {
-        translation: teLang,
-      },
-      gu: {
-        translation: guLang,
-      },
-      kn: {
-        translation: knLang,
-      },
-      ml: {
-        translation: mlLang,
-      },
-      pa: {
-        translation: paLang,
-      },
-      ur: {
-        translation: urLang,
-      },
-      od: {
-        translation: odLang,
-      },
+    },
+
+    // Fetch every non-bundled language's JSON on demand instead of shipping
+    // all 12 languages' strings to every user on first load.
+    backend: {
+      loadPath: '/locales/{{lng}}/{{ns}}.json',
     },
 
     // ── Language Detection ──────────────────────────────────────────────────

@@ -54,6 +54,7 @@ import { openCheckout } from '../../services/razorpay';
 import { RADIUS, SHADOWS } from '../../theme/tokens';
 import api from '../../services/api';
 import socketService from '../../services/socket';
+import { NOTARIZATION_FEE_DISPLAY } from '../../constants/notarization';
 
 // ─── Approval status meta ─────────────────────────────────────────────────────
 
@@ -280,7 +281,7 @@ function DocumentText({ content, onClauseClick, activeClauseIndex = null }) {
 function notarizationStatusLabel(req) {
   if (!req) return null;
   if (req.status === 'accepted' && req.payment?.status !== 'paid') {
-    return { label: 'Notary Accepted — Pay ₹199 to Confirm', color: '#ff6d00', bg: 'rgba(255,109,0,0.1)' };
+    return { label: `Notary Accepted — Pay ${NOTARIZATION_FEE_DISPLAY} to Confirm`, color: '#ff6d00', bg: 'rgba(255,109,0,0.1)' };
   }
   const map = {
     pending:       { label: 'Awaiting Notary Acceptance', color: '#ed6c02', bg: 'rgba(237,108,2,0.1)' },
@@ -293,7 +294,7 @@ function notarizationStatusLabel(req) {
   return map[req.status] || { label: req.status, color: '#757575', bg: 'rgba(0,0,0,0.05)' };
 }
 
-function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenerating, onSign, signing, onDownloadSigned, onConnectLawyer, onOpenChat, linkedConsultation, plan, onNotarize, onPayNotarization, notarizationRequest, onSaveOffline, savedOffline, isOnline, onFinalize, finalizing }) {
+function RightPanel({ document: doc, onDownload, downloading, onShare, onRegenerate, regenerating, onSign, signing, onDownloadSigned, onConnectLawyer, onOpenChat, linkedConsultation, plan, onNotarize, onPayNotarization, payingNotarization, notarizationRequest, onSaveOffline, savedOffline, isOnline, onFinalize, finalizing }) {
   const { t } = useTranslation();
   const isPaid = doc?.isPaid || plan === 'basic' || plan === 'pro';
   const approvalMeta = APPROVAL_META[doc?.approvalStatus] || APPROVAL_META.draft;
@@ -381,7 +382,7 @@ function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenera
         </Typography>
 
         {isPaid ? (
-          <Button fullWidth variant="contained" onClick={onDownload}
+          <Button fullWidth variant="contained" onClick={onDownload} disabled={downloading}
             sx={{
               mb: 1, borderRadius: `${RADIUS.md}px`, fontWeight: 700,
               background: 'var(--color-primary)',
@@ -390,7 +391,7 @@ function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenera
             📥 {t('myDocs.download_pdf', 'Download PDF')}
           </Button>
         ) : (
-          <Button fullWidth variant="contained" onClick={onDownload}
+          <Button fullWidth variant="contained" onClick={onDownload} disabled={downloading}
             sx={{
               mb: 1, borderRadius: `${RADIUS.md}px`, fontWeight: 700,
               background: 'var(--color-warning)',
@@ -674,13 +675,14 @@ function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenera
                 <Button
                   fullWidth variant="contained" size="small"
                   onClick={onPayNotarization}
+                  disabled={payingNotarization}
                   sx={{
                     mb: 1, borderRadius: `${RADIUS.md}px`, fontWeight: 700,
                     background: 'linear-gradient(135deg, #1A237E 0%, #283593 100%)',
                     '&:hover': { background: 'linear-gradient(135deg, #0d1b6e 0%, #1a237e 100%)' },
                   }}
                 >
-                  💳 Pay ₹199 to Confirm
+                  💳 Pay {NOTARIZATION_FEE_DISPLAY} to Confirm
                 </Button>
               )}
 
@@ -710,7 +712,7 @@ function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenera
         })() : (
           <>
             <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', display: 'block', mb: 1.5, lineHeight: 1.55 }}>
-              Get this document legally notarized online via Video KYC for just <strong>₹199</strong>. No physical visit needed.
+              Get this document legally notarized online via Video KYC for just <strong>{NOTARIZATION_FEE_DISPLAY}</strong>. No physical visit needed.
             </Typography>
             <Button
               fullWidth variant="contained" size="small"
@@ -800,6 +802,8 @@ function DocumentPreview() {
   const [regenerating, setRegenerating] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [signing, setSigning] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [payingNotarization, setPayingNotarization] = useState(false);
   const [signedPdfUrl, setSignedPdfUrl] = useState(null);
   const [reviewDismissed, setReviewDismissed] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -902,50 +906,56 @@ function DocumentPreview() {
   };
 
   const handleDownload = async () => {
-    const canDownload = doc?.isPaid || plan === 'basic' || plan === 'pro';
-    if (canDownload) {
-      // Always fetch a URL from the server. If the previously cached URL is still
-      // within its validity window the server returns from Redis (N14); otherwise
-      // a fresh signed URL is generated. Either way the client never uses a
-      // potentially-expired URL from Redux state directly.
-      const result = await dispatch(getPDF(documentId));
-      if (result.payload?.pdfUrl) {
-        window.open(result.payload.pdfUrl, '_blank');
-      } else if (result.error || result.payload?.error) {
-        // PDF locked (free-tier doc that isn't always-free) — send to pricing
-        const errCode = result.payload?.error || result.payload?.code;
-        if (errCode === 'PDF_LOCKED' || result.meta?.requestStatus === 'rejected') {
-          setSnack({ open: true, msg: 'PDF download requires a paid plan. Redirecting to pricing…', severity: 'info' });
-          setTimeout(() => navigate('/citizen/pricing'), 1500);
-        } else {
-          setSnack({ open: true, msg: result.payload?.message || 'Could not download PDF. Please try again.', severity: 'error' });
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const canDownload = doc?.isPaid || plan === 'basic' || plan === 'pro';
+      if (canDownload) {
+        // Always fetch a URL from the server. If the previously cached URL is still
+        // within its validity window the server returns from Redis (N14); otherwise
+        // a fresh signed URL is generated. Either way the client never uses a
+        // potentially-expired URL from Redux state directly.
+        const result = await dispatch(getPDF(documentId));
+        if (result.payload?.pdfUrl) {
+          window.open(result.payload.pdfUrl, '_blank');
+        } else if (result.error || result.payload?.error) {
+          // PDF locked (free-tier doc that isn't always-free) — send to pricing
+          const errCode = result.payload?.error || result.payload?.code;
+          if (errCode === 'PDF_LOCKED' || result.meta?.requestStatus === 'rejected') {
+            setSnack({ open: true, msg: 'PDF download requires a paid plan. Redirecting to pricing…', severity: 'info' });
+            setTimeout(() => navigate('/citizen/pricing'), 1500);
+          } else {
+            setSnack({ open: true, msg: result.payload?.message || 'Could not download PDF. Please try again.', severity: 'error' });
+          }
+        }
+      } else {
+        // Free user, unpaid doc — offer pay-per-doc via Razorpay
+        try {
+          const { data } = await api.post('/payments/create-order', { documentId });
+          openCheckout({
+            orderId: data.orderId,
+            amount: data.amount,
+            currency: 'INR',
+            name: 'NyayaSetu',
+            description: `PDF — ${doc?.title}`,
+            onSuccess: async (response) => {
+              await api.post('/payments/verify', {
+                orderId: response.razorpay_order_id,
+                paymentId: response.razorpay_payment_id,
+                signature: response.razorpay_signature,
+                documentId,
+              });
+              dispatch(getDocument(documentId));
+              setSnack({ open: true, msg: 'Payment successful! Your PDF is ready.', severity: 'success' });
+            },
+            onDismiss: () => {},
+          });
+        } catch {
+          setSnack({ open: true, msg: 'Could not initiate payment. Please try again.', severity: 'error' });
         }
       }
-    } else {
-      // Free user, unpaid doc — offer pay-per-doc via Razorpay
-      try {
-        const { data } = await api.post('/payments/create-order', { documentId });
-        openCheckout({
-          orderId: data.orderId,
-          amount: data.amount,
-          currency: 'INR',
-          name: 'NyayaSetu',
-          description: `PDF — ${doc?.title}`,
-          onSuccess: async (response) => {
-            await api.post('/payments/verify', {
-              orderId: response.razorpay_order_id,
-              paymentId: response.razorpay_payment_id,
-              signature: response.razorpay_signature,
-              documentId,
-            });
-            dispatch(getDocument(documentId));
-            setSnack({ open: true, msg: 'Payment successful! Your PDF is ready.', severity: 'success' });
-          },
-          onDismiss: () => {},
-        });
-      } catch {
-        setSnack({ open: true, msg: 'Could not initiate payment. Please try again.', severity: 'error' });
-      }
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -1017,7 +1027,9 @@ function DocumentPreview() {
   };
 
   const handlePayNotarization = () => {
+    if (payingNotarization) return;
     if (!notarizationRequest?.payment?.razorpayOrderId) return;
+    setPayingNotarization(true);
     openCheckout({
       orderId: notarizationRequest.payment.razorpayOrderId,
       amount: notarizationRequest.payment.amount,
@@ -1025,16 +1037,20 @@ function DocumentPreview() {
       name: 'NyayaSetu',
       description: `Notarization — ${doc?.title || 'Document'}`,
       onSuccess: async (response) => {
-        await dispatch(verifyNotarizationPayment({
-          requestId: notarizationRequest._id,
-          razorpayOrderId: response.razorpay_order_id,
-          razorpayPaymentId: response.razorpay_payment_id,
-          razorpaySignature: response.razorpay_signature,
-        }));
-        dispatch(getDocumentNotarizationStatus(documentId));
-        setSnack({ open: true, msg: 'Payment successful! The notary will now schedule your Video KYC.', severity: 'success' });
+        try {
+          await dispatch(verifyNotarizationPayment({
+            requestId: notarizationRequest._id,
+            razorpayOrderId: response.razorpay_order_id,
+            razorpayPaymentId: response.razorpay_payment_id,
+            razorpaySignature: response.razorpay_signature,
+          }));
+          dispatch(getDocumentNotarizationStatus(documentId));
+          setSnack({ open: true, msg: 'Payment successful! The notary will now schedule your Video KYC.', severity: 'success' });
+        } finally {
+          setPayingNotarization(false);
+        }
       },
-      onDismiss: () => {},
+      onDismiss: () => setPayingNotarization(false),
     });
   };
 
@@ -1163,7 +1179,7 @@ function DocumentPreview() {
               </Box>
             )}
             {mobileTab === 2 && (
-              <RightPanel document={doc} onDownload={handleDownload} onShare={handleShare}
+              <RightPanel document={doc} onDownload={handleDownload} downloading={downloading} onShare={handleShare}
                 onRegenerate={handleRegenerate} regenerating={regenerating}
                 onSign={handleSign} signing={signing} onDownloadSigned={handleDownloadSigned}
                 onConnectLawyer={() => navigate('/citizen/lawyers')}
@@ -1172,6 +1188,7 @@ function DocumentPreview() {
                 plan={plan}
                 onNotarize={() => setNotarizeOpen(true)}
                 onPayNotarization={handlePayNotarization}
+                payingNotarization={payingNotarization}
                 notarizationRequest={notarizationRequest}
                 onSaveOffline={() => pin(documentId)}
                 savedOffline={savedOffline}
@@ -1209,7 +1226,7 @@ function DocumentPreview() {
             </Grid>
             <Grid item md={4}>
               <Box sx={{ position: 'sticky', top: 80 }}>
-                <RightPanel document={doc} onDownload={handleDownload} onShare={handleShare}
+                <RightPanel document={doc} onDownload={handleDownload} downloading={downloading} onShare={handleShare}
                   onRegenerate={handleRegenerate} regenerating={regenerating}
                   onSign={handleSign} signing={signing} onDownloadSigned={handleDownloadSigned}
                   onConnectLawyer={() => navigate('/citizen/lawyers')}
@@ -1218,6 +1235,7 @@ function DocumentPreview() {
                   plan={plan}
                   onNotarize={() => setNotarizeOpen(true)}
                   onPayNotarization={handlePayNotarization}
+                  payingNotarization={payingNotarization}
                   notarizationRequest={notarizationRequest}
                   onSaveOffline={() => pin(documentId)}
                   savedOffline={savedOffline}

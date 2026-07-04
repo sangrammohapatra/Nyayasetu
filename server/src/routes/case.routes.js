@@ -12,7 +12,7 @@ const {
 } = require('../controllers/case.controller');
 
 const { verifyToken, requireCompleteProfile } = require('../middleware/auth.middleware');
-const { checkFreeQuota } = require('../middleware/subscription.middleware');
+const { checkFreeQuota, checkFeatureAccess } = require('../middleware/subscription.middleware');
 const asyncHandler       = require('../utils/asyncHandler');
 
 const router = express.Router();
@@ -122,6 +122,7 @@ router.patch(
  */
 router.post(
   '/:id/share-lawyer',
+  checkFeatureAccess('case_share_lawyer'),
   validate([
     param('id').isMongoId().withMessage('Invalid case ID'),
     body('lawyerId').notEmpty().isMongoId().withMessage('Valid lawyerId is required'),
