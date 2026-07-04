@@ -70,6 +70,10 @@ async function startServer() {
     const { start: startSlaMonitor } = require('./services/notarizationSla');
     startSlaMonitor(io);
 
+    // ── Consultation SLA monitor ───────────────────────────────────────────
+    const { start: startConsultationSlaMonitor } = require('./services/consultationSla');
+    startConsultationSlaMonitor(io);
+
     // ── Start listening ────────────────────────────────────────────────────
     server.listen(PORT, () => {
       logger.info(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);

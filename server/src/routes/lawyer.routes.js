@@ -9,6 +9,9 @@
  * Resulting paths:
  *   GET    /v1/lawyers                    searchLawyers
  *   GET    /v1/lawyers/me/clients         getMyClients         (lawyer only)
+ *   GET    /v1/lawyers/me/withdrawals     listWithdrawals      (lawyer only)
+ *   PUT    /v1/lawyers/bank-account       saveBankAccount      (lawyer only)
+ *   POST   /v1/lawyers/withdraw           requestWithdrawal    (lawyer only)
  *   GET    /v1/lawyers/:id                getLawyerProfile
  *   POST   /v1/lawyers/apply              applyAsLawyer        (lawyer only)
  *   PUT    /v1/lawyers/profile            updateLawyerProfile  (lawyer only)
@@ -17,7 +20,9 @@
  *   GET    /v1/consultations              listConsultations    (citizen + lawyer)
  *   PATCH  /v1/consultations/:id/accept   acceptConsultation   (lawyer only)
  *   PATCH  /v1/consultations/:id/reject   rejectConsultation   (lawyer only)
+ *   PATCH  /v1/consultations/:id/cancel   cancelConsultation   (citizen only)
  *   PATCH  /v1/consultations/:id/complete completeConsultation (lawyer only)
+ *   PATCH  /v1/consultations/:id/no-show  markNoShow           (lawyer only)
  *   POST   /v1/consultations/:id/rate     rateConsultation     (citizen only)
  */
 
@@ -29,7 +34,7 @@ const { query, validationResult } = require('express-validator');
 
 const lawyerController = require('../controllers/lawyer.controller');
 const consultationController = require('../controllers/consultation.controller');
-const { verifyToken, requirePersona } = require('../middleware/auth.middleware');
+const { verifyToken, optionalAuth, requirePersona } = require('../middleware/auth.middleware');
 const { PERSONAS } = require('../config/constants');
 
 const rejectIfInvalid = (req, res, next) => {
@@ -46,12 +51,13 @@ const rejectIfInvalid = (req, res, next) => {
 
 /**
  * GET /v1/lawyers
- * Public search — only verified lawyers returned.
- * Auth required (optionalAuth could be used, but context spec says 'auth').
+ * Public search — only verified lawyers returned. Unauthenticated visitors
+ * can browse (organic discovery); optionalAuth still attaches req.user when
+ * a token is present, matching the notary search endpoint's pattern.
  */
 router.get(
   '/lawyers',
-  verifyToken,
+  optionalAuth,
   [
     query('state').optional().isString().trim().isLength({ max: 100 }).escape(),
     query('specialisation').optional().isString().trim().isLength({ max: 100 }).escape(),
@@ -75,6 +81,37 @@ router.get(
   verifyToken,
   requirePersona('lawyer'),
   lawyerController.getMyClients
+);
+
+/**
+ * GET /v1/lawyers/me/withdrawals
+ * Must be declared BEFORE /lawyers/:id to prevent 'me' being treated as an ObjectId.
+ */
+router.get(
+  '/lawyers/me/withdrawals',
+  verifyToken,
+  requirePersona(PERSONAS.LAWYER),
+  lawyerController.listWithdrawals
+);
+
+/**
+ * PUT /v1/lawyers/bank-account
+ */
+router.put(
+  '/lawyers/bank-account',
+  verifyToken,
+  requirePersona(PERSONAS.LAWYER),
+  lawyerController.saveBankAccount
+);
+
+/**
+ * POST /v1/lawyers/withdraw
+ */
+router.post(
+  '/lawyers/withdraw',
+  verifyToken,
+  requirePersona(PERSONAS.LAWYER),
+  lawyerController.requestWithdrawal
 );
 
 /**
@@ -172,6 +209,17 @@ router.patch(
 );
 
 /**
+ * PATCH /v1/consultations/:id/cancel
+ * Citizen self-service cancellation. Full refund only if >=24h before scheduledAt.
+ */
+router.patch(
+  '/consultations/:id/cancel',
+  verifyToken,
+  requirePersona(PERSONAS.CITIZEN),
+  consultationController.cancelConsultation
+);
+
+/**
  * PATCH /v1/consultations/:id/complete
  * Triggers commission split calculation and updates lawyer earnings.
  */
@@ -180,6 +228,17 @@ router.patch(
   verifyToken,
   requirePersona(PERSONAS.LAWYER),
   consultationController.completeConsultation
+);
+
+/**
+ * PATCH /v1/consultations/:id/no-show
+ * Lawyer marks the citizen as a no-show. Lawyer is credited the full fee.
+ */
+router.patch(
+  '/consultations/:id/no-show',
+  verifyToken,
+  requirePersona(PERSONAS.LAWYER),
+  consultationController.markNoShow
 );
 
 /**

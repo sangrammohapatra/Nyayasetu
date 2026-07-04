@@ -9,6 +9,7 @@ const multer = require('multer');
 
 const User = require('../models/User.model');
 const LawyerProfile = require('../models/LawyerProfile.model');
+const LawyerWithdrawal = require('../models/LawyerWithdrawal.model');
 const Consultation = require('../models/Consultation.model');
 const CaseTracker = require('../models/CaseTracker.model');
 const Notification = require('../models/Notification.model');
@@ -17,6 +18,16 @@ const cloudinaryService = require('../services/storage/cloudinaryService');
 const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
 const AuditLog = require('../models/AuditLog.model');
+
+/* ---------------------------------------------------------------------------
+ * redactReviewerName — "Priya Sharma" -> "Priya S." for public review display.
+ * ------------------------------------------------------------------------ */
+function redactReviewerName(name) {
+  if (!name) return 'Anonymous';
+  const parts = String(name).trim().split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length - 1][0]}.`;
+}
 
 /* ---------------------------------------------------------------------------
  * Multer — memory storage, 5 MB cap, PDF/image only.
@@ -85,7 +96,7 @@ const searchLawyers = asyncHandler(async (req, res) => {
         .sort({ averageRating: -1, totalConsultations: -1 })
         .skip(skip)
         .limit(limitNum)
-        .populate('user', 'name email phone preferredLanguage')
+        .populate('user', 'name preferredLanguage')
         .select('-ratings -barCouncilCertificateUrl -__v')
         .lean(),
       LawyerProfile.countDocuments(filter),
@@ -95,7 +106,6 @@ const searchLawyers = asyncHandler(async (req, res) => {
       id: p._id,
       userId: p.user && p.user._id,
       name: p.user && p.user.name,
-      email: p.user && p.user.email,
       specialisations: p.specialisations,
       practicingStates: p.practicingStates,
       experience: p.experience,
@@ -134,8 +144,10 @@ const getLawyerProfile = asyncHandler(async (req, res) => {
   }
 
   try {
+    // Phone is deliberately excluded — exposing it lets citizens contact lawyers
+    // (e.g. via WhatsApp) outside the platform, bypassing tracking and commission.
     const profile = await LawyerProfile.findById(id)
-      .populate('user', 'name email phone preferredLanguage createdAt')
+      .populate('user', 'name email preferredLanguage createdAt')
       .lean();
 
     if (!profile) {
@@ -160,7 +172,9 @@ const getLawyerProfile = asyncHandler(async (req, res) => {
       score: c.rating.score,
       review: c.rating.review,
       createdAt: c.rating.createdAt,
-      citizenName: c.citizen && c.citizen.name,
+      // Redact to "First L." — a citizen's full name on a public profile can identify
+      // them as having sought advice on a sensitive matter (family, criminal, property).
+      citizenName: redactReviewerName(c.citizen && c.citizen.name),
     }));
 
     return res.json({ ...profile, recentRatings });
@@ -183,6 +197,7 @@ const applyAsLawyer = asyncHandler(async (req, res) => {
 
   const {
     barCouncilNumber,
+    barCouncilState,
     specialisations,
     practicingStates,
     experience,
@@ -192,9 +207,9 @@ const applyAsLawyer = asyncHandler(async (req, res) => {
     availability: availabilityRaw,
   } = req.body;
 
-  if (!barCouncilNumber || !specialisations || !practicingStates || !consultationFee) {
+  if (!barCouncilNumber || !barCouncilState || !specialisations || !practicingStates || !consultationFee) {
     return res.status(400).json({
-      error: 'barCouncilNumber, specialisations, practicingStates and consultationFee are required',
+      error: 'barCouncilNumber, barCouncilState, specialisations, practicingStates and consultationFee are required',
     });
   }
 
@@ -235,6 +250,7 @@ const applyAsLawyer = asyncHandler(async (req, res) => {
         $set: {
           user: userId,
           barCouncilNumber: barCouncilNumber.trim(),
+          barCouncilState: barCouncilState.trim(),
           specialisations: toArray(specialisations),
           practicingStates: toArray(practicingStates),
           experience: Math.max(0, parseInt(experience, 10) || 0),
@@ -368,7 +384,7 @@ const getMyClients = asyncHandler(async (req, res) => {
 
   try {
     const [consultations, sharedCases] = await Promise.all([
-      Consultation.find({ lawyer: profile._id })
+      Consultation.find({ lawyer: userId })
         .select('citizen status scheduledAt mode fee sharedDocument createdAt')
         .populate('sharedDocument', 'title templateSlug approvalStatus lawyerAnnotations lawyerEditedContent lawyerEditedAt')
         .sort({ createdAt: -1 })
@@ -460,22 +476,25 @@ const getAvailableSlots = asyncHandler(async (req, res) => {
   const localDate = new Date(y, m - 1, d);
   const dayOfWeek = localDate.getDay(); // 0 = Sunday
 
-  const rule = (profile.availability || []).find((a) => a.dayOfWeek === dayOfWeek && a.isActive !== false);
-  if (!rule) {
+  const rules = (profile.availability || []).filter((a) => a.dayOfWeek === dayOfWeek && a.isActive !== false);
+  if (!rules.length) {
     return res.json({ slots: [], date, dayOfWeek, reason: 'Lawyer is not available on this day' });
   }
 
-  const [startH, startM] = rule.startTime.split(':').map(Number);
-  const [endH,   endM]   = rule.endTime.split(':').map(Number);
-  const startMinutes = startH * 60 + startM;
-  const endMinutes   = endH   * 60 + endM;
-
-  const allSlots = [];
-  for (let min = startMinutes; min + SLOT_DURATION_MINUTES <= endMinutes; min += SLOT_DURATION_MINUTES) {
-    allSlots.push(min);
+  // A day can have multiple windows (e.g. 09:00–12:00 and 14:00–18:00) — generate
+  // slots from every window, not just the first match.
+  const allSlots = new Set();
+  for (const rule of rules) {
+    const [startH, startM] = rule.startTime.split(':').map(Number);
+    const [endH,   endM]   = rule.endTime.split(':').map(Number);
+    const startMinutes = startH * 60 + startM;
+    const endMinutes   = endH   * 60 + endM;
+    for (let min = startMinutes; min + SLOT_DURATION_MINUTES <= endMinutes; min += SLOT_DURATION_MINUTES) {
+      allSlots.add(min);
+    }
   }
 
-  if (!allSlots.length) return res.json({ slots: [], date });
+  if (!allSlots.size) return res.json({ slots: [], date });
 
   // Block past slots when date is today (IST)
   const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
@@ -504,7 +523,8 @@ const getAvailableSlots = asyncHandler(async (req, res) => {
     return { start: slotStart, end: slotStart + dur };
   });
 
-  const available = allSlots
+  const available = Array.from(allSlots)
+    .sort((a, b) => a - b)
     .filter((min) => min >= nowMinutesIST)
     .filter((min) => {
       const slotEnd = min + SLOT_DURATION_MINUTES;
@@ -573,6 +593,127 @@ const updateAvailability = asyncHandler(async (req, res) => {
   return res.json({ ok: true, availability: profile.availability });
 });
 
+/* ---------------------------------------------------------------------------
+ * saveBankAccount
+ * PUT /v1/lawyers/bank-account
+ * ------------------------------------------------------------------------ */
+const saveBankAccount = asyncHandler(async (req, res) => {
+  const { accountHolderName, accountNumber, ifscCode, bankName } = req.body;
+
+  if (!accountHolderName || !accountNumber || !ifscCode || !bankName) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'All bank account fields are required' });
+  }
+
+  const profile = await LawyerProfile.findOneAndUpdate(
+    { user: req.user.userId },
+    {
+      bankAccount: {
+        accountHolderName: accountHolderName.trim(),
+        accountNumber: accountNumber.trim(),
+        ifscCode: ifscCode.trim().toUpperCase(),
+        bankName: bankName.trim(),
+      },
+    },
+    { new: true, select: 'bankAccount totalEarnings withdrawnAmount' }
+  );
+
+  if (!profile) return res.status(404).json({ error: 'NOT_FOUND', message: 'Lawyer profile not found' });
+
+  await AuditLog.log(req, 'lawyer.bank_account.updated', 'LawyerProfile', profile._id, {
+    bankName,
+  });
+
+  return res.json({ message: 'Bank account saved', bankAccount: profile.bankAccount });
+});
+
+/* ---------------------------------------------------------------------------
+ * requestWithdrawal
+ * POST /v1/lawyers/withdraw
+ * ------------------------------------------------------------------------ */
+const requestWithdrawal = asyncHandler(async (req, res) => {
+  const { amount } = req.body;
+
+  if (!amount || amount < 1) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid withdrawal amount' });
+  }
+
+  const profile = await LawyerProfile.findOne({ user: req.user.userId });
+  if (!profile) return res.status(404).json({ error: 'NOT_FOUND', message: 'Lawyer profile not found' });
+
+  if (!profile.bankAccount?.accountNumber) {
+    return res.status(400).json({ error: 'NO_BANK_ACCOUNT', message: 'Please add your bank account before requesting a withdrawal' });
+  }
+
+  // Calculate pending withdrawal sum to prevent over-withdrawal
+  const pendingSum = await LawyerWithdrawal.aggregate([
+    { $match: { lawyerProfile: profile._id, status: { $in: ['pending', 'processing'] } } },
+    { $group: { _id: null, total: { $sum: '$amount' } } },
+  ]);
+  const pendingTotal = pendingSum[0]?.total || 0;
+
+  const withdrawable = profile.totalEarnings - (profile.withdrawnAmount || 0) - pendingTotal;
+  if (amount > withdrawable) {
+    return res.status(400).json({
+      error: 'INSUFFICIENT_BALANCE',
+      message: `Withdrawable balance is ₹${(withdrawable / 100).toFixed(2)}`,
+    });
+  }
+
+  const acct = profile.bankAccount;
+  const masked = acct.accountNumber.replace(/.(?=.{4})/g, '*');
+
+  const withdrawal = await LawyerWithdrawal.create({
+    lawyerProfile: profile._id,
+    lawyerUser: req.user.userId,
+    amount,
+    bankSnapshot: {
+      accountHolderName: acct.accountHolderName,
+      maskedAccountNumber: masked,
+      ifscCode: acct.ifscCode,
+      bankName: acct.bankName,
+    },
+  });
+
+  await AuditLog.log(req, 'lawyer.withdrawal.requested', 'LawyerWithdrawal', withdrawal._id, {
+    amount,
+  });
+
+  return res.status(201).json({ message: 'Withdrawal request submitted', withdrawal });
+});
+
+/* ---------------------------------------------------------------------------
+ * listWithdrawals
+ * GET /v1/lawyers/me/withdrawals
+ * ------------------------------------------------------------------------ */
+const listWithdrawals = asyncHandler(async (req, res) => {
+  const profile = await LawyerProfile.findOne({ user: req.user.userId }, '_id totalEarnings withdrawnAmount bankAccount');
+  if (!profile) return res.status(404).json({ error: 'NOT_FOUND', message: 'Lawyer profile not found' });
+
+  const withdrawals = await LawyerWithdrawal.find({ lawyerProfile: profile._id }).sort({ createdAt: -1 });
+
+  const pendingSum = withdrawals
+    .filter((w) => ['pending', 'processing'].includes(w.status))
+    .reduce((s, w) => s + w.amount, 0);
+
+  const withdrawable = profile.totalEarnings - (profile.withdrawnAmount || 0) - pendingSum;
+
+  return res.json({
+    totalEarnings: profile.totalEarnings,
+    withdrawnAmount: profile.withdrawnAmount || 0,
+    withdrawable: Math.max(0, withdrawable),
+    hasBankAccount: !!profile.bankAccount?.accountNumber,
+    bankAccount: profile.bankAccount?.accountNumber
+      ? {
+          accountHolderName: profile.bankAccount.accountHolderName,
+          maskedAccountNumber: profile.bankAccount.accountNumber.replace(/.(?=.{4})/g, '*'),
+          ifscCode: profile.bankAccount.ifscCode,
+          bankName: profile.bankAccount.bankName,
+        }
+      : null,
+    withdrawals,
+  });
+});
+
 module.exports = {
   uploadCertificate,
   searchLawyers,
@@ -582,4 +723,7 @@ module.exports = {
   updateAvailability,
   getAvailableSlots,
   getMyClients,
+  saveBankAccount,
+  requestWithdrawal,
+  listWithdrawals,
 };

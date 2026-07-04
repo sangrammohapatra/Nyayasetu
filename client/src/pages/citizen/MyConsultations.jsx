@@ -1,5 +1,9 @@
 /**
- * client/src/pages/lawyer/ConsultationsPage.jsx
+ * client/src/pages/citizen/MyConsultations.jsx
+ *
+ * Citizen self-service view of booked consultations — lets a citizen see
+ * upcoming/past bookings, chat with an accepted lawyer, join a video call,
+ * and cancel a booking (full refund only if cancelled >=24h before scheduledAt).
  */
 
 import React, { useEffect, useState } from 'react';
@@ -20,13 +24,11 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
+import Alert from '@mui/material/Alert';
 
 import {
   fetchConsultations,
-  acceptConsultation,
-  rejectConsultation,
-  completeConsultation,
-  markNoShow,
+  cancelConsultation,
   selectConsultations,
   selectConsultationsLoading,
 } from '../../store/slices/lawyerSlice';
@@ -34,11 +36,11 @@ import ConsultationChat from '../../components/consultation/ConsultationChat';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GradientHeading from '../../components/ui/GradientHeading';
 import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
-import { useTheme } from '@mui/material/styles';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_TABS = ['all', 'requested', 'accepted', 'completed', 'cancelled'];
+const CANCELLATION_REFUND_WINDOW_HOURS = 24;
 
 const MODE_META = {
   chat:      { label: 'Chat',      icon: '💬' },
@@ -86,15 +88,14 @@ function ConsultationRowSkeleton() {
 
 // ─── Row ──────────────────────────────────────────────────────────────────────
 
-function ConsultationRow({ consultation, delay, onAccept, onReject, onComplete, onNoShow, onChat, actionLoading }) {
+function ConsultationRow({ consultation, delay, onCancel, onChat, actionLoading }) {
   const { t } = useTranslation();
-  const muiTheme = useTheme();
   const prefersReducedMotion = useReducedMotion();
-  const citizen = consultation.citizen || {};
-  const initials = citizen.name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || '?';
+  const lawyer = consultation.lawyer || {};
+  const initials = lawyer.name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || '?';
   const modeMeta = MODE_META[consultation.mode] || { icon: '📋', label: consultation.mode };
   const statusMeta = STATUS_META[consultation.status] || { label: consultation.status, bg: 'transparent', color: 'inherit' };
-  const isRequested = consultation.status === 'requested';
+  const isCancellable = ['requested', 'accepted'].includes(consultation.status);
 
   const scheduledDate = consultation.scheduledAt
     ? new Date(consultation.scheduledAt).toLocaleString('en-IN', {
@@ -106,6 +107,11 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, onComplete, 
   const feeFormatted = consultation.fee != null
     ? `₹${(consultation.fee / 100).toFixed(0)}`
     : null;
+
+  const hoursUntilScheduled = consultation.scheduledAt
+    ? (new Date(consultation.scheduledAt).getTime() - Date.now()) / (1000 * 60 * 60)
+    : 0;
+  const isRefundEligible = hoursUntilScheduled >= CANCELLATION_REFUND_WINDOW_HOURS;
 
   return (
     <motion.div
@@ -129,14 +135,13 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, onComplete, 
           {initials}
         </Avatar>
 
-        {/* Client info */}
+        {/* Lawyer info */}
         <Box sx={{ flex: 1, minWidth: 120 }}>
           <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)' }}>
-            {citizen.name || t('consultations.unknownClient', 'Client')}
+            {lawyer.name || t('consultations.unknownLawyer', 'Lawyer')}
           </Typography>
           <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
-            {citizen.phone || citizen.email || ''}
-            {consultation.subject && ` · ${consultation.subject}`}
+            {consultation.subject || ''}
           </Typography>
         </Box>
 
@@ -179,25 +184,42 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, onComplete, 
           }}
         />
 
-        {/* Actions for pending requests */}
-        {isRequested && (
-          <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+        {/* Actions */}
+        <Box sx={{ display: 'flex', gap: 0.75, flexShrink: 0 }}>
+          {consultation.mode === 'video' && consultation.meetingLink && consultation.status === 'accepted' && (
             <Button
-              size="small" variant="contained" disabled={actionLoading}
-              onClick={() => onAccept(consultation._id)}
+              size="small" variant="contained"
+              component="a" href={consultation.meetingLink} target="_blank" rel="noopener noreferrer"
               sx={{
-                fontSize: '0.72rem', fontWeight: 600,
-                borderRadius: `${RADIUS.full}px`, py: 0.4,
-                background: muiTheme.custom?.gradientBrand || 'var(--color-primary)',
-                boxShadow: muiTheme.custom?.glowPrimary || 'none',
-                '&:hover': { background: muiTheme.custom?.gradientBrand || 'var(--color-primary-dark, var(--color-primary))' },
+                fontSize: '0.72rem', fontWeight: 700,
+                borderRadius: `${RADIUS.md}px`, py: 0.4,
+                background: '#1565c0',
+                '&:hover': { background: '#0d47a1' },
               }}
             >
-              {t('consultations.accept', 'Accept')}
+              📹 Join Call
             </Button>
+          )}
+
+          {isChatOpen(consultation) && (
             <Button
               size="small" variant="outlined" disabled={actionLoading}
-              onClick={() => onReject(consultation._id)}
+              onClick={() => onChat(consultation)}
+              sx={{
+                fontSize: '0.72rem', fontWeight: 600,
+                borderRadius: `${RADIUS.md}px`, py: 0.4,
+                borderColor: 'var(--color-primary)', color: 'var(--color-primary)',
+                '&:hover': { background: 'var(--color-primary-alpha)' },
+              }}
+            >
+              💬 Chat
+            </Button>
+          )}
+
+          {isCancellable && (
+            <Button
+              size="small" variant="outlined" disabled={actionLoading}
+              onClick={() => onCancel(consultation._id, isRefundEligible)}
               sx={{
                 fontSize: '0.72rem', fontWeight: 600,
                 borderRadius: `${RADIUS.md}px`, py: 0.4,
@@ -205,72 +227,10 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, onComplete, 
                 '&:hover': { background: 'rgba(211,47,47,0.06)', borderColor: '#d32f2f' },
               }}
             >
-              {t('consultations.reject', 'Decline')}
+              Cancel
             </Button>
-          </Box>
-        )}
-
-        {/* Chat button for accepted/completed consultations */}
-        {(consultation.status === 'accepted' || consultation.status === 'completed') && (
-          <Box sx={{ display: 'flex', gap: 0.75, flexShrink: 0 }}>
-            {consultation.mode === 'video' && consultation.meetingLink && consultation.status === 'accepted' && (
-              <Button
-                size="small" variant="contained"
-                component="a" href={consultation.meetingLink} target="_blank" rel="noopener noreferrer"
-                sx={{
-                  fontSize: '0.72rem', fontWeight: 700,
-                  borderRadius: `${RADIUS.md}px`, py: 0.4,
-                  background: '#1565c0',
-                  '&:hover': { background: '#0d47a1' },
-                }}
-              >
-                📹 Join Call
-              </Button>
-            )}
-            {isChatOpen(consultation) && (
-              <Button
-                size="small" variant="outlined" disabled={actionLoading}
-                onClick={() => onChat(consultation)}
-                sx={{
-                  fontSize: '0.72rem', fontWeight: 600,
-                  borderRadius: `${RADIUS.md}px`, py: 0.4,
-                  borderColor: 'var(--color-primary)', color: 'var(--color-primary)',
-                  '&:hover': { background: 'var(--color-primary-alpha)' },
-                }}
-              >
-                💬 Chat
-              </Button>
-            )}
-            {consultation.status === 'accepted' && (
-              <Button
-                size="small" variant="contained" disabled={actionLoading}
-                onClick={() => onComplete(consultation._id)}
-                sx={{
-                  fontSize: '0.72rem', fontWeight: 700,
-                  borderRadius: `${RADIUS.md}px`, py: 0.4,
-                  background: '#2e7d32',
-                  '&:hover': { background: '#1b5e20' },
-                }}
-              >
-                ✅ Mark Complete
-              </Button>
-            )}
-            {consultation.status === 'accepted' && (
-              <Button
-                size="small" variant="outlined" disabled={actionLoading}
-                onClick={() => onNoShow(consultation._id)}
-                sx={{
-                  fontSize: '0.72rem', fontWeight: 600,
-                  borderRadius: `${RADIUS.md}px`, py: 0.4,
-                  borderColor: '#757575', color: '#757575',
-                  '&:hover': { background: 'rgba(117,117,117,0.08)', borderColor: '#757575' },
-                }}
-              >
-                🚫 No-Show
-              </Button>
-            )}
-          </Box>
-        )}
+          )}
+        </Box>
       </Box>
     </motion.div>
   );
@@ -278,7 +238,7 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, onComplete, 
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-function ConsultationsPage() {
+function MyConsultations() {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const prefersReducedMotion = useReducedMotion();
@@ -288,9 +248,9 @@ function ConsultationsPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Reject dialog state
-  const [rejectDialog, setRejectDialog] = useState({ open: false, id: null });
-  const [rejectReason, setRejectReason] = useState('');
+  // Cancel dialog state
+  const [cancelDialog, setCancelDialog] = useState({ open: false, id: null, refundEligible: false });
+  const [cancelReason, setCancelReason] = useState('');
 
   // Chat drawer state
   const [chatConsultation, setChatConsultation] = useState(null);
@@ -300,39 +260,20 @@ function ConsultationsPage() {
     dispatch(fetchConsultations(params));
   }, [dispatch, activeTab]);
 
-  const handleAccept = async (id) => {
-    setActionLoading(true);
-    await dispatch(acceptConsultation(id));
-    setActionLoading(false);
+  const openCancelDialog = (id, refundEligible) => {
+    setCancelReason('');
+    setCancelDialog({ open: true, id, refundEligible });
   };
 
-  const handleComplete = async (id) => {
+  const handleCancelConfirm = async () => {
+    if (!cancelDialog.id) return;
     setActionLoading(true);
-    await dispatch(completeConsultation(id));
-    setActionLoading(false);
-  };
-
-  const handleNoShow = async (id) => {
-    setActionLoading(true);
-    await dispatch(markNoShow(id));
-    setActionLoading(false);
-  };
-
-  const openRejectDialog = (id) => {
-    setRejectReason('');
-    setRejectDialog({ open: true, id });
-  };
-
-  const handleRejectConfirm = async () => {
-    if (!rejectDialog.id) return;
-    setActionLoading(true);
-    await dispatch(rejectConsultation({ id: rejectDialog.id, reason: rejectReason }));
-    setRejectDialog({ open: false, id: null });
+    await dispatch(cancelConsultation({ id: cancelDialog.id, reason: cancelReason }));
+    setCancelDialog({ open: false, id: null, refundEligible: false });
     setActionLoading(false);
   };
 
   const displayed = consultations;
-  const requestedCount = consultations.filter((c) => c.status === 'requested').length;
 
   return (
     <AnimatedPage>
@@ -340,21 +281,12 @@ function ConsultationsPage() {
 
         {/* Header */}
         <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-            <Box>
-              <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
-                {t('consultations.title', 'Consultations')}
-              </GradientHeading>
-              <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mt: 0.25 }}>
-                {displayed.length} {t('consultations.total', 'consultations')}
-                {requestedCount > 0 && (
-                  <Box component="span" sx={{ ml: 1, fontWeight: 700, color: '#ed6c02' }}>
-                    · {requestedCount} {t('consultations.pendingAction', 'awaiting action')}
-                  </Box>
-                )}
-              </Typography>
-            </Box>
-          </Box>
+          <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 0.5 }}>
+            {t('consultations.myTitle', 'My Consultations')}
+          </GradientHeading>
+          <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3 }}>
+            {displayed.length} {t('consultations.total', 'consultations')}
+          </Typography>
         </motion.div>
 
         {/* Status tabs */}
@@ -397,11 +329,11 @@ function ConsultationsPage() {
               <Typography sx={{ fontSize: 48, mb: 1.5 }}>📅</Typography>
               <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 1 }}>
                 {activeTab === 'all'
-                  ? t('consultations.empty', 'No consultations yet')
+                  ? t('consultations.emptyMine', "You haven't booked any consultations yet")
                   : t('consultations.emptyStatus', `No ${activeTab} consultations`)}
               </GradientHeading>
               <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
-                {t('consultations.emptyDesc', 'Consultations booked by clients will appear here.')}
+                {t('consultations.emptyMineDesc', 'Book a consultation with a verified lawyer to get started.')}
               </Typography>
             </Box>
           ) : (
@@ -411,10 +343,7 @@ function ConsultationsPage() {
                   key={c._id}
                   consultation={c}
                   delay={i * 0.04}
-                  onAccept={handleAccept}
-                  onReject={openRejectDialog}
-                  onComplete={handleComplete}
-                  onNoShow={handleNoShow}
+                  onCancel={openCancelDialog}
                   onChat={(c) => setChatConsultation(c)}
                   actionLoading={actionLoading}
                 />
@@ -430,29 +359,31 @@ function ConsultationsPage() {
           consultationId={chatConsultation._id}
           open={!!chatConsultation}
           onClose={() => setChatConsultation(null)}
-          otherPartyName={chatConsultation.citizen?.name || 'Client'}
+          otherPartyName={chatConsultation.lawyer?.name || 'Lawyer'}
         />
       )}
 
-      {/* Reject dialog */}
+      {/* Cancel dialog */}
       <Dialog
-        open={rejectDialog.open}
-        onClose={() => setRejectDialog({ open: false, id: null })}
+        open={cancelDialog.open}
+        onClose={() => setCancelDialog({ open: false, id: null, refundEligible: false })}
         maxWidth="xs" fullWidth
         PaperProps={{ sx: { borderRadius: `${RADIUS.xl}px`, background: 'var(--color-surface)' } }}
       >
         <DialogTitle sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, color: 'var(--color-text)' }}>
-          {t('consultations.rejectTitle', 'Decline Consultation')}
+          {t('consultations.cancelTitle', 'Cancel Consultation')}
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 2 }}>
-            {t('consultations.rejectDesc', 'Optionally let the client know why you\'re declining.')}
-          </Typography>
+          <Alert severity={cancelDialog.refundEligible ? 'info' : 'warning'} sx={{ mb: 2, borderRadius: `${RADIUS.md}px` }}>
+            {cancelDialog.refundEligible
+              ? t('consultations.cancelRefundYes', "You're cancelling more than 24 hours before the scheduled time — you'll get a full refund.")
+              : t('consultations.cancelRefundNo', "This is within 24 hours of the scheduled time, so the fee is non-refundable.")}
+          </Alert>
           <TextField
             fullWidth multiline rows={3}
-            placeholder={t('consultations.rejectPlaceholder', 'Reason (optional)…')}
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder={t('consultations.cancelPlaceholder', 'Reason (optional)…')}
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
             size="small"
             sx={{
               '& .MuiOutlinedInput-root': {
@@ -464,20 +395,20 @@ function ConsultationsPage() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
           <Button
-            onClick={() => setRejectDialog({ open: false, id: null })}
+            onClick={() => setCancelDialog({ open: false, id: null, refundEligible: false })}
             sx={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}
           >
-            {t('common.cancel', 'Cancel')}
+            {t('common.back', 'Back')}
           </Button>
           <Button
-            variant="contained" onClick={handleRejectConfirm} disabled={actionLoading}
+            variant="contained" onClick={handleCancelConfirm} disabled={actionLoading}
             sx={{
               background: '#d32f2f', fontWeight: 600,
               borderRadius: `${RADIUS.md}px`,
               '&:hover': { background: '#b71c1c' },
             }}
           >
-            {t('consultations.confirmDecline', 'Decline')}
+            {t('consultations.confirmCancel', 'Confirm Cancellation')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -485,4 +416,4 @@ function ConsultationsPage() {
   );
 }
 
-export default ConsultationsPage;
+export default MyConsultations;

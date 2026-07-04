@@ -76,6 +76,7 @@ const DocumentPreview = lazy(() => import("./pages/citizen/DocumentPreview"));
 const MyDocuments = lazy(() => import("./pages/citizen/MyDocuments"));
 const CaseDashboard = lazy(() => import("./pages/citizen/CaseDashboard"));
 const LawyerProfile = lazy(() => import("./pages/citizen/LawyerProfile"));
+const MyConsultations = lazy(() => import("./pages/citizen/MyConsultations"));
 
 // Lawyer
 const LawyerVerificationPending = lazy(() => import("./pages/lawyer/LawyerVerificationPending"));
@@ -104,6 +105,7 @@ const AdminTemplates     = lazy(() => import('./pages/admin/AdminTemplates'));
 const AdminAuditLog      = lazy(() => import('./pages/admin/AdminAuditLog'));
 const AdminPayments      = lazy(() => import('./pages/admin/AdminPayments'));
 const AdminConsultations = lazy(() => import('./pages/admin/AdminConsultations'));
+const AdminWithdrawals = lazy(() => import('./pages/admin/AdminWithdrawals'));
 const AdminDocuments     = lazy(() => import('./pages/admin/AdminDocuments'));
 const AdminRTI           = lazy(() => import('./pages/admin/AdminRTI'));
 const AdminNotarizations = lazy(() => import('./pages/admin/AdminNotarizations'));
@@ -369,6 +371,7 @@ const router = createBrowserRouter([
         ),
       },
       { path: "lawyers/:lawyerId", element: <LawyerProfile /> },
+      { path: "consultations", element: <MyConsultations /> },
       { path: "profile", element: <Navigate to="/citizen/settings" replace /> },
       { path: "settings", element: <Settings /> },
       { path: "helpline", element: <EmergencyHelpline /> },
@@ -391,12 +394,14 @@ const router = createBrowserRouter([
       { index: true, element: <Navigate to="/lawyer/home" replace /> },
       // Settings is always accessible so an unverified lawyer can update their profile
       { path: "settings", element: <Settings /> },
+      // The apply/edit wizard must stay reachable regardless of verification status —
+      // it's the only way a rejected lawyer can correct their documents and resubmit.
+      { path: "profile", element: <LawyerDashboard /> },
       // Everything else requires verification
       {
         element: <LawyerVerifiedGate />,
         children: [
           { path: "home", element: <LawyerHome /> },
-          { path: "profile", element: <LawyerDashboard /> },
           { path: "clients", element: <ClientList /> },
           { path: "clients/:userId", element: <ClientDetail /> },
           { path: "cases", element: <CaseManagement /> },
@@ -481,6 +486,14 @@ const router = createBrowserRouter([
         element: (
           <Suspense fallback={<PageLoader />}>
             <AdminPayments />
+          </Suspense>
+        ),
+      },
+      {
+        path: "withdrawals",
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <AdminWithdrawals />
           </Suspense>
         ),
       },

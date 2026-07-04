@@ -201,6 +201,16 @@ const lawyerProfileSchema = new Schema(
       type: Number,
       default: 0,    // cumulative in paise
     },
+    withdrawnAmount: {
+      type: Number,
+      default: 0,    // cumulative in paise, incremented when an admin marks a withdrawal 'completed'
+    },
+    bankAccount: {
+      accountHolderName: { type: String, trim: true },
+      accountNumber: { type: String, trim: true },
+      ifscCode: { type: String, trim: true, uppercase: true },
+      bankName: { type: String, trim: true },
+    },
 
     // ── Stats ─────────────────────────────────────────────────────────────────
     totalConsultations: { type: Number, default: 0 },
@@ -243,13 +253,19 @@ lawyerProfileSchema.virtual('verifiedBadge').get(function () {
  * Recompute averageRating and totalRatings whenever ratings array changes.
  */
 lawyerProfileSchema.pre('save', function (next) {
-  if (this.isModified('ratings') && this.ratings.length > 0) {
-    const sum = this.ratings.reduce((acc, r) => acc + r.score, 0);
-    this.totalRatings = this.ratings.length;
-    this.averageRating = Math.round((sum / this.ratings.length) * 10) / 10; // 1 decimal
-  } else if (this.ratings.length === 0) {
-    this.averageRating = 0;
-    this.totalRatings = 0;
+  // Only recompute from the embedded `ratings[]` array when it actually changed.
+  // Otherwise this would zero out averageRating/totalRatings on every unrelated
+  // save() (e.g. from completeConsultation), clobbering the values the
+  // controller computes separately via aggregation over Consultation.citizenRating.
+  if (this.isModified('ratings')) {
+    if (this.ratings.length > 0) {
+      const sum = this.ratings.reduce((acc, r) => acc + r.score, 0);
+      this.totalRatings = this.ratings.length;
+      this.averageRating = Math.round((sum / this.ratings.length) * 10) / 10; // 1 decimal
+    } else {
+      this.averageRating = 0;
+      this.totalRatings = 0;
+    }
   }
   next();
 });

@@ -197,11 +197,16 @@ consultationSchema.pre('save', function (next) {
     }
     if (this.status === 'completed' && !this.endedAt) {
       this.endedAt = new Date();
-      if (this.startedAt) {
-        this.actualDurationMinutes = Math.round(
-          (this.endedAt - this.startedAt) / 60000
-        );
+      // No controller ever sets startedAt (there's no explicit "session start" event
+      // in this flow), so fall back to the booked time — the best available proxy —
+      // rather than leaving actualDurationMinutes permanently undefined.
+      if (!this.startedAt) {
+        this.startedAt = this.scheduledAt;
       }
+      this.actualDurationMinutes = Math.max(
+        0,
+        Math.round((this.endedAt - this.startedAt) / 60000)
+      );
     }
   }
   next();

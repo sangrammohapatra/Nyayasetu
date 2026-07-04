@@ -14,6 +14,15 @@ import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
 import Skeleton from '@mui/material/Skeleton';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
+import CircularProgress from '@mui/material/CircularProgress';
+import Alert from '@mui/material/Alert';
+import Divider from '@mui/material/Divider';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -100,6 +109,18 @@ function CustomTooltip({ active, payload, label }) {
   );
 }
 
+// ─── Withdrawal status chip meta ──────────────────────────────────────────────
+const WITHDRAWAL_STATUS_META = {
+  pending:    { label: 'Pending',    color: '#ed6c02', bg: 'rgba(237,108,2,0.1)' },
+  processing: { label: 'Processing', color: '#0288d1', bg: 'rgba(2,136,209,0.1)' },
+  completed:  { label: 'Completed',  color: '#2e7d32', bg: 'rgba(46,125,50,0.1)' },
+  failed:     { label: 'Failed',     color: '#c62828', bg: 'rgba(198,40,40,0.1)' },
+};
+
+function fmtPaise(paise) {
+  return `₹${((paise || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 function EarningsPanel() {
   const { t } = useTranslation();
@@ -119,6 +140,74 @@ function EarningsPanel() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ lifetime: 0, thisMonth: 0, pending: 0, consultationCount: 0 });
   const [chartData, setChartData] = useState([]);
+
+  // Payouts
+  const [payoutData, setPayoutData] = useState(null);
+  const [payoutLoading, setPayoutLoading] = useState(true);
+  const [bankForm, setBankForm] = useState({ accountHolderName: '', accountNumber: '', ifscCode: '', bankName: '' });
+  const [bankSaving, setBankSaving] = useState(false);
+  const [bankSuccess, setBankSuccess] = useState(false);
+  const [bankError, setBankError] = useState(null);
+  const [editingBank, setEditingBank] = useState(false);
+  const [withdrawDialog, setWithdrawDialog] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawError, setWithdrawError] = useState(null);
+
+  const loadPayouts = () => {
+    setPayoutLoading(true);
+    api.get('/lawyers/me/withdrawals')
+      .then(({ data: d }) => {
+        setPayoutData(d);
+        if (d.bankAccount) {
+          setBankForm({
+            accountHolderName: d.bankAccount.accountHolderName || '',
+            accountNumber: '',
+            ifscCode: d.bankAccount.ifscCode || '',
+            bankName: d.bankAccount.bankName || '',
+          });
+        }
+      })
+      .finally(() => setPayoutLoading(false));
+  };
+
+  useEffect(() => { loadPayouts(); }, []);
+
+  const handleBankSave = async () => {
+    setBankSaving(true);
+    setBankError(null);
+    setBankSuccess(false);
+    try {
+      await api.put('/lawyers/bank-account', bankForm);
+      setBankSuccess(true);
+      setEditingBank(false);
+      loadPayouts();
+    } catch (err) {
+      setBankError(err.response?.data?.message || 'Failed to save bank account');
+    } finally {
+      setBankSaving(false);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    const amtPaise = Math.round(parseFloat(withdrawAmount) * 100);
+    if (!amtPaise || amtPaise < 100) {
+      setWithdrawError('Minimum withdrawal is ₹1');
+      return;
+    }
+    setWithdrawing(true);
+    setWithdrawError(null);
+    try {
+      await api.post('/lawyers/withdraw', { amount: amtPaise });
+      setWithdrawDialog(false);
+      setWithdrawAmount('');
+      loadPayouts();
+    } catch (err) {
+      setWithdrawError(err.response?.data?.message || 'Withdrawal request failed');
+    } finally {
+      setWithdrawing(false);
+    }
+  };
 
   useEffect(() => {
     api.get('/payments/history?type=consultation&limit=200').then(({ data }) => {
@@ -251,7 +340,203 @@ function EarningsPanel() {
             )}
           </Box>
         </motion.div>
+
+        {/* ── Payouts ─────────────────────────────────────────────────────── */}
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.44 }}>
+          <GradientHeading variant="h5" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mt: 4, mb: 2 }}>
+            {t('earnings.payouts', 'Payouts')}
+          </GradientHeading>
+
+          {!payoutLoading && (
+            <>
+              {/* Withdraw button */}
+              <GlassCard sx={{ p: 2, mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)' }}>
+                      Request a Payout
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
+                      {payoutData?.hasBankAccount ? 'Processed by admin within 2–3 business days' : 'Add your bank account first'}
+                    </Typography>
+                  </Box>
+                  <Button
+                    variant="contained"
+                    disabled={!payoutData?.hasBankAccount || (payoutData?.withdrawable || 0) < 100}
+                    onClick={() => { setWithdrawDialog(true); setWithdrawError(null); setWithdrawAmount(''); }}
+                    sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 700, background: 'var(--color-primary)', whiteSpace: 'nowrap' }}
+                  >
+                    Withdraw Funds
+                  </Button>
+                </Box>
+              </GlassCard>
+
+              {/* Available balance */}
+              <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+                {[
+                  { label: 'Withdrawn', value: fmtPaise(payoutData?.withdrawnAmount), color: '#0288d1', icon: '🏦' },
+                  { label: 'Available to Withdraw', value: fmtPaise(payoutData?.withdrawable), color: (payoutData?.withdrawable || 0) > 0 ? '#ed6c02' : 'var(--color-text-secondary)', icon: '💳' },
+                ].map(({ label, value, color, icon }) => (
+                  <GlassCard key={label} sx={{ p: 2, flex: '1 1 160px', minWidth: 0 }}>
+                    <Typography sx={{ fontSize: 24, mb: 0.5 }}>{icon}</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 800, color, fontFamily: TYPOGRAPHY.fontFamily.display }}>
+                      {value}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>
+                      {label}
+                    </Typography>
+                  </GlassCard>
+                ))}
+              </Box>
+
+              {/* Bank account */}
+              <GlassCard sx={{ p: 2, mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)' }}>
+                    🏦 Bank Account
+                  </Typography>
+                  {payoutData?.hasBankAccount && !editingBank && (
+                    <Button size="small" onClick={() => setEditingBank(true)}
+                      sx={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: '0.75rem' }}>
+                      Edit
+                    </Button>
+                  )}
+                </Box>
+
+                {payoutData?.hasBankAccount && !editingBank ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    <Typography variant="body2" sx={{ color: 'var(--color-text)' }}>
+                      {payoutData.bankAccount.accountHolderName}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', fontFamily: 'monospace' }}>
+                      A/C: {payoutData.bankAccount.maskedAccountNumber}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
+                      {payoutData.bankAccount.bankName} &nbsp;|&nbsp; IFSC: {payoutData.bankAccount.ifscCode}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                    {bankSuccess && (
+                      <Alert severity="success" sx={{ borderRadius: `${RADIUS.md}px` }} onClose={() => setBankSuccess(false)}>
+                        Bank account saved successfully.
+                      </Alert>
+                    )}
+                    {bankError && (
+                      <Alert severity="error" sx={{ borderRadius: `${RADIUS.md}px` }}>{bankError}</Alert>
+                    )}
+                    {[
+                      { key: 'accountHolderName', label: 'Account Holder Name' },
+                      { key: 'accountNumber', label: 'Account Number' },
+                      { key: 'ifscCode', label: 'IFSC Code' },
+                      { key: 'bankName', label: 'Bank Name' },
+                    ].map(({ key, label }) => (
+                      <TextField
+                        key={key} size="small" label={label} required
+                        value={bankForm[key]}
+                        onChange={(e) => setBankForm((f) => ({ ...f, [key]: e.target.value }))}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: `${RADIUS.md}px` } }}
+                      />
+                    ))}
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      {editingBank && (
+                        <Button variant="outlined" onClick={() => setEditingBank(false)} disabled={bankSaving}
+                          sx={{ flex: 1, borderRadius: `${RADIUS.md}px`, borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                          Cancel
+                        </Button>
+                      )}
+                      <Button variant="contained" onClick={handleBankSave} disabled={bankSaving}
+                        sx={{ flex: 1, borderRadius: `${RADIUS.md}px`, fontWeight: 700, background: 'var(--color-primary)' }}>
+                        {bankSaving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Save Bank Account'}
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
+              </GlassCard>
+
+              {/* Withdrawal history */}
+              <GlassCard sx={{ p: 2 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)', mb: 1.5 }}>
+                  Withdrawal History
+                </Typography>
+                {!payoutData?.withdrawals?.length ? (
+                  <Box sx={{ textAlign: 'center', py: 3 }}>
+                    <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
+                      No withdrawal requests yet
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                    {payoutData.withdrawals.map((w, i) => {
+                      const meta = WITHDRAWAL_STATUS_META[w.status] || WITHDRAWAL_STATUS_META.pending;
+                      return (
+                        <React.Fragment key={w._id}>
+                          {i > 0 && <Divider sx={{ my: 1, borderColor: 'var(--color-border)' }} />}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)' }}>
+                                {fmtPaise(w.amount)}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
+                                {new Date(w.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
+                                {w.reference && ` · Ref: ${w.reference}`}
+                              </Typography>
+                            </Box>
+                            <Chip
+                              label={meta.label} size="small"
+                              sx={{ height: 20, fontSize: '0.68rem', fontWeight: 700, background: meta.bg, color: meta.color }}
+                            />
+                          </Box>
+                        </React.Fragment>
+                      );
+                    })}
+                  </Box>
+                )}
+              </GlassCard>
+            </>
+          )}
+        </motion.div>
       </Box>
+
+      {/* Withdraw dialog */}
+      <Dialog
+        open={withdrawDialog}
+        onClose={() => !withdrawing && setWithdrawDialog(false)}
+        maxWidth="xs" fullWidth
+        PaperProps={{ sx: { borderRadius: `${RADIUS.xl}px`, background: 'var(--color-surface)' } }}
+      >
+        <DialogTitle sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
+          Request Withdrawal
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', display: 'block', mb: 2 }}>
+            Available: <strong>{fmtPaise(payoutData?.withdrawable)}</strong>
+          </Typography>
+          {withdrawError && (
+            <Alert severity="error" sx={{ mb: 2, borderRadius: `${RADIUS.md}px` }}>{withdrawError}</Alert>
+          )}
+          <TextField
+            fullWidth size="small" label="Amount (₹)" type="number"
+            inputProps={{ min: 1, step: 0.01 }}
+            value={withdrawAmount}
+            onChange={(e) => setWithdrawAmount(e.target.value)}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: `${RADIUS.md}px` } }}
+          />
+          <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', mt: 1, display: 'block' }}>
+            Processed to: {payoutData?.bankAccount?.bankName} · {payoutData?.bankAccount?.maskedAccountNumber}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button onClick={() => setWithdrawDialog(false)} disabled={withdrawing}
+            sx={{ color: 'var(--color-text-secondary)' }}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={handleWithdraw} disabled={withdrawing || !withdrawAmount}
+            sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 700, background: 'var(--color-primary)' }}>
+            {withdrawing ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Request Payout'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </AnimatedPage>
   );
 }

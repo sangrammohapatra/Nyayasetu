@@ -48,6 +48,24 @@ function computeCommission(feeInPaise, referralFeePercent = 10) {
   return { platformEarnings, lawyerEarnings };
 }
 
+// Shared by completeConsultation and markNoShow — both credit the lawyer for
+// the full fee (the lawyer held the slot; only the citizen's own cancellation
+// path is refund-eligible).
+async function creditLawyerEarnings(lawyerProfile, payment, feeInPaise) {
+  const referralFeePercent = lawyerProfile.referralFeePercent || 10;
+  const { platformEarnings, lawyerEarnings } = computeCommission(feeInPaise, referralFeePercent);
+
+  payment.lawyerEarnings = lawyerEarnings;
+  payment.platformEarnings = platformEarnings;
+  await payment.save();
+
+  lawyerProfile.totalEarnings = (lawyerProfile.totalEarnings || 0) + lawyerEarnings;
+  lawyerProfile.totalConsultations = (lawyerProfile.totalConsultations || 0) + 1;
+  await lawyerProfile.save();
+
+  return { platformEarnings, lawyerEarnings, referralFeePercent };
+}
+
 async function notifyLawyer(lawyerUser, consultation, subject) {
   if (!lawyerUser) return;
   try {
@@ -146,27 +164,34 @@ const createConsultation = asyncHandler(async (req, res) => {
 
   // ── Availability + conflict check ────────────────────────────────────────
   // 1. Check the lawyer's weekly availability schedule for this dayOfWeek
-  const dayOfWeek = scheduledDate.getDay(); // scheduler sends IST ISO string, JS Date handles it
-  if (lawyerProfile.availability && lawyerProfile.availability.length > 0) {
-    const rule = lawyerProfile.availability.find((a) => a.dayOfWeek === dayOfWeek && a.isActive !== false);
-    if (!rule) {
-      const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      return res.status(409).json({
-        error: 'LAWYER_UNAVAILABLE',
-        message: `Lawyer is not available on ${DAY_NAMES[dayOfWeek]}. Please choose another date.`,
-      });
-    }
-    // Verify the slot time falls within the rule's window
-    const istDate = new Date(scheduledDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-    const slotMinutes = istDate.getHours() * 60 + istDate.getMinutes();
-    const [sH, sM] = rule.startTime.split(':').map(Number);
-    const [eH, eM] = rule.endTime.split(':').map(Number);
-    if (slotMinutes < sH * 60 + sM || slotMinutes >= eH * 60 + eM) {
-      return res.status(409).json({
-        error: 'OUTSIDE_HOURS',
-        message: `Slot is outside the lawyer's working hours (${rule.startTime}–${rule.endTime} IST).`,
-      });
-    }
+  // Both the day-of-week and time-window checks must use IST, since scheduledDate
+  // is a UTC instant and the server may not run in IST (getDay() would use server tz).
+  const istDate = new Date(scheduledDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  const dayOfWeek = istDate.getDay();
+  if (!lawyerProfile.availability || lawyerProfile.availability.length === 0) {
+    // No schedule configured yet — refuse rather than silently allowing any time.
+    return res.status(409).json({
+      error: 'LAWYER_SCHEDULE_NOT_SET',
+      message: 'This lawyer has not set up their availability schedule yet. Please choose another lawyer or check back later.',
+    });
+  }
+  const rule = lawyerProfile.availability.find((a) => a.dayOfWeek === dayOfWeek && a.isActive !== false);
+  if (!rule) {
+    const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return res.status(409).json({
+      error: 'LAWYER_UNAVAILABLE',
+      message: `Lawyer is not available on ${DAY_NAMES[dayOfWeek]}. Please choose another date.`,
+    });
+  }
+  // Verify the slot time falls within the rule's window
+  const slotMinutes = istDate.getHours() * 60 + istDate.getMinutes();
+  const [sH, sM] = rule.startTime.split(':').map(Number);
+  const [eH, eM] = rule.endTime.split(':').map(Number);
+  if (slotMinutes < sH * 60 + sM || slotMinutes >= eH * 60 + eM) {
+    return res.status(409).json({
+      error: 'OUTSIDE_HOURS',
+      message: `Slot is outside the lawyer's working hours (${rule.startTime}–${rule.endTime} IST).`,
+    });
   }
 
   // 2. Check for an overlapping booking (same lawyer, overlapping time range, active statuses)
@@ -451,6 +476,86 @@ const rejectConsultation = asyncHandler(async (req, res) => {
 });
 
 /* ---------------------------------------------------------------------------
+ * cancelConsultation
+ * PATCH /v1/consultations/:id/cancel
+ * Citizen self-service cancellation. Full refund only if cancelled >=24h
+ * before the scheduled time; no refund inside that window.
+ * ------------------------------------------------------------------------ */
+const CANCELLATION_REFUND_WINDOW_HOURS = 24;
+
+const cancelConsultation = asyncHandler(async (req, res) => {
+  const citizenUserId = req.user.userId;
+  const { id } = req.params;
+  const { reason } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'Invalid consultation id' });
+  }
+
+  const consultation = await Consultation.findOne({ _id: id, citizen: citizenUserId });
+  if (!consultation) {
+    return res.status(404).json({ error: 'Consultation not found' });
+  }
+  if (!['requested', 'accepted'].includes(consultation.status)) {
+    return res.status(400).json({ error: `Cannot cancel a consultation with status '${consultation.status}'` });
+  }
+
+  const hoursUntilScheduled = (consultation.scheduledAt.getTime() - Date.now()) / (1000 * 60 * 60);
+  const eligibleForRefund = hoursUntilScheduled >= CANCELLATION_REFUND_WINDOW_HOURS;
+
+  // Attempt refund BEFORE committing cancellation so we don't leave the citizen
+  // paid-and-cancelled with no automatic retry path if Razorpay fails.
+  const payment = await Payment.findById(consultation.payment);
+  let refundInitiated = false;
+  if (eligibleForRefund && payment && payment.status === 'paid' && payment.razorpayPaymentId) {
+    try {
+      await getRazorpay().payments.refund(payment.razorpayPaymentId, {
+        amount: payment.amount,
+        speed: 'normal',
+        notes: { reason: 'Consultation cancelled by citizen (>=24h notice)' },
+      });
+      payment.status = 'refunded';
+      await payment.save();
+      refundInitiated = true;
+    } catch (err) {
+      logger.error('[consultation.controller] Cancellation refund failed', {
+        paymentId: payment.razorpayPaymentId,
+        error: err.message,
+      });
+      return res.status(502).json({ error: 'Refund initiation failed — please try again' });
+    }
+  }
+
+  consultation.status = 'cancelled';
+  consultation.cancelledBy = 'citizen';
+  if (reason) consultation.cancellationReason = reason;
+  await consultation.save();
+
+  await AuditLog.log(req, 'consultation.cancelled', 'Consultation', consultation._id, {
+    reason,
+    refundInitiated,
+    eligibleForRefund,
+  });
+
+  const lawyerUser = await User.findById(consultation.lawyer).select('name email phone whatsappOptIn whatsappNumber').lean();
+  await notifyLawyer(lawyerUser, consultation, 'cancelled');
+
+  try {
+    await Notification.createForUser({
+      userId: consultation.lawyer,
+      type: 'consultation_cancelled',
+      title: 'Consultation cancelled',
+      body: `The citizen cancelled their ${consultation.mode} consultation scheduled for ${new Date(consultation.scheduledAt).toLocaleDateString('en-IN')}.`,
+      data: { consultationId: consultation._id },
+      actionUrl: `/consultations/${consultation._id}`,
+      io: req.app.get('io'),
+    });
+  } catch (_) {}
+
+  return res.json({ consultation, refundInitiated, eligibleForRefund });
+});
+
+/* ---------------------------------------------------------------------------
  * completeConsultation
  * PATCH /v1/consultations/:id/complete
  * Calculates commission split, updates lawyer earnings.
@@ -476,6 +581,13 @@ const completeConsultation = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: `Cannot complete a consultation with status '${consultation.status}'` });
   }
 
+  // Earnings must never be credited on uncaptured money — payment.status only
+  // becomes 'paid' via the client verify call or the Razorpay webhook.
+  const payment = consultation.payment ? await Payment.findById(consultation.payment) : null;
+  if (!payment || payment.status !== 'paid') {
+    return res.status(400).json({ error: 'Cannot complete a consultation whose payment has not been captured yet' });
+  }
+
   consultation.status = 'completed';
   consultation.completedAt = new Date();
   await consultation.save();
@@ -484,21 +596,8 @@ const completeConsultation = asyncHandler(async (req, res) => {
     fee: consultation.fee,
   });
 
-  // Commission split
-  const referralFeePercent = lawyerProfile.referralFeePercent || 10;
-  const { platformEarnings, lawyerEarnings } = computeCommission(consultation.fee, referralFeePercent);
-
-  // Update Payment record
-  if (consultation.payment) {
-    await Payment.findByIdAndUpdate(consultation.payment, {
-      $set: { lawyerEarnings, platformEarnings },
-    });
-  }
-
-  // Update lawyer aggregate totals
-  lawyerProfile.totalEarnings = (lawyerProfile.totalEarnings || 0) + lawyerEarnings;
-  lawyerProfile.totalConsultations = (lawyerProfile.totalConsultations || 0) + 1;
-  await lawyerProfile.save();
+  const { platformEarnings, lawyerEarnings, referralFeePercent } =
+    await creditLawyerEarnings(lawyerProfile, payment, consultation.fee);
 
   const citizenUser = await User.findById(consultation.citizen).select('name email phone whatsappOptIn whatsappNumber').lean();
   await notifyCitizen(citizenUser, consultation, 'completed');
@@ -511,6 +610,73 @@ const completeConsultation = asyncHandler(async (req, res) => {
       body: 'Your consultation is complete. How did it go? Please take a moment to rate your lawyer.',
       data: { consultationId: consultation._id },
       actionUrl: `/consultations/${consultation._id}`,
+      io: req.app.get('io'),
+    });
+  } catch (_) {}
+
+  return res.json({
+    consultation,
+    commission: {
+      totalFee: consultation.fee,
+      lawyerEarnings,
+      platformEarnings,
+      referralFeePercent,
+    },
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * markNoShow
+ * PATCH /v1/consultations/:id/no-show
+ * Lawyer marks the citizen as a no-show. The lawyer held the slot and showed
+ * up, so they're credited the full fee just like a completed consultation —
+ * the citizen forfeits the fee for not attending.
+ * ------------------------------------------------------------------------ */
+const markNoShow = asyncHandler(async (req, res) => {
+  const lawyerUserId = req.user.userId;
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'Invalid consultation id' });
+  }
+
+  const lawyerProfile = await LawyerProfile.findOne({ user: lawyerUserId });
+  if (!lawyerProfile) {
+    return res.status(403).json({ error: 'Lawyer profile not found' });
+  }
+
+  const consultation = await Consultation.findOne({ _id: id, lawyer: lawyerUserId });
+  if (!consultation) {
+    return res.status(404).json({ error: 'Consultation not found' });
+  }
+  if (consultation.status !== 'accepted') {
+    return res.status(400).json({ error: `Cannot mark no-show for a consultation with status '${consultation.status}'` });
+  }
+
+  const payment = consultation.payment ? await Payment.findById(consultation.payment) : null;
+  if (!payment || payment.status !== 'paid') {
+    return res.status(400).json({ error: 'Cannot mark no-show for a consultation whose payment has not been captured yet' });
+  }
+
+  consultation.status = 'no_show';
+  consultation.endedAt = new Date();
+  await consultation.save();
+
+  await AuditLog.log(req, 'consultation.no_show', 'Consultation', consultation._id, {
+    fee: consultation.fee,
+  });
+
+  const { platformEarnings, lawyerEarnings, referralFeePercent } =
+    await creditLawyerEarnings(lawyerProfile, payment, consultation.fee);
+
+  try {
+    await Notification.createForUser({
+      userId: consultation.citizen,
+      type: 'consultation_no_show',
+      title: 'Missed consultation',
+      body: `You missed your ${consultation.mode} consultation. Please book a new slot if you'd still like to speak with the lawyer.`,
+      data: { consultationId: consultation._id },
+      actionUrl: `/citizen/lawyers/${consultation.lawyerProfile}`,
       io: req.app.get('io'),
     });
   } catch (_) {}
@@ -604,7 +770,7 @@ const listConsultations = asyncHandler(async (req, res) => {
   if (persona === 'lawyer') {
     const profile = await LawyerProfile.findOne({ user: userId }).lean();
     if (!profile) return res.status(404).json({ error: 'Lawyer profile not found' });
-    filter.lawyer = profile._id;
+    filter.lawyer = userId;
   } else {
     filter.citizen = userId;
   }
@@ -630,6 +796,11 @@ const listConsultations = asyncHandler(async (req, res) => {
       Consultation.countDocuments(filter),
     ]);
 
+    // lawyerNotes are the lawyer's private session notes — never expose them to citizens.
+    if (persona !== 'lawyer') {
+      for (const item of items) delete item.lawyerNotes;
+    }
+
     return res.json({
       items,
       total,
@@ -647,7 +818,10 @@ module.exports = {
   createConsultation,
   acceptConsultation,
   rejectConsultation,
+  cancelConsultation,
   completeConsultation,
+  markNoShow,
   rateConsultation,
   listConsultations,
+  creditLawyerEarnings,
 };

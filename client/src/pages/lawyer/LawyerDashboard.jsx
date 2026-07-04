@@ -27,7 +27,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Switch from '@mui/material/Switch';
 import Slider from '@mui/material/Slider';
 
-import { applyAsLawyer, updateLawyerProfile, selectMyLawyerProfile } from '../../store/slices/lawyerSlice';
+import { applyAsLawyer, updateLawyerProfile } from '../../store/slices/lawyerSlice';
+import { selectLawyerProfile } from '../../store/slices/authSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GradientHeading from '../../components/ui/GradientHeading';
 import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
@@ -49,9 +50,8 @@ const SPECIALISATIONS = [
   { id: 'labour',        icon: '👷',    label: 'Labour Law' },
   { id: 'corporate',     icon: '🏢',    label: 'Corporate Law' },
   { id: 'civil',         icon: '🏛️',   label: 'Civil Litigation' },
-  { id: 'ip',            icon: '💡',    label: 'Intellectual Property' },
+  { id: 'intellectual_property', icon: '💡', label: 'Intellectual Property' },
   { id: 'tax',           icon: '📊',    label: 'Taxation' },
-  { id: 'banking',       icon: '🏦',    label: 'Banking & Finance' },
   { id: 'constitutional',icon: '📜',    label: 'Constitutional Law' },
   { id: 'rti',           icon: '📑',    label: 'RTI & Transparency' },
 ];
@@ -420,7 +420,12 @@ function LawyerDashboard() {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const existingProfile = useSelector(selectMyLawyerProfile);
+  // authSlice.lawyerProfile is hydrated by getMe() before this route can render
+  // (ProtectedRoute blocks on the initial getMe call) — lawyerSlice.myProfile, by
+  // contrast, stays null until an apply/update action runs in this session, which
+  // let a stale/absent value fall through to rendering the blank apply form even
+  // when a rejected/under_review profile already existed server-side.
+  const existingProfile = useSelector(selectLawyerProfile);
   const muiTheme = useTheme();
   const prefersReducedMotion = useReducedMotion();
 
@@ -443,7 +448,7 @@ function LawyerDashboard() {
     resolver: yupResolver(schema),
     defaultValues: {
       barCouncilNumber: existingProfile?.barCouncilNumber || '',
-      barCouncilState: existingProfile?.practicingStates?.[0] || '',
+      barCouncilState: existingProfile?.barCouncilState || '',
       experience: existingProfile?.experience || '',
       consultationFee: existingProfile?.consultationFee ? Math.round(existingProfile.consultationFee / 100) : '',
       bio: existingProfile?.bio || '',
@@ -472,6 +477,7 @@ function LawyerDashboard() {
     try {
       const fd = new FormData();
       fd.append('barCouncilNumber', values.barCouncilNumber);
+      fd.append('barCouncilState', values.barCouncilState);
       fd.append('specialisations', specialisations.join(','));
       fd.append('practicingStates', [...new Set([values.barCouncilState, ...practicingStates])].join(','));
       fd.append('experience', String(values.experience));

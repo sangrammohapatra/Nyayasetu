@@ -20,7 +20,7 @@ import Skeleton from '@mui/material/Skeleton';
 import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
 
-import { getLawyerProfile, selectCurrentLawyer, selectLawyerLoading } from '../../store/slices/lawyerSlice';
+import { getLawyerProfile, selectCurrentLawyer, selectLawyerProfileLoading } from '../../store/slices/lawyerSlice';
 import { selectUserPlan, selectIsAuthenticated } from '../../store/slices/authSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GlassCard from '../../components/ui/GlassCard';
@@ -82,7 +82,7 @@ function LawyerProfile() {
   const navigate = useNavigate();
 
   const lawyer = useSelector(selectCurrentLawyer);
-  const loading = useSelector(selectLawyerLoading);
+  const loading = useSelector(selectLawyerProfileLoading);
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const plan = useSelector(selectUserPlan);
 
@@ -96,11 +96,6 @@ function LawyerProfile() {
   const handleBooking = () => {
     if (!isAuthenticated) { navigate('/login?returnUrl=' + encodeURIComponent(window.location.pathname)); return; }
     setBookingOpen(true);
-  };
-
-  const handleWhatsApp = () => {
-    const phone = (lawyer?.user?.phone || '').replace(/[^0-9]/g, '');
-    window.open(`https://wa.me/${phone}`, '_blank');
   };
 
   if (loading) {
@@ -135,7 +130,6 @@ function LawyerProfile() {
   }
 
   const feeRupees = lawyer.consultationFee ? Math.round(lawyer.consultationFee / 100) : 0;
-  const isWAEnabled = lawyer.user?.whatsappOptIn && lawyer.user?.phone;
 
   const lawyerForBooking = {
     id: lawyerId,
@@ -228,22 +222,6 @@ function LawyerProfile() {
                   </Button>
                 </motion.div>
               </FeatureGate>
-
-              {isWAEnabled && (
-                <motion.div whileHover={prefersReducedMotion ? undefined : { scale: 1.03 }} whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}>
-                  <Button
-                    variant="outlined"
-                    onClick={handleWhatsApp}
-                    sx={{
-                      background: 'rgba(37,211,102,0.15)', borderColor: '#25D366', color: '#fff',
-                      fontWeight: 700, borderRadius: `${RADIUS.md}px`,
-                      '&:hover': { background: 'rgba(37,211,102,0.25)', borderColor: '#25D366' },
-                    }}
-                  >
-                    💬 WhatsApp
-                  </Button>
-                </motion.div>
-              )}
             </Box>
           </Box>
         </motion.div>

@@ -165,7 +165,7 @@ export default function LawyerVerificationPending() {
             <Button
               variant="contained"
               fullWidth
-              onClick={() => navigate('/lawyer/settings')}
+              onClick={() => navigate('/lawyer/profile')}
               sx={{
                 borderRadius: 2,
                 fontWeight: 600,
@@ -173,7 +173,7 @@ export default function LawyerVerificationPending() {
                 '&:hover': { background: 'var(--color-primary-dark, var(--color-primary))' },
               }}
             >
-              Go to Settings
+              {status === 'rejected' ? 'Update & Resubmit Application' : 'Update Application'}
             </Button>
             <Button
               variant="outlined"

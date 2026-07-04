@@ -168,14 +168,15 @@ const createDocumentOrder = asyncHandler(async (req, res) => {
 /* ---------------------------------------------------------------------------
  * verifyDocumentPayment
  * POST /v1/payments/verify
- * Body: { orderId, paymentId, signature, documentId }
+ * Body: { orderId, paymentId, signature, documentId } for document payments,
+ *       { orderId, paymentId, signature, consultationId } for consultation payments
  * ------------------------------------------------------------------------ */
 const verifyDocumentPayment = asyncHandler(async (req, res) => {
   const userId = req.user.userId;
-  const { orderId, paymentId, signature, documentId } = req.body;
+  const { orderId, paymentId, signature, documentId, consultationId } = req.body;
 
-  if (!orderId || !paymentId || !signature || !documentId) {
-    return res.status(400).json({ error: 'orderId, paymentId, signature and documentId are required' });
+  if (!orderId || !paymentId || !signature || (!documentId && !consultationId)) {
+    return res.status(400).json({ error: 'orderId, paymentId, signature and documentId or consultationId are required' });
   }
 
   const isValid = razorpayService.verifyPaymentSignature(orderId, paymentId, signature);
@@ -185,7 +186,7 @@ const verifyDocumentPayment = asyncHandler(async (req, res) => {
       orderId,
       paymentId,
     });
-    await AuditLog.log(req, 'payment.signature.invalid', 'Payment', null, { orderId, documentId }, false);
+    await AuditLog.log(req, 'payment.signature.invalid', 'Payment', null, { orderId, documentId, consultationId }, false);
     return res.status(400).json({ error: 'Payment signature verification failed' });
   }
 
@@ -196,6 +197,26 @@ const verifyDocumentPayment = asyncHandler(async (req, res) => {
     { $set: { status: 'paid', razorpayPaymentId: paymentId, paidAt: new Date() } },
     { new: true }
   );
+
+  // Consultation payments have no document to unlock — completeConsultation()
+  // computes and credits lawyer earnings once the consultation is finished.
+  if (consultationId) {
+    if (!payment) {
+      const existing = await Payment.findOne({ razorpayOrderId: orderId }).select('status').lean();
+      if (!existing) {
+        return res.status(404).json({ error: 'Payment record not found' });
+      }
+    }
+    await Consultation.updateOne(
+      { _id: consultationId, citizen: userId },
+      { $set: { isPaid: true } }
+    );
+    await AuditLog.log(req, 'payment.consultation.verified', 'Payment', payment?._id ?? null, {
+      consultationId: String(consultationId),
+      orderId,
+    });
+    return res.json({ success: true });
+  }
 
   if (!payment) {
     // Null can mean "already paid" or "record not found" — distinguish them.
@@ -691,6 +712,11 @@ async function handlePaymentCaptured(payload, io = null) {
           const referralFeePercent = profile?.referralFeePercent ?? 10;
           payment.platformEarnings = Math.round(payment.amount * referralFeePercent / 100);
           payment.lawyerEarnings   = payment.amount - payment.platformEarnings;
+          await Consultation.updateOne(
+            { _id: payment.relatedEntity },
+            { $set: { isPaid: true } },
+            { session }
+          );
         }
       }
 

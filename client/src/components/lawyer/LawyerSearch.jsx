@@ -22,7 +22,7 @@ import Tooltip from "@mui/material/Tooltip";
 import {
   searchLawyers,
   selectLawyerResults,
-  selectLawyerLoading,
+  selectSearchLoading,
 } from "../../store/slices/lawyerSlice";
 import ConsultationBooking from "./ConsultationBooking";
 import GradientHeading from "../ui/GradientHeading";
@@ -360,7 +360,7 @@ function LawyerSearch() {
   const muiTheme = useTheme();
   const prefersReducedMotion = useReducedMotion();
   const results = useSelector(selectLawyerResults);
-  const loading = useSelector(selectLawyerLoading);
+  const loading = useSelector(selectSearchLoading);
 
   const [filters, setFilters] = useState({
     state: "",

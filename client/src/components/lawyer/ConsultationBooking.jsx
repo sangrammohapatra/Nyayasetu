@@ -185,7 +185,7 @@ function Step3({ notes, setNotes, documentId, setDocumentId, documents }) {
   );
 }
 
-function Step4({ lawyer, mode, date, time, notes, fee }) {
+function Step4({ lawyer, mode, date, time, notes, fee, feeLoading }) {
   const { t } = useTranslation();
   const modeObj = MODES.find((m) => m.id === mode) || MODES[0];
   const feeRupees = Math.round(fee / 100);
@@ -203,7 +203,7 @@ function Step4({ lawyer, mode, date, time, notes, fee }) {
           { label: 'Lawyer', value: lawyer?.name || 'Advocate' },
           { label: 'Mode', value: `${modeObj.icon} ${modeObj.label}` },
           { label: 'Schedule', value: scheduledStr },
-          { label: 'Fee', value: `₹${feeRupees}`, bold: true },
+          { label: 'Fee', value: feeLoading ? '…' : `₹${feeRupees}`, bold: true },
         ].map((row) => (
           <Box key={row.label} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
             <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>{row.label}</Typography>
@@ -249,13 +249,29 @@ function ConsultationBooking({ open, onClose, lawyer }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [currentFee, setCurrentFee] = useState(null);
+  const [feeLoading, setFeeLoading] = useState(false);
 
   const STEPS = ['Mode', 'Date & Time', 'Notes', 'Payment'];
 
   const reset = () => {
     setStep(0); setMode(supportedModes[0]); setDate(''); setTime(''); setNotes('');
-    setDocumentId(''); setError(''); setLoading(false); setConfirmed(false);
+    setDocumentId(''); setError(''); setLoading(false); setConfirmed(false); setCurrentFee(null);
   };
+
+  // Re-fetch the lawyer's current fee right before showing the payment summary —
+  // the `lawyer` prop is whatever was cached from search results, which can be
+  // stale if the lawyer changed their fee since. The order itself is always
+  // priced server-side; this just keeps what's displayed in sync with it.
+  const lawyerId = lawyer?.id || lawyer?._id;
+  useEffect(() => {
+    if (step !== 3 || !lawyerId) return;
+    setFeeLoading(true);
+    api.get(`/lawyers/${lawyerId}`)
+      .then(({ data }) => setCurrentFee(typeof data.consultationFee === 'number' ? data.consultationFee : null))
+      .catch(() => setCurrentFee(null))
+      .finally(() => setFeeLoading(false));
+  }, [step, lawyerId]);
 
   const handleClose = () => { reset(); onClose(); };
 
@@ -294,7 +310,7 @@ function ConsultationBooking({ open, onClose, lawyer }) {
             orderId: resp.razorpay_order_id,
             paymentId: resp.razorpay_payment_id,
             signature: resp.razorpay_signature,
-            documentId: data.consultationId,
+            consultationId: data.consultationId,
           });
           setConfirmed(true);
           setLoading(false);
@@ -307,7 +323,7 @@ function ConsultationBooking({ open, onClose, lawyer }) {
     }
   };
 
-  const fee = lawyer?.consultationFee || 0;
+  const fee = currentFee ?? lawyer?.consultationFee ?? 0;
 
   return (
     <Drawer
@@ -368,7 +384,7 @@ function ConsultationBooking({ open, onClose, lawyer }) {
                   {step === 0 && <Step1 mode={mode} onSelect={setMode} supportedModes={supportedModes} />}
                   {step === 1 && <Step2 lawyerId={lawyer?.id || lawyer?._id} date={date} setDate={setDate} time={time} setTime={setTime} />}
                   {step === 2 && <Step3 notes={notes} setNotes={setNotes} documentId={documentId} setDocumentId={setDocumentId} documents={documents} />}
-                  {step === 3 && <Step4 lawyer={lawyer} mode={mode} date={date} time={time} notes={notes} fee={fee} />}
+                  {step === 3 && <Step4 lawyer={lawyer} mode={mode} date={date} time={time} notes={notes} fee={fee} feeLoading={feeLoading} />}
                 </motion.div>
               </AnimatePresence>
               {error && <Alert severity="error" sx={{ mt: 2, borderRadius: `${RADIUS.md}px` }} onClose={() => setError('')}>{error}</Alert>}
@@ -392,13 +408,13 @@ function ConsultationBooking({ open, onClose, lawyer }) {
                   {t('common.continue', 'Continue')} →
                 </Button>
               ) : (
-                <Button variant="contained" onClick={handlePay} disabled={loading}
+                <Button variant="contained" onClick={handlePay} disabled={loading || feeLoading}
                   sx={{
                     flex: 2, borderRadius: `${RADIUS.full}px`, fontWeight: 700, py: 1.25,
                     background: muiTheme.custom?.gradientBrand || 'var(--color-primary)',
                     boxShadow: muiTheme.custom?.glowPrimary,
                   }}>
-                  {loading ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : `💳 ${t('lawyer.pay', 'Pay')} ₹${Math.round(fee / 100)} & Confirm`}
+                  {loading || feeLoading ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : `💳 ${t('lawyer.pay', 'Pay')} ₹${Math.round(fee / 100)} & Confirm`}
                 </Button>
               )}
             </Box>

@@ -18,7 +18,7 @@ import Skeleton from '@mui/material/Skeleton';
 import Collapse from '@mui/material/Collapse';
 import CircularProgress from '@mui/material/CircularProgress';
 
-import { fetchMyClients, selectClients, selectLawyerLoading } from '../../store/slices/lawyerSlice';
+import { fetchMyClients, selectClients, selectClientsLoading } from '../../store/slices/lawyerSlice';
 import ConsultationChat from '../../components/consultation/ConsultationChat';
 import LawyerAnnotationPanel from '../../components/document/LawyerAnnotationPanel';
 import AnimatedPage from '../../components/ui/AnimatedPage';
@@ -137,7 +137,7 @@ function ClientDetail() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const clients = useSelector(selectClients);
-  const loading = useSelector(selectLawyerLoading);
+  const loading = useSelector(selectClientsLoading);
 
   // Chat & document review state
   const [chatConsultation, setChatConsultation] = useState(null);

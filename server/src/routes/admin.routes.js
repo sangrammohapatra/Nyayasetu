@@ -89,6 +89,8 @@ router.post('/payments/:id/refund', adminController.refundPayment);
  * ------------------------------------------------------------------------ */
 router.get('/consultations', adminController.listConsultations);
 router.patch('/consultations/:id/cancel', adminController.cancelConsultation);
+router.post('/consultations/:id/refund', adminController.refundConsultationPayment);
+router.post('/consultations/:id/no-show', adminController.markConsultationNoShow);
 
 /* ---------------------------------------------------------------------------
  * Document moderation
@@ -113,6 +115,12 @@ router.get('/notarizations/:id', adminController.getNotarization);
  * ------------------------------------------------------------------------ */
 router.get('/withdrawals', adminController.listWithdrawals);
 router.post('/withdrawals/:id/process', adminController.processWithdrawal);
+
+/* ---------------------------------------------------------------------------
+ * Lawyer withdrawal requests (payout management)
+ * ------------------------------------------------------------------------ */
+router.get('/lawyer-withdrawals', adminController.listLawyerWithdrawals);
+router.post('/lawyer-withdrawals/:id/process', adminController.processLawyerWithdrawal);
 
 /* ---------------------------------------------------------------------------
  * Broadcast notifications

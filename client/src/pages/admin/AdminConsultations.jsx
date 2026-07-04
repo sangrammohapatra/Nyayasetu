@@ -64,11 +64,17 @@ function ConsultationDetail({ consultation, onClose, onRefreshList }) {
   const [actionLoading, setActionLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+  const [refundReason, setRefundReason] = useState('');
+  const [noShowDialogOpen, setNoShowDialogOpen] = useState(false);
+  const [noShowReason, setNoShowReason] = useState('');
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
 
   if (!consultation) return null;
 
   const canCancel = CANCELLABLE.includes(consultation.status);
+  const canRefund = !!consultation.isPaid;
+  const canMarkNoShow = consultation.status === 'accepted';
 
   const handleCancel = async () => {
     setConfirmOpen(false);
@@ -80,6 +86,36 @@ function ConsultationDetail({ consultation, onClose, onRefreshList }) {
       setTimeout(onClose, 1200);
     } catch (err) {
       setSnack({ open: true, message: err.response?.data?.message || 'Cancellation failed.', severity: 'error' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRefund = async () => {
+    setRefundDialogOpen(false);
+    setActionLoading(true);
+    try {
+      const { data } = await api.post(`/admin/consultations/${consultation._id}/refund`, { reason: refundReason || undefined });
+      setSnack({ open: true, message: `Refund of ₹${(data.refundAmount / 100).toFixed(2)} issued.`, severity: 'success' });
+      onRefreshList();
+      setTimeout(onClose, 1200);
+    } catch (err) {
+      setSnack({ open: true, message: err.response?.data?.message || 'Refund failed.', severity: 'error' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleNoShow = async () => {
+    setNoShowDialogOpen(false);
+    setActionLoading(true);
+    try {
+      await api.post(`/admin/consultations/${consultation._id}/no-show`, { reason: noShowReason || undefined });
+      setSnack({ open: true, message: 'Consultation marked as no-show.', severity: 'success' });
+      onRefreshList();
+      setTimeout(onClose, 1200);
+    } catch (err) {
+      setSnack({ open: true, message: err.response?.data?.message || 'Failed to mark no-show.', severity: 'error' });
     } finally {
       setActionLoading(false);
     }
@@ -118,18 +154,42 @@ function ConsultationDetail({ consultation, onClose, onRefreshList }) {
           </Box>
         ))}
 
-        {canCancel && (
-          <Box sx={{ mt: 2.5 }}>
-            <Divider sx={{ mb: 2, borderColor: 'var(--color-border)' }} />
-            <Button
-              variant="outlined" color="error" fullWidth
-              disabled={actionLoading}
-              onClick={() => setConfirmOpen(true)}
-              startIcon={actionLoading ? <CircularProgress size={14} /> : null}
-              sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 700, textTransform: 'none' }}
-            >
-              Cancel Consultation
-            </Button>
+        {(canCancel || canRefund || canMarkNoShow) && (
+          <Box sx={{ mt: 2.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Divider sx={{ mb: 1, borderColor: 'var(--color-border)' }} />
+            {canRefund && (
+              <Button
+                variant="outlined" color="warning" fullWidth
+                disabled={actionLoading}
+                onClick={() => setRefundDialogOpen(true)}
+                startIcon={actionLoading ? <CircularProgress size={14} /> : null}
+                sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 700, textTransform: 'none' }}
+              >
+                Issue Refund
+              </Button>
+            )}
+            {canMarkNoShow && (
+              <Button
+                variant="outlined" fullWidth
+                disabled={actionLoading}
+                onClick={() => setNoShowDialogOpen(true)}
+                startIcon={actionLoading ? <CircularProgress size={14} /> : null}
+                sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 700, textTransform: 'none', borderColor: '#757575', color: '#757575' }}
+              >
+                Mark as No-Show
+              </Button>
+            )}
+            {canCancel && (
+              <Button
+                variant="outlined" color="error" fullWidth
+                disabled={actionLoading}
+                onClick={() => setConfirmOpen(true)}
+                startIcon={actionLoading ? <CircularProgress size={14} /> : null}
+                sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 700, textTransform: 'none' }}
+              >
+                Cancel Consultation
+              </Button>
+            )}
           </Box>
         )}
       </Box>
@@ -150,6 +210,46 @@ function ConsultationDetail({ consultation, onClose, onRefreshList }) {
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setConfirmOpen(false)} sx={{ textTransform: 'none' }}>Back</Button>
           <Button onClick={handleCancel} variant="contained" color="error" sx={{ textTransform: 'none', fontWeight: 700 }}>Confirm Cancel</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={refundDialogOpen} onClose={() => setRefundDialogOpen(false)} PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700 }}>Issue Refund?</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            This refunds the full amount (₹{consultation.fee != null ? (consultation.fee / 100).toFixed(2) : '—'}) via Razorpay
+            and cancels the booking if it hasn't already reached a final state.
+          </DialogContentText>
+          <TextField
+            size="small" label="Reason (optional)" value={refundReason}
+            onChange={(e) => setRefundReason(e.target.value)}
+            fullWidth placeholder="e.g. Dispute resolution, service not delivered…"
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: `${RADIUS.md}px` } }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setRefundDialogOpen(false)} sx={{ textTransform: 'none' }}>Back</Button>
+          <Button onClick={handleRefund} variant="contained" color="warning" sx={{ textTransform: 'none', fontWeight: 700 }}>Confirm Refund</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={noShowDialogOpen} onClose={() => setNoShowDialogOpen(false)} PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700 }}>Mark as No-Show?</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            This credits the lawyer the full fee for holding the slot and notifies the citizen. Use this when the
+            lawyer should have marked the session but didn't.
+          </DialogContentText>
+          <TextField
+            size="small" label="Reason (optional)" value={noShowReason}
+            onChange={(e) => setNoShowReason(e.target.value)}
+            fullWidth placeholder="e.g. Confirmed with lawyer, citizen never joined…"
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: `${RADIUS.md}px` } }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setNoShowDialogOpen(false)} sx={{ textTransform: 'none' }}>Back</Button>
+          <Button onClick={handleNoShow} variant="contained" sx={{ textTransform: 'none', fontWeight: 700 }}>Confirm No-Show</Button>
         </DialogActions>
       </Dialog>
 

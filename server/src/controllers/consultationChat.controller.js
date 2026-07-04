@@ -10,29 +10,40 @@
 
 const ConsultationMessage = require('../models/ConsultationMessage.model');
 const Consultation         = require('../models/Consultation.model');
-const LawyerProfile        = require('../models/LawyerProfile.model');
 const asyncHandler         = require('../utils/asyncHandler');
 const { createError }      = require('../middleware/error.middleware');
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-// NOTE: Consultation.lawyer stores LawyerProfile._id (not User._id).
+// A citizen who paid for one session shouldn't get indefinite free access to
+// the lawyer once it's marked complete — chat closes 48h after completedAt.
+const CHAT_RETENTION_HOURS = 48;
+
+// Consultation.lawyer stores User._id (set from lawyerProfile.user._id at
+// booking time in createConsultation) — compare directly, no LawyerProfile lookup needed.
 async function assertParty(consultationId, userId) {
-  const c = await Consultation.findById(consultationId).select('citizen lawyer status');
+  const c = await Consultation.findById(consultationId).select('citizen lawyer status completedAt');
   if (!c) throw createError(404, 'NOT_FOUND', 'Consultation not found');
 
-  if (c.citizen.toString() === userId) return c;
+  const isCitizen = c.citizen.toString() === userId;
+  const isLawyer = c.lawyer.toString() === userId;
+  if (!isCitizen && !isLawyer) {
+    throw createError(403, 'FORBIDDEN', 'You are not a party to this consultation');
+  }
 
-  const profile = await LawyerProfile.findOne({ user: userId }).select('_id').lean();
-  if (profile && c.lawyer.toString() === profile._id.toString()) return c;
+  if (c.status === 'completed' && c.completedAt) {
+    const hoursSinceCompletion = (Date.now() - new Date(c.completedAt).getTime()) / (1000 * 60 * 60);
+    if (hoursSinceCompletion > CHAT_RETENTION_HOURS) {
+      throw createError(403, 'CHAT_EXPIRED', `Chat access closes ${CHAT_RETENTION_HOURS} hours after the consultation is marked complete.`);
+    }
+  }
 
-  throw createError(403, 'FORBIDDEN', 'You are not a party to this consultation');
+  return c;
 }
 
 async function getOtherPartyId(consultation, userId) {
   if (consultation.citizen.toString() === userId) {
-    const profile = await LawyerProfile.findById(consultation.lawyer).select('user').lean();
-    return profile?.user?.toString() || null;
+    return consultation.lawyer.toString();
   }
   return consultation.citizen.toString();
 }

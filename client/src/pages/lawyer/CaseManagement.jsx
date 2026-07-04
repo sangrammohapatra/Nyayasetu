@@ -18,7 +18,7 @@ import Skeleton from '@mui/material/Skeleton';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 
-import { fetchMyClients, selectClients, selectLawyerLoading } from '../../store/slices/lawyerSlice';
+import { fetchMyClients, selectClients, selectClientsLoading } from '../../store/slices/lawyerSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import HearingTimeline from '../../components/case/HearingTimeline';
 import GradientHeading from '../../components/ui/GradientHeading';
@@ -152,7 +152,7 @@ function CaseManagement() {
   const dispatch = useDispatch();
   const prefersReducedMotion = useReducedMotion();
   const clients = useSelector(selectClients);
-  const loading = useSelector(selectLawyerLoading);
+  const loading = useSelector(selectClientsLoading);
   const [search, setSearch] = useState('');
 
   useEffect(() => { dispatch(fetchMyClients()); }, [dispatch]);

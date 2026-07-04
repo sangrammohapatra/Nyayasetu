@@ -19,6 +19,7 @@ const AuditLog = require('../models/AuditLog.model');
 const RTIApplication = require('../models/RTIApplication.model');
 
 const razorpayService = require('../services/payment/razorpayService');
+const { creditLawyerEarnings } = require('./consultation.controller');
 
 const whatsappService = require('../services/notification/whatsappService');
 const emailService = require('../services/notification/emailService');
@@ -1054,6 +1055,127 @@ const cancelConsultation = asyncHandler(async (req, res) => {
 });
 
 /* ---------------------------------------------------------------------------
+ * refundConsultationPayment
+ * POST /v1/admin/consultations/:id/refund
+ * Body: { amount?: number (paise, defaults to full), reason?: string }
+ * Dispute-resolution tool — refunds a captured payment regardless of whose
+ * fault it was, and cancels the booking if it hadn't already reached a
+ * terminal state.
+ * ------------------------------------------------------------------------ */
+const refundConsultationPayment = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { amount, reason } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid consultation id' });
+  }
+
+  const consultation = await Consultation.findById(id);
+  if (!consultation) return res.status(404).json({ error: 'NOT_FOUND', message: 'Consultation not found' });
+  if (!consultation.payment) {
+    return res.status(400).json({ error: 'NO_PAYMENT', message: 'This consultation has no associated payment' });
+  }
+
+  const payment = await Payment.findById(consultation.payment);
+  if (!payment || payment.status !== 'paid' || !payment.razorpayPaymentId) {
+    return res.status(400).json({ error: 'NOT_REFUNDABLE', message: 'Payment has not been captured, or was already refunded' });
+  }
+
+  const refundAmount = amount ? Math.min(Math.round(amount), payment.amount) : payment.amount;
+  if (!refundAmount || refundAmount < 1) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid refund amount' });
+  }
+
+  try {
+    await razorpayService.initiateRefund(payment.razorpayPaymentId, refundAmount, {
+      reason: reason || 'Admin-initiated refund (dispute resolution)',
+    });
+  } catch (err) {
+    logger.error('[admin.controller] refundConsultationPayment failed', { consultationId: id, error: err.message });
+    return res.status(502).json({ error: 'REFUND_FAILED', message: 'Refund initiation failed — please try again' });
+  }
+
+  payment.status = refundAmount >= payment.amount ? 'refunded' : 'partially_refunded';
+  await payment.save();
+
+  if (['requested', 'accepted'].includes(consultation.status)) {
+    consultation.status = 'cancelled';
+    consultation.cancelledBy = 'admin';
+    consultation.cancellationReason = reason || 'Refunded by admin (dispute resolution)';
+    await consultation.save();
+  }
+
+  await AuditLog.log(req, 'admin.consultation.refunded', 'Consultation', id, { refundAmount, reason });
+
+  try {
+    await Notification.createForUser({
+      userId: consultation.citizen,
+      type: 'consultation_refunded',
+      title: 'Refund issued',
+      body: `A refund of ₹${(refundAmount / 100).toFixed(2)} has been issued for your consultation.`,
+      data: { consultationId: id },
+      actionUrl: '/citizen/consultations',
+      io: req.app.get('io'),
+    });
+  } catch (_) {}
+
+  return res.json({ ok: true, consultationId: id, refundAmount, paymentStatus: payment.status });
+});
+
+/* ---------------------------------------------------------------------------
+ * markConsultationNoShow
+ * POST /v1/admin/consultations/:id/no-show
+ * Body: { reason?: string }
+ * Admin intervention for a no-show dispute the lawyer never actioned
+ * themselves — credits the lawyer the full fee, same as their own
+ * self-service markNoShow action.
+ * ------------------------------------------------------------------------ */
+const markConsultationNoShow = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid consultation id' });
+  }
+
+  const consultation = await Consultation.findById(id);
+  if (!consultation) return res.status(404).json({ error: 'NOT_FOUND', message: 'Consultation not found' });
+  if (consultation.status !== 'accepted') {
+    return res.status(400).json({ error: 'INVALID_STATUS', message: `Cannot mark no-show for a consultation with status '${consultation.status}'` });
+  }
+
+  const payment = consultation.payment ? await Payment.findById(consultation.payment) : null;
+  if (!payment || payment.status !== 'paid') {
+    return res.status(400).json({ error: 'NOT_PAID', message: 'Cannot mark no-show — payment has not been captured yet' });
+  }
+
+  const lawyerProfile = await LawyerProfile.findOne({ user: consultation.lawyer });
+  if (!lawyerProfile) return res.status(404).json({ error: 'LAWYER_NOT_FOUND', message: 'Lawyer profile not found' });
+
+  consultation.status = 'no_show';
+  consultation.endedAt = new Date();
+  await consultation.save();
+
+  const { platformEarnings, lawyerEarnings } = await creditLawyerEarnings(lawyerProfile, payment, consultation.fee);
+
+  await AuditLog.log(req, 'admin.consultation.no_show', 'Consultation', id, { reason, fee: consultation.fee });
+
+  try {
+    await Notification.createForUser({
+      userId: consultation.citizen,
+      type: 'consultation_no_show',
+      title: 'Missed consultation',
+      body: "An admin has confirmed you missed this consultation. Please book a new slot if you'd still like to speak with the lawyer.",
+      data: { consultationId: id },
+      actionUrl: '/citizen/consultations',
+      io: req.app.get('io'),
+    });
+  } catch (_) {}
+
+  return res.json({ ok: true, consultationId: id, status: 'no_show', commission: { lawyerEarnings, platformEarnings } });
+});
+
+/* ---------------------------------------------------------------------------
  * listDocuments
  * GET /v1/admin/documents?page&limit&search&accessType&templateSlug
  * ------------------------------------------------------------------------ */
@@ -1760,6 +1882,71 @@ const processWithdrawal = asyncHandler(async (req, res) => {
   return res.json({ message: `Withdrawal marked as ${status}`, withdrawal });
 });
 
+/* ---------------------------------------------------------------------------
+ * listLawyerWithdrawals / processLawyerWithdrawal
+ * Admin management of lawyer payout requests.
+ * ------------------------------------------------------------------------ */
+const LawyerWithdrawal = require('../models/LawyerWithdrawal.model');
+
+const listLawyerWithdrawals = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 20, status } = req.query;
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const filter = {};
+  if (status) filter.status = status;
+
+  const [items, total] = await Promise.all([
+    LawyerWithdrawal.find(filter)
+      .populate('lawyerUser', 'name email')
+      .populate('lawyerProfile', 'barCouncilNumber')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit)),
+    LawyerWithdrawal.countDocuments(filter),
+  ]);
+
+  return res.json({ items, total, page: Number(page), limit: Number(limit) });
+});
+
+const processLawyerWithdrawal = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status, reference, notes } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid withdrawal id' });
+  }
+  if (!['completed', 'failed', 'processing'].includes(status)) {
+    return res.status(400).json({ error: 'INVALID_STATUS', message: 'Status must be completed, failed, or processing' });
+  }
+
+  const withdrawal = await LawyerWithdrawal.findById(id);
+  if (!withdrawal) return res.status(404).json({ error: 'NOT_FOUND', message: 'Withdrawal not found' });
+  if (withdrawal.status === 'completed' || withdrawal.status === 'failed') {
+    return res.status(409).json({ error: 'ALREADY_PROCESSED', message: 'Withdrawal already finalized' });
+  }
+
+  withdrawal.status = status;
+  withdrawal.processedBy = req.user.userId;
+  withdrawal.processedAt = new Date();
+  if (reference) withdrawal.reference = reference.trim();
+  if (notes) withdrawal.notes = notes.trim();
+  await withdrawal.save();
+
+  // On completion, add to the lawyer's withdrawnAmount so balance stays accurate
+  if (status === 'completed') {
+    await LawyerProfile.findByIdAndUpdate(withdrawal.lawyerProfile, {
+      $inc: { withdrawnAmount: withdrawal.amount },
+    });
+  }
+
+  await AuditLog.log(req, `admin.lawyer_withdrawal.${status}`, 'LawyerWithdrawal', withdrawal._id, {
+    amount: withdrawal.amount,
+    reference,
+  });
+
+  return res.json({ message: `Withdrawal marked as ${status}`, withdrawal });
+});
+
 module.exports = {
   reauth,
   verifyLawyer,
@@ -1787,6 +1974,8 @@ module.exports = {
   refundPayment,
   listConsultations,
   cancelConsultation,
+  refundConsultationPayment,
+  markConsultationNoShow,
   listDocuments,
   deleteDocument,
   listRTI,
@@ -1798,4 +1987,6 @@ module.exports = {
   getNotarization,
   listWithdrawals,
   processWithdrawal,
+  listLawyerWithdrawals,
+  processLawyerWithdrawal,
 };
