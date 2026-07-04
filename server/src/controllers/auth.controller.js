@@ -15,13 +15,13 @@ const {
 const { createError } = require("../middleware/error.middleware");
 const asyncHandler = require("../utils/asyncHandler");
 const logger = require("../utils/logger");
+const { signTokenPair } = require("../utils/token");
 const {
   INDIAN_PHONE_REGEX,
   PERSONAS,
   MAX_REFRESH_TOKENS,
   SUPPORTED_LANGUAGES,
   INDIAN_STATES,
-  JWT,
   OTP,
 } = require("../config/constants");
 
@@ -189,23 +189,6 @@ async function clearOtpAttemptsValue(phone) {
   deleteMemoryValue(memoryOtpAttemptStore, otpAttemptKey(phone));
 }
 
-function signTokenPair(user) {
-  const payload = {
-    userId: user._id.toString(),
-    persona: user.persona?.toLowerCase(),
-    plan: user.subscription?.plan || "free",
-  };
-  const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: JWT.ACCESS_EXPIRY,
-  });
-  const refreshToken = jwt.sign(
-    { userId: user._id.toString(), type: "refresh" },
-    process.env.JWT_REFRESH_SECRET,
-    { expiresIn: JWT.REFRESH_EXPIRY },
-  );
-  return { accessToken, refreshToken };
-}
-
 function safeUserResponse(user) {
   const obj = user.toObject ? user.toObject() : { ...user };
   delete obj.refreshTokens;
@@ -344,9 +327,12 @@ const verifyOTPHandler = asyncHandler(async (req, res) => {
     if (!storedOTP) {
       throw createError(400, "OTP_EXPIRED", "OTP has expired or was not requested. Please request a new OTP.");
     }
-    const otpBuf = Buffer.from(otp.padEnd(10));
-    const expectedBuf = Buffer.from(String(storedOTP).padEnd(10));
-    const isMatch = otpBuf.length === expectedBuf.length && crypto.timingSafeEqual(otpBuf, expectedBuf);
+    let isMatch = false;
+    if (/^\d{6}$/.test(otp)) {
+      const otpBuf = Buffer.from(otp.padEnd(10));
+      const expectedBuf = Buffer.from(String(storedOTP).padEnd(10));
+      isMatch = otpBuf.length === expectedBuf.length && crypto.timingSafeEqual(otpBuf, expectedBuf);
+    }
     if (!isMatch) {
       await incrementOtpAttemptsValue(email);
       await AuditLog.log(req, "otp.failed", "User", null, { email }, false);
@@ -396,11 +382,12 @@ const verifyOTPHandler = asyncHandler(async (req, res) => {
     throw createError(400, "OTP_EXPIRED", "OTP has expired or was not requested. Please request a new OTP.");
   }
   const expectedOtp = String(storedOTP);
-  const otpBuf = Buffer.from(otp.padEnd(10));
-  const expectedBuf = Buffer.from(expectedOtp.padEnd(10));
-  const isMatch =
-    otpBuf.length === expectedBuf.length &&
-    crypto.timingSafeEqual(otpBuf, expectedBuf);
+  let isMatch = false;
+  if (/^\d{6}$/.test(otp)) {
+    const otpBuf = Buffer.from(otp.padEnd(10));
+    const expectedBuf = Buffer.from(expectedOtp.padEnd(10));
+    isMatch = otpBuf.length === expectedBuf.length && crypto.timingSafeEqual(otpBuf, expectedBuf);
+  }
   if (!isMatch) {
     await incrementOtpAttemptsValue(phone);
     await AuditLog.log(req, "otp.failed", "User", null, { phone }, false);
@@ -454,9 +441,9 @@ const register = asyncHandler(async (req, res) => {
     }
   }
 
-  const validPersonas = Object.values(PERSONA_MAP).filter(
-    (p) => p !== PERSONA_MAP.ADMIN,
-  );
+  // Lawyer/notary personas are granted only via their dedicated, document-
+  // verified application flows — direct registration may only self-select 'citizen'.
+  const validPersonas = [PERSONA_MAP.CITIZEN];
   const selectedPersona = persona || PERSONA_MAP.CITIZEN;
 
   if (!validPersonas.includes(selectedPersona)) {
@@ -548,21 +535,6 @@ const register = asyncHandler(async (req, res) => {
     { new: true, runValidators: true },
   );
   if (!user) throw createError(404, "USER_NOT_FOUND", "User not found");
-
-  if (selectedPersona === PERSONA_MAP.LAWYER) {
-    const existing = await LawyerProfile.findOne({ user: userId });
-    if (!existing) {
-      await LawyerProfile.create({
-        user: userId,
-        experience: 0,
-        barCouncilNumber: `PENDING-${userId}`,
-        barCouncilState: normalizedState || "Pending",
-        practicingStates: normalizedState ? [normalizedState] : [],
-        isVerified: false,
-        verificationStatus: "pending",
-      });
-    }
-  }
 
   const { accessToken, refreshToken } = signTokenPair(user);
   await user.addRefreshToken(refreshToken);

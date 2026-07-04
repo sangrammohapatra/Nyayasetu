@@ -29,6 +29,7 @@ const emailService = require('../services/notification/emailService');
 const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
 const AuditLog = require('../models/AuditLog.model');
+const { signTokenPair } = require('../utils/token');
 
 /* ---------------------------------------------------------------------------
  * Constants
@@ -188,6 +189,16 @@ const verifyDocumentPayment = asyncHandler(async (req, res) => {
     });
     await AuditLog.log(req, 'payment.signature.invalid', 'Payment', null, { orderId, documentId, consultationId }, false);
     return res.status(400).json({ error: 'Payment signature verification failed' });
+  }
+
+  // Verify document ownership before marking the payment as paid, so a payment
+  // for another user's documentId is never settled without unlocking anything.
+  if (documentId) {
+    const ownedDoc = await Document.findOne({ _id: documentId, user: userId }).select('_id').lean();
+    if (!ownedDoc) {
+      await AuditLog.log(req, 'payment.document.ownership_mismatch', 'Payment', null, { orderId, documentId }, false);
+      return res.status(404).json({ error: 'Document not found' });
+    }
   }
 
   // Atomic transition created → paid. Only one concurrent request wins the update;
@@ -439,8 +450,10 @@ const verifySubscription = asyncHandler(async (req, res) => {
     await existingPayment.save();
   }
 
+  // Fetch the freshly-updated user so we can reissue tokens with the new plan
+  const user = await User.findById(userId);
+
   // Welcome / upgrade email (best-effort)
-  const user = await User.findById(userId).select('name email').lean();
   if (user && user.email) {
     try {
       await emailService.sendEmail({
@@ -453,6 +466,12 @@ const verifySubscription = asyncHandler(async (req, res) => {
     }
   }
 
+  // Reissue the access token with the new plan so quota checks (which read
+  // req.user.plan from the JWT) reflect the upgrade immediately, instead of
+  // staying stale until the old token expires.
+  const { accessToken, refreshToken } = signTokenPair(user);
+  await user.addRefreshToken(refreshToken);
+
   await AuditLog.log(req, 'payment.subscription.verified', 'Subscription', subscription._id, {
     plan,
     billingCycle,
@@ -460,7 +479,7 @@ const verifySubscription = asyncHandler(async (req, res) => {
     orderId,
   });
 
-  return res.json({ success: true, subscription });
+  return res.json({ success: true, subscription, accessToken, refreshToken });
 });
 
 /* ---------------------------------------------------------------------------

@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const { createError } = require('./error.middleware');
 const asyncHandler = require('../utils/asyncHandler');
 const { getRedisClient } = require('../config/redis');
+const User = require('../models/User.model');
 
 // ─── verifyToken ───────────────────────────────────────────────────────────────
 
@@ -117,6 +118,36 @@ function requirePersona(...personas) {
   };
 }
 
+// ─── requireCompleteProfile ────────────────────────────────────────────────────
+
+/**
+ * requireCompleteProfile — blocks features that depend on name/state (document
+ * jurisdiction, case tracking's required `state` field, etc.) until the user
+ * has finished POST /v1/auth/register. A user can otherwise hold a valid
+ * token after OTP verification alone, with name/state still null, if they
+ * abandon the registration form. Must be used AFTER verifyToken.
+ */
+const requireCompleteProfile = asyncHandler(async (req, res, next) => {
+  if (!req.user) {
+    return next(createError(401, 'UNAUTHORIZED', 'Authentication required'));
+  }
+
+  const user = await User.findById(req.user.userId).select('name state').lean();
+  if (!user) {
+    return next(createError(404, 'USER_NOT_FOUND', 'User not found'));
+  }
+
+  if (!user.name || !user.state) {
+    return next(createError(
+      403,
+      'PROFILE_INCOMPLETE',
+      'Please complete your profile (name and state) before continuing.'
+    ));
+  }
+
+  next();
+});
+
 // ─── Convenience shorthands ───────────────────────────────────────────────────
 
 /** requireAdmin — blocks anyone who isn't an admin */
@@ -135,4 +166,5 @@ module.exports = {
   requireAdmin,
   requireLawyer,
   requireCitizen,
+  requireCompleteProfile,
 };

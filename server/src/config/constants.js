@@ -302,6 +302,18 @@ const HEARING_ALERTS = {
   ALERT_DAYS_OPTIONS: [1, 2, 3, 7],
 };
 
+// ─── Triage (emergency guidance) daily usage limits ───────────────────────────
+// Flat by plan name rather than nested under persona (like FREE_TIER_LIMITS)
+// because 'free' is intentionally shared across citizen/lawyer and the other
+// plan names (basic/pro vs professional/firm) don't collide.
+const TRIAGE_DAILY_LIMITS = {
+  free:         1,
+  basic:        3,
+  pro:          999,
+  professional: 999, // matches FREE_TIER_LIMITS.lawyer.professional's near-unlimited posture
+  firm:         999,
+};
+
 module.exports = {
   PLANS,
   PERSONAS,
@@ -330,6 +342,7 @@ module.exports = {
   QUEUE_NAMES,
   COMMISSION,
   CONSULTATION_MODES,
+  TRIAGE_DAILY_LIMITS,
   HEARING_ALERTS,
   SESSION_STATUS,
   DOCUMENT_ACCESS_TYPES,

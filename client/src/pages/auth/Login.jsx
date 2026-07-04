@@ -338,17 +338,25 @@ function Login() {
         : { phone: loginIdentifierForApi, otp }
     ));
     if (result.meta.requestStatus === 'fulfilled') {
-      if (result.payload.isNewUser) {
+      const user = result.payload.user;
+      // Also resume registration for returning users who verified OTP once
+      // before but never finished POST /auth/register — otherwise they land
+      // in the app with no name/state and features that depend on either
+      // (document jurisdiction, case tracking) silently break.
+      const profileIncomplete = !user?.name || !user?.state;
+      if (result.payload.isNewUser || profileIncomplete) {
         sessionOtpVerified.current = true;
         setRegData((prev) => ({
           ...prev,
-          email: identifierIsEmail ? identifier : prev.email,
+          name: user?.name || prev.name,
+          email: identifierIsEmail ? identifier : (user?.email || prev.email),
           phone: identifierIsPhone ? identifier : prev.phone,
+          state: user?.state || prev.state,
         }));
         setRegStep(2);
         setPageMode('register');
       } else {
-        const userPersona = (result.payload.user?.persona || 'citizen').toLowerCase();
+        const userPersona = (user?.persona || 'citizen').toLowerCase();
         navigate(`/${userPersona}/home`);
       }
     }
@@ -370,7 +378,21 @@ function Login() {
         : { phone: loginIdentifierForApi, password }
     ));
     if (result.meta.requestStatus === 'fulfilled') {
-      const userPersona = (result.payload.user?.persona || 'citizen').toLowerCase();
+      const user = result.payload.user;
+      if (!user?.name || !user?.state) {
+        sessionOtpVerified.current = true;
+        setRegData((prev) => ({
+          ...prev,
+          name: user?.name || prev.name,
+          email: identifierIsEmail ? identifier : (user?.email || prev.email),
+          phone: identifierIsPhone ? identifier : prev.phone,
+          state: user?.state || prev.state,
+        }));
+        setRegStep(2);
+        setPageMode('register');
+        return;
+      }
+      const userPersona = (user?.persona || 'citizen').toLowerCase();
       navigate(userPersona === 'admin' ? '/admin/dashboard' : `/${userPersona}/home`);
     }
   };

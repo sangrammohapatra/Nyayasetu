@@ -124,14 +124,18 @@ async function scheduleCronJobs() {
     }
   );
 
-  // resetFreeQuota — 1st of every month at midnight IST = 18:30 UTC on last day
-  // "0 18 28-31 * *" fires on the 28th–31st at 18:30 UTC; the job internally
-  // checks resetDate <= now before acting, so over-firing is safe.
+  // resetFreeQuota — fires DAILY at 18:30 UTC (00:00 IST). The job itself only
+  // resets users whose freeUsage.resetDate <= now (see resetFreeQuota.js), so
+  // this is idempotent and over-firing is safe. Deliberately NOT a once-a-month
+  // cron ('30 18 1 * *'): if that single monthly firing failed all 3 retries
+  // (e.g. Mongo down at that moment), free-tier users would be stuck for a
+  // full month. Daily firing means a missed month-start reset is caught the
+  // very next day instead.
   await subscriptionQueue.add(
     'resetFreeQuota',
     {},
     {
-      repeat: { cron: '30 18 1 * *', tz: 'UTC' },  // 1st of month at 00:00 IST (18:30 UTC)
+      repeat: { cron: '30 18 * * *', tz: 'UTC' },
       jobId: 'cron_resetFreeQuota',
       removeOnComplete: true,
       removeOnFail: 50,
@@ -170,7 +174,7 @@ async function scheduleCronJobs() {
   logger.info('[worker] Cron jobs scheduled', {
     checkHearingDates:  '00:30 UTC daily (06:00 AM IST)',
     checkRTIDeadlines:  '01:30 UTC daily (07:00 AM IST)',
-    resetFreeQuota:     '18:30 UTC on 1st of month (00:00 IST)',
+    resetFreeQuota:     '18:30 UTC daily (00:00 IST) — idempotent on resetDate',
     sendMonthlyReminder:'03:30 UTC on 1st of month (09:00 AM IST)',
   });
 }

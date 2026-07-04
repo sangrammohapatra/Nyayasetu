@@ -41,6 +41,15 @@ import GlassCard from "../../components/ui/GlassCard";
 import FeatureGate from "../../components/ui/FeatureGate";
 import GradientHeading from "../../components/ui/GradientHeading";
 import { RADIUS, SHADOWS, TYPOGRAPHY } from "../../theme/tokens";
+import api from "../../services/api";
+
+// Shown until the real /v1/platform/stats response arrives (or if it fails) —
+// keeps the animated counters from flashing 0 on first paint.
+const FALLBACK_PLATFORM_STATS = {
+  documentsCreated: 125000,
+  usersHelped: 48000,
+  legalTemplates: 15,
+};
 
 // ─── Animated counter hook ────────────────────────────────────────────────────
 
@@ -470,6 +479,7 @@ function CitizenHome() {
   const cases = useSelector(selectCases);
   const freeUsage = useSelector(selectFreeUsage);
   const [loading, setLoading] = React.useState(true);
+  const [platformStats, setPlatformStats] = React.useState(FALLBACK_PLATFORM_STATS);
 
   useEffect(() => {
     setLoading(true);
@@ -479,6 +489,12 @@ function CitizenHome() {
       dispatch(getCurrentSubscription()),
     ]).finally(() => setLoading(false));
   }, [dispatch]);
+
+  useEffect(() => {
+    api.get('/platform/stats')
+      .then(({ data }) => setPlatformStats((prev) => ({ ...prev, ...data })))
+      .catch(() => {}); // keep the fallback values on error
+  }, []);
 
   const nextHearingCase = cases?.find((c) =>
     c.hearings?.some((h) => h.date && new Date(h.date) >= new Date()),
@@ -794,19 +810,19 @@ function CitizenHome() {
           {[
             {
               icon: "📄",
-              value: 125000,
+              value: platformStats.documentsCreated,
               label: t("home.stat_docs", "Documents Created"),
               delay: 0.1,
             },
             {
               icon: "👥",
-              value: 48000,
+              value: platformStats.usersHelped,
               label: t("home.stat_users", "Indians Helped"),
               delay: 0.2,
             },
             {
               icon: "⚖️",
-              value: 15,
+              value: platformStats.legalTemplates,
               label: t("home.stat_templates", "Legal Templates"),
               delay: 0.3,
             },

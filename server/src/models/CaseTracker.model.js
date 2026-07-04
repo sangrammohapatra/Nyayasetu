@@ -171,6 +171,11 @@ const caseTrackerSchema = new Schema(
       maxlength: 2000,
     },
     isActive: { type: Boolean, default: true },
+
+    // Whether adding this case consumed a free-tier quota slot. Removal only
+    // decrements the user's freeUsage.casesTracked counter when this is true,
+    // so a case added while subscribed never drives the counter negative.
+    countedTowardFreeQuota: { type: Boolean, default: false },
   },
   {
     timestamps: true,

@@ -136,6 +136,7 @@ const addCase = asyncHandler(async (req, res) => {
     alertsEnabled: true,
     lastSyncedAt:  ecourtsData ? new Date() : null,
     rawEcourtsData: ecourtsData || null,
+    countedTowardFreeQuota: !isSubscribed,
   });
 
   // ── Increment usage counter ────────────────────────────────────────────────
@@ -158,13 +159,38 @@ const addCase = asyncHandler(async (req, res) => {
 /**
  * GET /v1/cases
  */
+const VALID_CASE_STATUSES = ['pending', 'disposed', 'transferred', 'unknown'];
+
 const listCases = asyncHandler(async (req, res) => {
   const { userId } = req.user;
 
-  const cases = await CaseTracker.find({ user: userId, isActive: true })
-    .select('-rawEcourtsData')
-    .sort({ nextHearingDate: 1, createdAt: -1 })
-    .lean();
+  const page  = Math.max(1, parseInt(req.query.page)  || 1);
+  const limit = Math.min(100, parseInt(req.query.limit) || 20);
+  const { caseStatus } = req.query;
+  const filter = { user: userId, isActive: true };
+
+  // Default view hides disposed (concluded) cases so a case that ended years
+  // ago doesn't clutter the active dashboard. ?caseStatus=disposed views the
+  // archive; ?caseStatus=all (or any other valid status) opts out of the default.
+  if (caseStatus === 'all') {
+    // no additional filter
+  } else if (caseStatus && VALID_CASE_STATUSES.includes(caseStatus)) {
+    filter.caseStatus = caseStatus;
+  } else {
+    filter.caseStatus = { $ne: 'disposed' };
+  }
+
+  const [cases, total, disposedCount] = await Promise.all([
+    CaseTracker.find(filter)
+      .select('-rawEcourtsData')
+      .sort({ nextHearingDate: 1, createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    CaseTracker.countDocuments(filter),
+    // Lets the UI show an "Archived (n)" tab count without a second round trip.
+    CaseTracker.countDocuments({ user: userId, isActive: true, caseStatus: 'disposed' }),
+  ]);
 
   const enriched = cases.map((c) => {
     const freshness = computeDataFreshness(c.lastSyncedAt);
@@ -180,7 +206,15 @@ const listCases = asyncHandler(async (req, res) => {
     };
   });
 
-  res.json({ cases: enriched, total: cases.length });
+  res.json({
+    cases: enriched,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+    hasMore:    page * limit < total,
+    disposedCount,
+  });
 });
 
 // ─── getCaseDetail ────────────────────────────────────────────────────────────
@@ -377,10 +411,7 @@ const removeCase = asyncHandler(async (req, res) => {
   const { id: caseId } = req.params;
   const { userId } = req.user;
 
-  const [caseDoc, user] = await Promise.all([
-    CaseTracker.findById(caseId),
-    User.findById(userId).select('subscription').lean(),
-  ]);
+  const caseDoc = await CaseTracker.findById(caseId);
   if (!caseDoc)                      throw createError(404, 'CASE_NOT_FOUND', 'Case not found');
   if (!caseDoc.user.equals(userId))  throw createError(403, 'FORBIDDEN', 'Access denied');
   if (!caseDoc.isActive)             return res.json({ message: 'Case already removed' });
@@ -388,14 +419,11 @@ const removeCase = asyncHandler(async (req, res) => {
   caseDoc.isActive = false;
   await caseDoc.save();
 
-  // Decrement counter only for users without an active paid subscription
-  const now = new Date();
-  const isSubscribed =
-    user?.subscription?.plan &&
-    user.subscription.plan !== 'free' &&
-    user.subscription?.validUntil &&
-    now < new Date(user.subscription.validUntil);
-  if (!isSubscribed) {
+  // Decrement only if this specific case originally consumed a free-tier
+  // quota slot — using the user's *current* subscription status here would
+  // let a case added while subscribed decrement a counter it never incremented,
+  // driving it negative and granting extra free slots.
+  if (caseDoc.countedTowardFreeQuota) {
     await User.findByIdAndUpdate(userId, {
       $inc: { 'freeUsage.casesTracked': -1 },
     });

@@ -1,5 +1,5 @@
 const express = require('express');
-const { body, param, validationResult } = require('express-validator');
+const { body, param, query, validationResult } = require('express-validator');
 
 const {
   addCase,
@@ -11,7 +11,7 @@ const {
   removeCase,
 } = require('../controllers/case.controller');
 
-const { verifyToken }    = require('../middleware/auth.middleware');
+const { verifyToken, requireCompleteProfile } = require('../middleware/auth.middleware');
 const { checkFreeQuota } = require('../middleware/subscription.middleware');
 const asyncHandler       = require('../utils/asyncHandler');
 
@@ -39,6 +39,7 @@ router.use(verifyToken);
  */
 router.post(
   '/',
+  requireCompleteProfile,
   checkFreeQuota('case'),
   validate([
     body('cnrNumber')
@@ -60,9 +61,22 @@ router.post(
 
 /**
  * GET /v1/cases
- * List all tracked cases, sorted by next hearing date.
+ * List tracked cases, sorted by next hearing date. Excludes disposed cases
+ * by default — pass ?caseStatus=disposed for the archive view, or
+ * ?caseStatus=all to see everything.
  */
-router.get('/', listCases);
+router.get(
+  '/',
+  validate([
+    query('page').optional().isInt({ min: 1 }).withMessage('page must be a positive integer'),
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('limit must be between 1 and 100'),
+    query('caseStatus')
+      .optional()
+      .isIn(['pending', 'disposed', 'transferred', 'unknown', 'all'])
+      .withMessage('caseStatus must be one of: pending, disposed, transferred, unknown, all'),
+  ]),
+  listCases
+);
 
 /**
  * GET /v1/cases/:id

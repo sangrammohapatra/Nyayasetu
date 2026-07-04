@@ -11,6 +11,10 @@ const REFRESH_KEY      = 'nyayasetu_refresh_token';
 const AUTH_PERSIST_KEY = 'nyayasetu_auth';
 
 const tokenStore = {
+  /** localStorage key for the access token — exposed so cross-tab listeners
+   * (see App.jsx) can recognize logout/login events via the `storage` event. */
+  TOKEN_KEY,
+
   /** Read the current access token, or null if absent. */
   get()               { return localStorage.getItem(TOKEN_KEY); },
 

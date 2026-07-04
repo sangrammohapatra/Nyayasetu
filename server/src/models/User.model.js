@@ -358,29 +358,6 @@ userSchema.statics.findByPhone = function (phone) {
   return this.findOne({ phone: normalized });
 };
 
-/**
- * resetMonthlyQuotas — called by the subscriptions Bull queue on the 1st of each month.
- * Resets free-tier usage counters and advances resetDate.
- */
-userSchema.statics.resetMonthlyQuotas = async function () {
-  const firstOfNextMonth = new Date();
-  firstOfNextMonth.setMonth(firstOfNextMonth.getMonth() + 1);
-  firstOfNextMonth.setDate(1);
-  firstOfNextMonth.setHours(0, 0, 0, 0);
-
-  return this.updateMany(
-    { "subscription.plan": "free" },
-    {
-      $set: {
-        "freeUsage.docsGenerated": 0,
-        "freeUsage.aiChatsUsed": 0,
-        // casesTracked is NOT reset — tracking is persistent, not monthly
-        "freeUsage.resetDate": firstOfNextMonth,
-      },
-    },
-  );
-};
-
 // ─── Post-delete Cascade ──────────────────────────────────────────────────────
 // Fires after User.findOneAndDelete() and User.findByIdAndDelete().
 // Lazy requires prevent circular-dependency issues at module load time.

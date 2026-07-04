@@ -475,14 +475,29 @@ function HeroSection({ onScrollTo }) {
 
 // ─── 3. Stats strip ───────────────────────────────────────────────────────────
 
-const STATS = [
-  { value: 125000, suffix: '+', label: 'Documents Generated' },
-  { value: 48000,  suffix: '+', label: 'Indians Helped' },
-  { value: 11,     suffix: '',  label: 'Indian Languages' },
-  { value: 15,     suffix: '+', label: 'Legal Templates' },
+// "Indian Languages" is a fixed product fact (see SUPPORTED_LANGUAGES), not a
+// growing metric, so it stays hardcoded. The other three are fetched from
+// /v1/platform/stats and only fall back to these numbers until that resolves.
+const STATS_FALLBACK = [
+  { key: 'documentsCreated', value: 125000, suffix: '+', label: 'Documents Generated' },
+  { key: 'usersHelped',      value: 48000,  suffix: '+', label: 'Indians Helped' },
+  { key: null,               value: 11,     suffix: '',  label: 'Indian Languages' },
+  { key: 'legalTemplates',   value: 15,     suffix: '+', label: 'Legal Templates' },
 ];
 
 function StatsSection() {
+  const [stats, setStats] = useState(STATS_FALLBACK);
+
+  useEffect(() => {
+    api.get('/platform/stats')
+      .then(({ data }) => {
+        setStats((prev) => prev.map((s) => (
+          s.key && data[s.key] !== undefined ? { ...s, value: data[s.key] } : s
+        )));
+      })
+      .catch(() => {}); // keep fallback values on error
+  }, []);
+
   return (
     <Box sx={{
       py: { xs: 4, md: 6 }, px: { xs: 2, md: 6 },
@@ -491,7 +506,7 @@ function StatsSection() {
       borderBottom: `1px solid ${DARK.border}`,
     }}>
       <Grid container spacing={2} justifyContent="center">
-        {STATS.map((s, i) => (
+        {stats.map((s, i) => (
           <Grid item xs={6} sm={3} key={s.label}>
             <Reveal delay={i * 0.08}>
               <Box sx={{ textAlign: 'center' }}>

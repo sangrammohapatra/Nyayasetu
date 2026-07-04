@@ -671,6 +671,19 @@ function AppBootstrap() {
     }
   }, [dispatch]);
 
+  // Cross-tab logout sync: the `storage` event fires in every OTHER tab (never
+  // the tab that made the change) whenever localStorage is modified, so a
+  // logout in one tab clearing the access token immediately logs out the rest.
+  useEffect(() => {
+    const handleStorage = (event) => {
+      if (event.key === tokenStore.TOKEN_KEY && !event.newValue) {
+        dispatch(forceLogout());
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [dispatch]);
+
   // Connect / disconnect socket based on auth state
   useEffect(() => {
     const token = tokenStore.get();

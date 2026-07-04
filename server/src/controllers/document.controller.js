@@ -102,7 +102,7 @@ const generateDocument = asyncHandler(async (req, res) => {
   if (!template) throw createError(500, 'TEMPLATE_MISSING', 'Session template missing');
 
   // ── Load user for access type resolution ──────────────────────────────────
-  const user = await User.findById(userId).select('name subscription state freeUsage');
+  const user = await User.findById(userId).select('name subscription state district freeUsage');
 
   // ── Determine access type ─────────────────────────────────────────────────
   const accessType = resolveAccessType(user, template, plan);
@@ -126,7 +126,7 @@ const generateDocument = asyncHandler(async (req, res) => {
     isPaid,
     jurisdiction: {
       state:    session.userState,
-      district: user.state,
+      district: user.district,
     },
     version: 1,
   });
@@ -179,9 +179,12 @@ const getDocument = asyncHandler(async (req, res) => {
   const docObj = document.toObject();
 
   // ── PDF access gate ───────────────────────────────────────────────────────
-  const isSubscribed = plan !== 'free' &&
-    (await User.findById(userId).select('subscription').lean())?.subscription?.validUntil &&
-    new Date() < new Date((await User.findById(userId).select('subscription').lean())?.subscription?.validUntil);
+  let isSubscribed = false;
+  if (plan !== 'free') {
+    const subUser = await User.findById(userId).select('subscription').lean();
+    const validUntil = subUser?.subscription?.validUntil;
+    isSubscribed = !!validUntil && new Date() < new Date(validUntil);
+  }
 
   const canDownloadPdf = isSubscribed || document.isPaid;
 
@@ -404,7 +407,7 @@ const explainClauseHandler = asyncHandler(async (req, res) => {
 const shareDocument = asyncHandler(async (req, res) => {
   const { id: documentId } = req.params;
   const { userId, plan }   = req.user;
-  const { expiryDays = 30 } = req.body;
+  const { expiryDays } = req.body;
 
   const document = await DocumentModel.findById(documentId);
   if (!document || document.isDeleted) throw createError(404, 'DOCUMENT_NOT_FOUND', 'Document not found');
@@ -413,13 +416,17 @@ const shareDocument = asyncHandler(async (req, res) => {
   const maxDays = (plan === 'pro' || plan === 'professional' || plan === 'firm') ? 90
                 : plan === 'basic' ? 30
                 : 7; // free
-  await document.generateShareToken(Math.min(maxDays, Math.max(1, expiryDays)));
+  // Default to the caller's own plan cap (not a flat 30) so paid plans get
+  // their full allotted expiry window without the client having to ask for it.
+  const requestedDays = expiryDays !== undefined ? expiryDays : maxDays;
+  const resolvedDays = Math.min(maxDays, Math.max(1, requestedDays));
+  await document.generateShareToken(resolvedDays);
 
   const shareUrl = `${process.env.CLIENT_URL || 'https://nyayasetu.in'}/documents/shared/${document.shareToken}`;
 
   await AuditLog.log(req, 'document.shared', 'Document', document._id, {
     shareToken: document.shareToken,
-    expiryDays,
+    expiryDays: resolvedDays,
   });
 
   res.json({
@@ -616,7 +623,7 @@ const updateApprovalStatus = asyncHandler(async (req, res) => {
         { sharedDocument: documentId },
         { _id: document.linkedConsultation },
       ],
-      lawyer: lawyerProf._id,
+      lawyer: userId,
     }).select('_id').lean();
     if (!linked) throw createError(403, 'FORBIDDEN', 'You are not the reviewing lawyer for this document');
   }
@@ -673,7 +680,7 @@ const addAnnotation = asyncHandler(async (req, res) => {
       { sharedDocument: documentId },
       { _id: document.linkedConsultation },
     ],
-    lawyer: lawyerProf._id,
+    lawyer: userId,
   }).select('_id').lean();
   if (!linked) throw createError(403, 'FORBIDDEN', 'You are not the reviewing lawyer for this document');
 

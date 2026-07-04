@@ -19,6 +19,7 @@ import {
   selectCaseLoading,
   selectCaseError,
   selectCurrentCase,
+  selectDisposedCaseCount,
 } from '../store/slices/caseSlice';
 import { selectUserPlan } from '../store/slices/authSlice';
 import { selectFreeUsage } from '../store/slices/subscriptionSlice';
@@ -39,6 +40,7 @@ const PLAN_LIMITS = { free: 1, basic: 5, pro: Infinity };
  *   casesTracked:   number,
  *   atLimit:        boolean,
  *   slotsRemaining: number|null,   // null means unlimited
+ *   disposedCount:  number,        // count of archived (disposed) cases, from the last load()
  *   load:           (params?) => Promise,
  *   add:            ({ cnrNumber, alertChannels?, alertDaysBefore? }) => Promise,
  *   refresh:        (caseId) => Promise,
@@ -52,12 +54,13 @@ export function useCaseTracker({ autoLoad = false } = {}) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const cases       = useSelector(selectCases);
-  const loading     = useSelector(selectCaseLoading);
-  const error       = useSelector(selectCaseError);
-  const currentCase = useSelector(selectCurrentCase);
-  const plan        = useSelector(selectUserPlan);
-  const freeUsage   = useSelector(selectFreeUsage);
+  const cases         = useSelector(selectCases);
+  const loading       = useSelector(selectCaseLoading);
+  const error         = useSelector(selectCaseError);
+  const currentCase   = useSelector(selectCurrentCase);
+  const plan          = useSelector(selectUserPlan);
+  const freeUsage     = useSelector(selectFreeUsage);
+  const disposedCount = useSelector(selectDisposedCaseCount);
 
   const caseLimit      = PLAN_LIMITS[plan] ?? Infinity;
   const casesTracked   = freeUsage?.casesTracked ?? cases.length;
@@ -132,6 +135,7 @@ export function useCaseTracker({ autoLoad = false } = {}) {
     casesTracked,
     atLimit,
     slotsRemaining,
+    disposedCount,
     load,
     add,
     refresh,

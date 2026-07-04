@@ -81,7 +81,9 @@ export function useCalendarEvents() {
       dispatch(fetchConsultations({}));
     }
     if (persona === 'citizen') {
-      dispatch(listCases());
+      // Calendar needs every tracked case's hearings, not just the first
+      // paginated page — request the server's max page size.
+      dispatch(listCases({ limit: 100 }));
       dispatch(fetchNotarizationRequests({}));
     }
     if (persona === 'notary') {

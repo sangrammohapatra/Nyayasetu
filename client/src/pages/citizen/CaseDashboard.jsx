@@ -4,6 +4,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
@@ -19,8 +20,10 @@ import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import Chip from '@mui/material/Chip';
 
 import { useCaseTracker } from '../../hooks/useCaseTracker';
+import { selectUser } from '../../store/slices/authSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GradientHeading from '../../components/ui/GradientHeading';
 import CNRInput, { CNR_REGEX } from '../../components/case/CNRInput';
@@ -29,13 +32,19 @@ import { RADIUS, TYPOGRAPHY } from '../../theme/tokens';
 
 // ─── Add Case Modal ──────────────────────────────────────────────────────────
 
-function AddCaseModal({ open, onClose, onAdd }) {
+function AddCaseModal({ open, onClose, onAdd, whatsappOptIn }) {
   const { t } = useTranslation();
   const [cnr, setCnr] = useState('');
-  const [alertWhatsapp, setAlertWhatsapp] = useState(true);
+  const [alertWhatsapp, setAlertWhatsapp] = useState(!!whatsappOptIn);
   const [alertEmail, setAlertEmail] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Re-sync the default to the user's actual opt-in each time the modal
+  // opens, rather than always pre-checking WhatsApp regardless of consent.
+  useEffect(() => {
+    if (open) setAlertWhatsapp(!!whatsappOptIn);
+  }, [open, whatsappOptIn]);
 
   const handleSubmit = async () => {
     if (!CNR_REGEX.test(cnr)) {
@@ -141,21 +150,25 @@ function CaseDashboard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const prefersReducedMotion = useReducedMotion();
+  const user = useSelector(selectUser);
 
   const {
     cases, loading,
-    caseLimit, casesTracked, atLimit, slotsRemaining,
+    caseLimit, casesTracked, atLimit, slotsRemaining, disposedCount,
     load, add, refresh, remove, updateAlerts, upgradeOrAdd,
   } = useCaseTracker();
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [view, setView] = useState('active'); // 'active' | 'disposed'
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load({ caseStatus: view === 'disposed' ? 'disposed' : undefined });
+  }, [load, view]);
 
   const handleModalClose = useCallback((added) => {
     setModalOpen(false);
-    if (added) load();
-  }, [load]);
+    if (added) load({ caseStatus: view === 'disposed' ? 'disposed' : undefined });
+  }, [load, view]);
 
   const handleDelete = useCallback(
     (id) => remove(id, t('case.confirm_delete', 'Remove this case from tracking?')),
@@ -173,8 +186,8 @@ function CaseDashboard() {
                 {t('case.title', 'My Court Cases')}
               </GradientHeading>
               <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mt: 0.25 }}>
-                {cases.length} {t('case.tracked', 'cases tracked')}
-                {slotsRemaining !== null && ` · ${slotsRemaining} ${t('case.remaining', 'slots remaining')}`}
+                {cases.length} {view === 'disposed' ? t('case.archived', 'archived cases') : t('case.tracked', 'cases tracked')}
+                {view === 'active' && slotsRemaining !== null && ` · ${slotsRemaining} ${t('case.remaining', 'slots remaining')}`}
               </Typography>
             </Box>
             <Button
@@ -190,6 +203,34 @@ function CaseDashboard() {
             </Button>
           </Box>
         </motion.div>
+
+        {/* Active / Archived toggle */}
+        <Box sx={{ display: 'flex', gap: 1, mb: 2.5 }}>
+          <Chip
+            label={t('case.view_active', 'Active')}
+            onClick={() => setView('active')}
+            variant={view === 'active' ? 'filled' : 'outlined'}
+            sx={{
+              fontWeight: 700,
+              borderRadius: `${RADIUS.md}px`,
+              background: view === 'active' ? 'var(--color-primary)' : 'transparent',
+              color: view === 'active' ? '#fff' : 'var(--color-text-secondary)',
+              borderColor: 'var(--color-border)',
+            }}
+          />
+          <Chip
+            label={`${t('case.view_archived', 'Archived')}${disposedCount ? ` (${disposedCount})` : ''}`}
+            onClick={() => setView('disposed')}
+            variant={view === 'disposed' ? 'filled' : 'outlined'}
+            sx={{
+              fontWeight: 700,
+              borderRadius: `${RADIUS.md}px`,
+              background: view === 'disposed' ? 'var(--color-primary)' : 'transparent',
+              color: view === 'disposed' ? '#fff' : 'var(--color-text-secondary)',
+              borderColor: 'var(--color-border)',
+            }}
+          />
+        </Box>
 
         {/* Upgrade banner */}
         <AnimatePresence>
@@ -231,17 +272,23 @@ function CaseDashboard() {
               border: '2px dashed var(--color-border)',
               background: 'var(--color-surface)',
             }}>
-              <Typography sx={{ fontSize: 52, mb: 2 }}>⚖️</Typography>
+              <Typography sx={{ fontSize: 52, mb: 2 }}>{view === 'disposed' ? '🗄️' : '⚖️'}</Typography>
               <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 1 }}>
-                {t('case.empty', 'No cases tracked yet')}
+                {view === 'disposed'
+                  ? t('case.empty_archived', 'No archived cases')
+                  : t('case.empty', 'No cases tracked yet')}
               </GradientHeading>
               <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3, maxWidth: 300, mx: 'auto' }}>
-                {t('case.empty_desc', 'Add your CNR number to start tracking your court hearings and get timely reminders.')}
+                {view === 'disposed'
+                  ? t('case.empty_archived_desc', 'Cases move here automatically once the court marks them disposed.')
+                  : t('case.empty_desc', 'Add your CNR number to start tracking your court hearings and get timely reminders.')}
               </Typography>
-              <Button variant="contained" onClick={() => setModalOpen(true)}
-                sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 700, background: 'var(--color-primary)' }}>
-                {t('case.track_first', '+ Track Your First Case')}
-              </Button>
+              {view === 'active' && (
+                <Button variant="contained" onClick={() => setModalOpen(true)}
+                  sx={{ borderRadius: `${RADIUS.md}px`, fontWeight: 700, background: 'var(--color-primary)' }}>
+                  {t('case.track_first', '+ Track Your First Case')}
+                </Button>
+              )}
             </Box>
           </motion.div>
         ) : (
@@ -256,7 +303,7 @@ function CaseDashboard() {
           </Grid>
         )}
 
-        <AddCaseModal open={modalOpen} onClose={handleModalClose} onAdd={add} />
+        <AddCaseModal open={modalOpen} onClose={handleModalClose} onAdd={add} whatsappOptIn={user?.whatsappOptIn} />
       </Box>
     </AnimatedPage>
   );

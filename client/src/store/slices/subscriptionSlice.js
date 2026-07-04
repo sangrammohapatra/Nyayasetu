@@ -4,6 +4,7 @@
 
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../services/api';
+import { setToken } from './authSlice';
 
 export const getCurrentSubscription = createAsyncThunk(
   'subscription/getCurrent',
@@ -31,11 +32,19 @@ export const createOrder = createAsyncThunk(
 
 export const verifyPayment = createAsyncThunk(
   'subscription/verifyPayment',
-  async ({ orderId, paymentId, signature, plan, billingCycle, persona }, { rejectWithValue }) => {
+  async ({ orderId, paymentId, signature, plan, billingCycle, persona }, { dispatch, rejectWithValue }) => {
     try {
       const { data } = await api.post('/subscriptions/verify', {
         orderId, paymentId, signature, plan, billingCycle, persona,
       });
+      // The upgraded plan is embedded in a fresh JWT — apply it immediately so
+      // quota checks (which read req.user.plan from the token) don't stay
+      // stale until the old access token expires.
+      if (data.accessToken) {
+        localStorage.setItem('nyayasetu_token', data.accessToken);
+        if (data.refreshToken) localStorage.setItem('nyayasetu_refresh_token', data.refreshToken);
+        dispatch(setToken({ token: data.accessToken, refreshToken: data.refreshToken }));
+      }
       return data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.error || 'Payment verification failed');

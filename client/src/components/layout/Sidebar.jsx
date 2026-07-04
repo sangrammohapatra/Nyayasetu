@@ -18,6 +18,7 @@ import PeopleAltRounded from '@mui/icons-material/PeopleAltRounded';
 import GavelRounded from '@mui/icons-material/GavelRounded';
 import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded';
 import VerifiedUserRounded from '@mui/icons-material/VerifiedUserRounded';
+import SettingsRounded from '@mui/icons-material/SettingsRounded';
 
 import Drawer from '@mui/material/Drawer';
 import Box from '@mui/material/Box';
@@ -57,6 +58,7 @@ const IC = {
   lawyers:       GavelRounded,           // mxxgldoo.json → 404 on CDN
   notaries:      VerifiedUserRounded,    // represents official credential verification
   calendar:      CalendarMonthRounded,  // abvsilmk.json → 404 on CDN
+  settings:      SettingsRounded,       // no dedicated settings Lordicon asset
 };
 
 // ─── Nav definitions per persona — grouped by section ────────────────────────
@@ -76,6 +78,7 @@ function useNavItems(persona, t) {
       { icon: IC.calendar,    label: t('sidebar.calendar',    'Calendar'),      path: '/citizen/calendar' },
       { section: t('sidebar.section_account', 'Account') },
       { icon: IC.pricing,     label: t('sidebar.pricing',     'Pricing'),       path: '/pricing' },
+      { icon: IC.settings,    label: t('sidebar.settings',    'Settings'),      path: '/citizen/settings' },
     ];
 
     const lawyer = [
@@ -87,6 +90,8 @@ function useNavItems(persona, t) {
       { section: t('sidebar.section_business', 'Business') },
       { icon: IC.consultations, label: t('sidebar.consultations', 'Consultations'), path: '/lawyer/consultations' },
       { icon: IC.earnings,      label: t('sidebar.earnings',      'Earnings'),      path: '/lawyer/earnings' },
+      { section: t('sidebar.section_account', 'Account') },
+      { icon: IC.settings,      label: t('sidebar.settings',      'Settings'),      path: '/lawyer/settings' },
     ];
 
     const admin = [

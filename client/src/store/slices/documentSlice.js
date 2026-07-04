@@ -9,9 +9,9 @@ import api from '../../services/api';
 
 export const generateDocument = createAsyncThunk(
   'document/generate',
-  async ({ sessionId, templateId }, { rejectWithValue }) => {
+  async ({ sessionId }, { rejectWithValue }) => {
     try {
-      const { data } = await api.post('/documents/generate', { sessionId, templateId });
+      const { data } = await api.post('/documents/generate', { sessionId });
       return data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.error || 'Document generation failed');
@@ -21,9 +21,9 @@ export const generateDocument = createAsyncThunk(
 
 export const listDocuments = createAsyncThunk(
   'document/list',
-  async ({ page = 1, limit = 20 } = {}, { rejectWithValue }) => {
+  async ({ page = 1, limit = 20, category, status } = {}, { rejectWithValue }) => {
     try {
-      const { data } = await api.get('/documents', { params: { page, limit } });
+      const { data } = await api.get('/documents', { params: { page, limit, category, status } });
       return data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.error || 'Failed to load documents');
@@ -131,10 +131,13 @@ export const explainClause = createAsyncThunk(
 
 export const shareDocument = createAsyncThunk(
   'document/share',
-  async (documentId, { rejectWithValue }) => {
+  async ({ documentId, expiryDays } = {}, { rejectWithValue }) => {
     try {
-      const { data } = await api.post(`/documents/${documentId}/share`);
-      return { documentId, shareToken: data.shareToken, shareUrl: data.shareUrl };
+      const { data } = await api.post(
+        `/documents/${documentId}/share`,
+        expiryDays !== undefined ? { expiryDays } : {}
+      );
+      return { documentId, shareToken: data.shareToken, shareUrl: data.shareUrl, expiresAt: data.expiresAt };
     } catch (err) {
       return rejectWithValue(
         err.response?.data?.message || err.response?.data?.error || 'Failed to share document'
@@ -151,6 +154,20 @@ export const regenerateDocument = createAsyncThunk(
       return data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.error || 'Regeneration failed');
+    }
+  }
+);
+
+export const updateApprovalStatus = createAsyncThunk(
+  'document/updateApprovalStatus',
+  async ({ documentId, status }, { rejectWithValue }) => {
+    try {
+      const { data } = await api.patch(`/documents/${documentId}/approval-status`, { status });
+      return data; // { documentId, approvalStatus }
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || err.response?.data?.error || 'Failed to update document status'
+      );
     }
   }
 );
@@ -285,13 +302,25 @@ const documentSlice = createSlice({
     // shareDocument
     builder
       .addCase(shareDocument.fulfilled, (state, action) => {
-        const { documentId, shareToken, shareUrl } = action.payload;
+        const { documentId, shareToken, shareUrl, expiresAt } = action.payload;
         const doc = state.documents.find((d) => d._id === documentId);
         if (doc) doc.shareToken = shareToken;
         if (state.currentDocument?._id === documentId) {
           state.currentDocument.shareToken = shareToken;
           state.currentDocument.shareUrl = shareUrl;
+          state.currentDocument.shareTokenExpiresAt = expiresAt;
         }
+      });
+
+    // updateApprovalStatus
+    builder
+      .addCase(updateApprovalStatus.fulfilled, (state, action) => {
+        const { documentId, approvalStatus } = action.payload;
+        if (state.currentDocument?._id === documentId) {
+          state.currentDocument.approvalStatus = approvalStatus;
+        }
+        const doc = state.documents.find((d) => d._id === documentId);
+        if (doc) doc.approvalStatus = approvalStatus;
       });
 
     // deleteDocument

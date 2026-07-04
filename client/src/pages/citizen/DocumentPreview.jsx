@@ -30,7 +30,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 
 import {
-  getDocument, getPDF, shareDocument, regenerateDocument,
+  getDocument, getPDF, shareDocument, regenerateDocument, updateApprovalStatus,
   selectCurrentDocument, selectDocumentError, clearDocumentError, selectPdfUrlExpiresAt,
 } from '../../store/slices/documentSlice';
 import { selectUserPlan } from '../../store/slices/authSlice';
@@ -293,7 +293,7 @@ function notarizationStatusLabel(req) {
   return map[req.status] || { label: req.status, color: '#757575', bg: 'rgba(0,0,0,0.05)' };
 }
 
-function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenerating, onSign, signing, onDownloadSigned, onConnectLawyer, onOpenChat, linkedConsultation, plan, onNotarize, onPayNotarization, notarizationRequest, onSaveOffline, savedOffline, isOnline }) {
+function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenerating, onSign, signing, onDownloadSigned, onConnectLawyer, onOpenChat, linkedConsultation, plan, onNotarize, onPayNotarization, notarizationRequest, onSaveOffline, savedOffline, isOnline, onFinalize, finalizing }) {
   const { t } = useTranslation();
   const isPaid = doc?.isPaid || plan === 'basic' || plan === 'pro';
   const approvalMeta = APPROVAL_META[doc?.approvalStatus] || APPROVAL_META.draft;
@@ -359,17 +359,16 @@ function RightPanel({ document: doc, onDownload, onShare, onRegenerate, regenera
           {doc.approvalStatus === 'lawyer_reviewed' && (
             <Button
               size="small" variant="outlined" fullWidth
-              onClick={async () => {
-                await api.patch(`/documents/${doc._id}/approval-status`, { status: 'finalized' });
-                window.location.reload();
-              }}
+              onClick={onFinalize}
+              disabled={finalizing}
               sx={{
                 mt: 1, borderRadius: `${RADIUS.md}px`, fontWeight: 700, fontSize: '0.78rem',
                 borderColor: '#2e7d32', color: '#2e7d32',
                 '&:hover': { background: 'rgba(46,125,50,0.08)' },
+                '&.Mui-disabled': { opacity: 0.6 },
               }}
             >
-              ✓ Finalize Document
+              {finalizing ? '⏳ Finalizing…' : '✓ Finalize Document'}
             </Button>
           )}
         </Box>
@@ -799,6 +798,7 @@ function DocumentPreview() {
   const [activeClauseText, setActiveClauseText] = useState('');
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
   const [regenerating, setRegenerating] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
   const [signing, setSigning] = useState(false);
   const [signedPdfUrl, setSignedPdfUrl] = useState(null);
   const [reviewDismissed, setReviewDismissed] = useState(false);
@@ -810,16 +810,38 @@ function DocumentPreview() {
   // Document has no status field — completion is tracked via session.status and content
   const isGenerating = !doc || (!doc.content && doc.session?.status !== 'completed');
 
-  // Load document & poll while still generating (content is empty)
+  // Load document & poll while still generating (content is empty).
+  // Uses exponential backoff (2s → 4s → 8s → 16s → 30s cap) since AI
+  // generation can take 30-120s — no point hammering every 4s the whole time.
   useEffect(() => {
     setReviewDismissed(false); // reset banner when navigating to a new document
     dispatch(getDocument(documentId));
 
-    pollRef.current = setInterval(() => {
-      dispatch(getDocument(documentId));
-    }, 4000);
+    const pollStartedAt = Date.now();
+    const MAX_POLL_MS = 3 * 60 * 1000; // give up after 3 minutes — covers orphaned/stuck sessions
+    const BACKOFF_STEPS_MS = [2000, 4000, 8000, 16000, 30000];
+    let attempt = 0;
 
-    return () => clearInterval(pollRef.current);
+    const scheduleNext = () => {
+      const delay = BACKOFF_STEPS_MS[Math.min(attempt, BACKOFF_STEPS_MS.length - 1)];
+      attempt += 1;
+      pollRef.current = setTimeout(() => {
+        if (Date.now() - pollStartedAt > MAX_POLL_MS) {
+          setSnack({
+            open: true,
+            msg: 'This is taking longer than expected. Please refresh the page or try again later.',
+            severity: 'error',
+          });
+          return;
+        }
+        dispatch(getDocument(documentId));
+        scheduleNext();
+      }, delay);
+    };
+
+    scheduleNext();
+
+    return () => clearTimeout(pollRef.current);
   }, [documentId, dispatch]);
 
   // Fetch linked consultation (for chat button)
@@ -849,13 +871,22 @@ function DocumentPreview() {
     return () => socketService.off('notification', handleNotification);
   }, [documentId, dispatch]);
 
-  // Stop polling once the AI has filled in the content
+  // Stop polling once the AI has filled in the content, or if the document
+  // is orphaned (its session was deleted, so it can never complete).
   useEffect(() => {
     const isComplete =
       doc?.session?.status === 'completed' ||
       (doc?.content && doc.content.length > 0);
-    if (isComplete) {
-      clearInterval(pollRef.current);
+    const isOrphaned = doc && !doc.content && doc.session == null;
+    if (isComplete || isOrphaned) {
+      clearTimeout(pollRef.current);
+    }
+    if (isOrphaned) {
+      setSnack({
+        open: true,
+        msg: 'This document could not be generated because its session was removed. Please start a new one.',
+        severity: 'error',
+      });
     }
   }, [doc]);
 
@@ -919,10 +950,13 @@ function DocumentPreview() {
   };
 
   const handleShare = async () => {
-    const result = await dispatch(shareDocument(documentId));
+    const result = await dispatch(shareDocument({ documentId }));
     if (result.payload?.shareUrl) {
       navigator.clipboard.writeText(result.payload.shareUrl).catch(() => {});
-      setSnack({ open: true, msg: 'Share link copied to clipboard!', severity: 'success' });
+      const expiryLabel = result.payload.expiresAt
+        ? ` Valid until ${new Date(result.payload.expiresAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}.`
+        : '';
+      setSnack({ open: true, msg: `Share link copied to clipboard!${expiryLabel}`, severity: 'success' });
     }
   };
 
@@ -936,6 +970,18 @@ function DocumentPreview() {
       setSnack({ open: true, msg: result.payload || 'Regeneration failed. Please try again.', severity: 'error' });
     }
     setRegenerating(false);
+  };
+
+  const handleFinalize = async () => {
+    setFinalizing(true);
+    const result = await dispatch(updateApprovalStatus({ documentId, status: 'finalized' }));
+    if (updateApprovalStatus.fulfilled.match(result)) {
+      setSnack({ open: true, msg: 'Document finalized successfully!', severity: 'success' });
+      dispatch(getDocument(documentId));
+    } else {
+      setSnack({ open: true, msg: result.payload || 'Failed to finalize document. Please try again.', severity: 'error' });
+    }
+    setFinalizing(false);
   };
 
   const handleSign = async () => {
@@ -1030,7 +1076,7 @@ function DocumentPreview() {
           }}>
             <Tab label={t('myDocs.tab_document', '📄 Document')} />
             <Tab label={t('myDocs.tab_citations', '📚 Citations')} />
-            <Tab label={t('myDocs.tab_steps', '🗺️ Next Steps')} />
+            <Tab label={t('myDocs.tab_more', '🧰 More')} />
             {doc?.previousVersions?.length > 0 && <Tab label="📜 History" />}
           </Tabs>
         )}
@@ -1129,7 +1175,9 @@ function DocumentPreview() {
                 notarizationRequest={notarizationRequest}
                 onSaveOffline={() => pin(documentId)}
                 savedOffline={savedOffline}
-                isOnline={isOnline} />
+                isOnline={isOnline}
+                onFinalize={handleFinalize}
+                finalizing={finalizing} />
             )}
             {mobileTab === 3 && doc?.previousVersions?.length > 0 && (
               <Box sx={{ p: 1 }}>
@@ -1170,7 +1218,12 @@ function DocumentPreview() {
                   plan={plan}
                   onNotarize={() => setNotarizeOpen(true)}
                   onPayNotarization={handlePayNotarization}
-                  notarizationRequest={notarizationRequest} />
+                  notarizationRequest={notarizationRequest}
+                  onSaveOffline={() => pin(documentId)}
+                  savedOffline={savedOffline}
+                  isOnline={isOnline}
+                  onFinalize={handleFinalize}
+                  finalizing={finalizing} />
               </Box>
             </Grid>
           </Grid>

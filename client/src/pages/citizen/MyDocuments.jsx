@@ -112,15 +112,19 @@ function MyDocuments() {
   const loadPage = useCallback(async (p, reset = false) => {
     setLoading(true);
     try {
-      const result = await dispatch(listDocuments({ page: p, limit: PAGE_SIZE }));
-      const total = result.payload?.total || 0;
-      const fetched = (result.payload?.documents || result.payload?.items || []).length;
+      const result = await dispatch(listDocuments({
+        page: p,
+        limit: PAGE_SIZE,
+        category: categoryFilter || undefined,
+        status: statusFilter || undefined,
+      }));
+      const total = result.payload?.pagination?.total ?? result.payload?.total ?? 0;
       setHasMore(p * PAGE_SIZE < total);
       if (!reset) setPage(p);
     } finally {
       setLoading(false);
     }
-  }, [dispatch]);
+  }, [dispatch, categoryFilter, statusFilter]);
 
   // Infinite scroll sentinel
   useEffect(() => {
@@ -139,12 +143,11 @@ function MyDocuments() {
     return () => observerRef.current?.disconnect();
   }, [hasMore, loading, page, loadPage]);
 
-  const filtered = allDocuments.filter((d) => {
-    const matchSearch = !search || d.title?.toLowerCase().includes(search.toLowerCase());
-    const matchCat = !categoryFilter || (d.template?.category || d.category) === categoryFilter;
-    const matchStatus = !statusFilter || d.status === statusFilter;
-    return matchSearch && matchCat && matchStatus;
-  });
+  // Category/status are filtered server-side (see loadPage) so every loaded
+  // document already matches; only free-text search is applied client-side.
+  const filtered = allDocuments.filter((d) => (
+    !search || d.title?.toLowerCase().includes(search.toLowerCase())
+  ));
 
   const handleView = (id) => navigate(`/citizen/documents/${id}`);
 
@@ -158,14 +161,17 @@ function MyDocuments() {
   };
 
   const handleShare = async (id) => {
-    const result = await dispatch(shareDocument(id));
+    const result = await dispatch(shareDocument({ documentId: id }));
     if (result.error) {
       setSnack({ open: true, msg: result.payload || 'Failed to share document.', severity: 'error' });
       return;
     }
     if (result.payload?.shareUrl) {
       navigator.clipboard.writeText(result.payload.shareUrl).catch(() => {});
-      setSnack({ open: true, msg: 'Share link copied!', severity: 'success' });
+      const expiryLabel = result.payload.expiresAt
+        ? ` Valid until ${new Date(result.payload.expiresAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}.`
+        : '';
+      setSnack({ open: true, msg: `Share link copied!${expiryLabel}`, severity: 'success' });
     }
   };
 

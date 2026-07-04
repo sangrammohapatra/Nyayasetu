@@ -19,9 +19,14 @@ export const addCase = createAsyncThunk(
 
 export const listCases = createAsyncThunk(
   'case/list',
-  async ({ page = 1, limit = 20 } = {}, { rejectWithValue }) => {
+  // Default limit matches the server's max page size so existing callers
+  // that don't paginate (dashboard, calendar) keep seeing every tracked case.
+  // caseStatus is forwarded as-is; omitting it gets the server's default
+  // (excludes disposed cases) — pass 'disposed' for the archive view or
+  // 'all' to see everything.
+  async ({ page = 1, limit = 100, caseStatus } = {}, { rejectWithValue }) => {
     try {
-      const { data } = await api.get('/cases', { params: { page, limit } });
+      const { data } = await api.get('/cases', { params: { page, limit, caseStatus } });
       return data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.error || 'Failed to load cases');
@@ -58,7 +63,7 @@ export const updateCaseAlerts = createAsyncThunk(
   async ({ caseId, ...alertOpts }, { rejectWithValue }) => {
     try {
       const { data } = await api.patch(`/cases/${caseId}/alerts`, alertOpts);
-      return data;
+      return { caseId, ...data };
     } catch (err) {
       return rejectWithValue(err.response?.data?.error || 'Failed to update alerts');
     }
@@ -86,6 +91,7 @@ const caseSlice = createSlice({
     refreshing: false,
     error: null,
     total: 0,
+    disposedCount: 0,
   },
   reducers: {
     clearCaseError(state) { state.error = null; },
@@ -110,6 +116,7 @@ const caseSlice = createSlice({
         state.loading = false;
         state.cases = action.payload.cases || action.payload.items || action.payload;
         state.total = action.payload.total || state.cases.length;
+        state.disposedCount = action.payload.disposedCount ?? state.disposedCount;
       })
       .addCase(listCases.rejected, rejected)
 
@@ -133,6 +140,17 @@ const caseSlice = createSlice({
         state.error = action.payload;
       })
 
+      .addCase(updateCaseAlerts.fulfilled, (state, action) => {
+        const { caseId, alertDaysBefore, alertChannels, alertsEnabled } = action.payload;
+        const idx = state.cases.findIndex((c) => c._id === caseId);
+        if (idx >= 0) {
+          state.cases[idx] = { ...state.cases[idx], alertDaysBefore, alertChannels, alertsEnabled };
+        }
+        if (state.currentCase?._id === caseId) {
+          state.currentCase = { ...state.currentCase, alertDaysBefore, alertChannels, alertsEnabled };
+        }
+      })
+
       .addCase(removeCase.fulfilled, (state, action) => {
         state.cases = state.cases.filter((c) => c._id !== action.payload);
         if (state.currentCase?._id === action.payload) state.currentCase = null;
@@ -146,5 +164,6 @@ export const selectCases = (state) => state.case.cases;
 export const selectCurrentCase = (state) => state.case.currentCase;
 export const selectCaseLoading = (state) => state.case.loading;
 export const selectCaseError = (state) => state.case.error;
+export const selectDisposedCaseCount = (state) => state.case.disposedCount;
 
 export default caseSlice.reducer;

@@ -2,25 +2,27 @@ const asyncHandler = require('../utils/asyncHandler');
 const aiTriageService = require('../services/ai/aiTriageService');
 const User = require('../models/User.model');
 const PublicTriage = require('../models/PublicTriage.model');
+const PublicTriageIp = require('../models/PublicTriageIp.model');
 const { createError } = require('../middleware/error.middleware');
 const logger = require('../utils/logger');
-
-// Daily triage limits per plan
-const DAILY_LIMITS = {
-  free:         1,
-  basic:        3,
-  pro:          999,
-  professional: 5,
-  firm:         999,
-};
+const { TRIAGE_DAILY_LIMITS } = require('../config/constants');
 
 function getDailyLimit(plan) {
-  return DAILY_LIMITS[plan] ?? 1;
+  return TRIAGE_DAILY_LIMITS[plan] ?? 1;
 }
 
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+/**
+ * Midnight IST (00:00 UTC+5:30), returned as its equivalent UTC instant —
+ * i.e. timezone-independent regardless of the server's local TZ. Matches the
+ * IST day boundary used by getISTDateKey() for the public triage endpoint,
+ * so both resets happen at the same wall-clock moment for an IST-based user.
+ */
 function getTodayStart() {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const istNow = new Date(Date.now() + IST_OFFSET_MS);
+  const istMidnightAsUTC = Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate());
+  return new Date(istMidnightAsUTC - IST_OFFSET_MS);
 }
 
 /**
@@ -75,8 +77,7 @@ const analyzeSituation = asyncHandler(async (req, res) => {
   );
 
   if (!slotGranted) {
-    const tomorrow = new Date(todayStart);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrow = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
     return res.status(403).json({
       error: 'TRIAGE_QUOTA_EXCEEDED',
       message: `You have used all ${limit} free triage${limit === 1 ? '' : 's'} for today. Upgrade for more.`,
@@ -131,8 +132,7 @@ const getTriageQuota = asyncHandler(async (req, res) => {
   const isNewDay  = !lastReset || lastReset < todayStart;
   const usedToday = isNewDay ? 0 : (user?.freeUsage?.triageUsed ?? 0);
 
-  const tomorrow = new Date(todayStart);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrow = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
 
   res.json({
     used:      usedToday,
@@ -146,6 +146,10 @@ const getTriageQuota = asyncHandler(async (req, res) => {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const GUEST_DAILY_LIMIT = 1;
+// Higher than the per-email limit to tolerate shared IPs (offices, campuses,
+// carrier-grade NAT) while still capping a single-actor bot that rotates
+// email addresses/aliases from one machine.
+const GUEST_IP_DAILY_LIMIT = parseInt(process.env.PUBLIC_TRIAGE_IP_DAILY_LIMIT || '5', 10);
 
 function getISTDateKey() {
   // Returns 'YYYY-MM-DD' in IST (UTC+5:30)
@@ -178,20 +182,6 @@ const publicAnalyzeSituation = asyncHandler(async (req, res) => {
   const dateKey = getISTDateKey();
   const normalEmail = email.toLowerCase().trim();
 
-  // ── Check if same email already used triage today ──────────────────────────
-  const existing = await PublicTriage.findOne({ email: normalEmail, dateKey });
-
-  if (existing && existing.count >= GUEST_DAILY_LIMIT) {
-    return res.status(403).json({
-      error: 'GUEST_QUOTA_EXCEEDED',
-      message: 'You\'ve used your 1 free emergency triage for today.',
-      used:       existing.count,
-      limit:      GUEST_DAILY_LIMIT,
-      signupUrl:  '/register',
-      pricingUrl: '/pricing',
-    });
-  }
-
   // ── Global daily budget guard ──────────────────────────────────────────────
   // Per-email and per-IP limits block single-actor abuse; this cap limits the
   // total AI spend from rotating IPs/emails. Configurable via env so ops can
@@ -206,6 +196,77 @@ const publicAnalyzeSituation = asyncHandler(async (req, res) => {
     });
   }
 
+  // ── Atomically claim today's per-IP slot ────────────────────────────────────
+  // Without this, an attacker with a list of emails (or a +alias generator)
+  // can bypass the per-email cap trivially by rotating the email on every
+  // request from the same machine. Same claim-then-work pattern as below.
+  const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+  let ipClaimed;
+  try {
+    ipClaimed = await PublicTriageIp.findOneAndUpdate(
+      { ip, dateKey, count: { $lt: GUEST_IP_DAILY_LIMIT } },
+      { $inc: { count: 1 }, $setOnInsert: { ip, dateKey } },
+      { upsert: true, new: true }
+    );
+  } catch (err) {
+    if (err.code === 11000) {
+      ipClaimed = await PublicTriageIp.findOneAndUpdate(
+        { ip, dateKey, count: { $lt: GUEST_IP_DAILY_LIMIT } },
+        { $inc: { count: 1 } },
+        { new: true }
+      );
+    } else {
+      throw err;
+    }
+  }
+
+  if (!ipClaimed) {
+    return res.status(403).json({
+      error: 'IP_QUOTA_EXCEEDED',
+      message: 'Too many guest triage requests from this network today. Please sign up for unlimited access.',
+      limit:      GUEST_IP_DAILY_LIMIT,
+      signupUrl:  '/register',
+      pricingUrl: '/pricing',
+    });
+  }
+
+  // ── Atomically claim today's guest slot before running AI ──────────────────
+  // Claim-then-work (matches analyzeSituation's pattern) closes the TOCTOU
+  // window where two concurrent requests from the same email both read
+  // count=0 and both proceed. The upsert can race on first-ever use for an
+  // email/day, which throws a duplicate-key error; on that error the doc now
+  // exists, so we retry as a plain conditional update.
+  let claimed;
+  try {
+    claimed = await PublicTriage.findOneAndUpdate(
+      { email: normalEmail, dateKey, count: { $lt: GUEST_DAILY_LIMIT } },
+      { $inc: { count: 1 }, $setOnInsert: { email: normalEmail, dateKey } },
+      { upsert: true, new: true }
+    );
+  } catch (err) {
+    if (err.code === 11000) {
+      claimed = await PublicTriage.findOneAndUpdate(
+        { email: normalEmail, dateKey, count: { $lt: GUEST_DAILY_LIMIT } },
+        { $inc: { count: 1 } },
+        { new: true }
+      );
+    } else {
+      throw err;
+    }
+  }
+
+  if (!claimed) {
+    const existing = await PublicTriage.findOne({ email: normalEmail, dateKey }).select('count').lean();
+    return res.status(403).json({
+      error: 'GUEST_QUOTA_EXCEEDED',
+      message: 'You\'ve used your 1 free emergency triage for today.',
+      used:       existing?.count ?? GUEST_DAILY_LIMIT,
+      limit:      GUEST_DAILY_LIMIT,
+      signupUrl:  '/register',
+      pricingUrl: '/pricing',
+    });
+  }
+
   // ── Run AI triage ──────────────────────────────────────────────────────────
   logger.info(`[Triage/public] email=${normalEmail} state=${stateCode || 'n/a'}`);
 
@@ -215,20 +276,13 @@ const publicAnalyzeSituation = asyncHandler(async (req, res) => {
     language:    language  || 'en',
   });
 
-  // ── Increment counter ──────────────────────────────────────────────────────
-  await PublicTriage.findOneAndUpdate(
-    { email: normalEmail, dateKey },
-    { $inc: { count: 1 } },
-    { upsert: true, new: true }
-  );
-
   res.json({
     success: true,
     triage:  result,
     usage: {
-      used:      (existing?.count || 0) + 1,
+      used:      claimed.count,
       limit:     GUEST_DAILY_LIMIT,
-      remaining: Math.max(0, GUEST_DAILY_LIMIT - (existing?.count || 0) - 1),
+      remaining: Math.max(0, GUEST_DAILY_LIMIT - claimed.count),
     },
   });
 });

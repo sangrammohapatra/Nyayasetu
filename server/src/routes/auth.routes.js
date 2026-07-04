@@ -199,11 +199,15 @@ router.post(
       .isLength({ min: 2, max: 100 }).withMessage('Name must be 2–100 characters')
       .trim(),
 
+    // Lawyer/notary personas are granted only via their dedicated
+    // application flows (POST /v1/lawyers/apply, /v1/notary/apply), which
+    // collect verification documents before flipping the persona. Direct
+    // registration may only self-select 'citizen'.
     body('persona')
       .optional()
       .customSanitizer((v) => v?.toLowerCase())
-      .isIn([PERSONAS.CITIZEN, PERSONAS.LAWYER, PERSONAS.NOTARY])
-      .withMessage('Persona must be: citizen, lawyer, or notary'),
+      .isIn([PERSONAS.CITIZEN])
+      .withMessage('Persona must be: citizen'),
 
     body('preferredLanguage')
       .optional()

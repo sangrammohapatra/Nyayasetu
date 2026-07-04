@@ -29,6 +29,7 @@ const triageRoutes = require('./routes/triage.routes');
 const { notaryProfileRouter, notarizationRouter } = require('./routes/notary.routes');
 const rtiRoutes = require('./routes/rti.routes');
 const webhookRoutes = require('./routes/webhook.routes');
+const platformRoutes = require('./routes/platform.routes');
 // Error handler middleware
 const { errorHandler } = require('./middleware/error.middleware');
 
@@ -199,6 +200,7 @@ app.use('/v1/triage', triageRoutes);
 app.use('/v1/notaries', notaryProfileRouter);
 app.use('/v1/notarizations', notarizationRouter);
 app.use('/v1/rti', rtiRoutes);
+app.use('/v1/platform', platformRoutes);
 
 // ─── 404 Handler ──────────────────────────────────────────────────────────────
 app.use((req, res) => {

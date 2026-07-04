@@ -20,7 +20,7 @@ const {
   initiateSign,
 } = require('../controllers/document.controller');
 
-const { verifyToken, optionalAuth }    = require('../middleware/auth.middleware');
+const { verifyToken, optionalAuth, requireCompleteProfile } = require('../middleware/auth.middleware');
 const { checkFeatureAccess, checkFreeQuota } = require('../middleware/subscription.middleware');
 const asyncHandler                     = require('../utils/asyncHandler');
 
@@ -58,6 +58,7 @@ router.use(verifyToken);
  */
 router.post(
   '/generate',
+  requireCompleteProfile,
   checkFreeQuota('document'),
   validate([
     body('sessionId')
