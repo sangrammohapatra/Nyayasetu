@@ -59,9 +59,11 @@ async function creditLawyerEarnings(lawyerProfile, payment, feeInPaise) {
   payment.platformEarnings = platformEarnings;
   await payment.save();
 
-  lawyerProfile.totalEarnings = (lawyerProfile.totalEarnings || 0) + lawyerEarnings;
-  lawyerProfile.totalConsultations = (lawyerProfile.totalConsultations || 0) + 1;
-  await lawyerProfile.save();
+  // $inc (not read-modify-write) so two different consultations for the same
+  // lawyer completing concurrently don't lose one increment to the other.
+  await LawyerProfile.findByIdAndUpdate(lawyerProfile._id, {
+    $inc: { totalEarnings: lawyerEarnings, totalConsultations: 1 },
+  });
 
   return { platformEarnings, lawyerEarnings, referralFeePercent };
 }
@@ -342,29 +344,45 @@ const acceptConsultation = asyncHandler(async (req, res) => {
     return res.status(403).json({ error: 'Lawyer profile not found' });
   }
 
-  const consultation = await Consultation.findOne({ _id: id, lawyer: lawyerUserId });
-  if (!consultation) {
+  const existing = await Consultation.findOne({ _id: id, lawyer: lawyerUserId }).lean();
+  if (!existing) {
     return res.status(404).json({ error: 'Consultation not found' });
   }
-  if (consultation.status !== 'requested') {
-    return res.status(400).json({ error: `Cannot accept a consultation with status '${consultation.status}'` });
+  if (existing.status !== 'requested') {
+    return res.status(400).json({ error: `Cannot accept a consultation with status '${existing.status}'` });
   }
 
-  consultation.status = 'accepted';
-  consultation.acceptedAt = new Date();
+  // A citizen can dismiss checkout without paying, leaving the slot reserved with
+  // nothing to show for it. Refusing to accept until payment is captured means an
+  // unpaid request stays in 'requested' (auto-swept by consultationSla after 48h)
+  // instead of becoming a permanently-blocked 'accepted'-but-unpaid slot.
+  const existingPayment = existing.payment ? await Payment.findById(existing.payment).select('status').lean() : null;
+  if (!existingPayment || existingPayment.status !== 'paid') {
+    return res.status(400).json({ error: 'Cannot accept a consultation whose payment has not been captured yet' });
+  }
 
-  // Generate a video room for video consultations before saving
+  // Atomic claim — prevents a concurrent duplicate accept from both passing the
+  // status check above and both proceeding (e.g. double-click, client retry).
+  const consultation = await Consultation.findOneAndUpdate(
+    { _id: id, lawyer: lawyerUserId, status: 'requested' },
+    { $set: { status: 'accepted', acceptedAt: new Date() } },
+    { new: true }
+  );
+  if (!consultation) {
+    return res.status(400).json({ error: 'Cannot accept — consultation status changed concurrently' });
+  }
+
+  // Generate a video room for video consultations after the claim succeeds
   if (consultation.mode === 'video') {
     try {
       const { createRoom } = require('../services/video/videoProvider');
       consultation.meetingLink = await createRoom(consultation);
+      await consultation.save();
     } catch (err) {
       logger.error('[consultation/accept] Video room creation failed', { error: err.message, id });
       // Don't block acceptance — lawyer can share a link manually
     }
   }
-
-  await consultation.save();
 
   await AuditLog.log(req, 'consultation.accepted', 'Consultation', consultation._id, {
     mode: consultation.mode,
@@ -416,16 +434,26 @@ const rejectConsultation = asyncHandler(async (req, res) => {
     return res.status(403).json({ error: 'Lawyer profile not found' });
   }
 
-  const consultation = await Consultation.findOne({ _id: id, lawyer: lawyerUserId });
-  if (!consultation) {
+  const existing = await Consultation.findOne({ _id: id, lawyer: lawyerUserId }).lean();
+  if (!existing) {
     return res.status(404).json({ error: 'Consultation not found' });
   }
-  if (!['requested', 'accepted'].includes(consultation.status)) {
-    return res.status(400).json({ error: `Cannot reject a consultation with status '${consultation.status}'` });
+  if (!['requested', 'accepted'].includes(existing.status)) {
+    return res.status(400).json({ error: `Cannot reject a consultation with status '${existing.status}'` });
   }
 
-  // Attempt refund BEFORE committing rejection so we don't leave the citizen paid-and-rejected
-  // with no automatic retry path if Razorpay fails.
+  // Atomic claim BEFORE the refund attempt — prevents a concurrent duplicate
+  // reject from both passing the status check and both triggering a refund.
+  // If the refund below fails, we revert this claim so the lawyer can retry.
+  const consultation = await Consultation.findOneAndUpdate(
+    { _id: id, lawyer: lawyerUserId, status: existing.status },
+    { $set: { status: 'rejected', rejectedAt: new Date(), ...(reason ? { rejectionReason: reason } : {}) } },
+    { new: true }
+  );
+  if (!consultation) {
+    return res.status(400).json({ error: 'Cannot reject — consultation status changed concurrently' });
+  }
+
   const payment = await Payment.findById(consultation.payment);
   let refundInitiated = false;
   if (payment && payment.status === 'paid' && payment.razorpayPaymentId) {
@@ -443,14 +471,15 @@ const rejectConsultation = asyncHandler(async (req, res) => {
         paymentId: payment.razorpayPaymentId,
         error: err.message,
       });
+      // Revert the claim so the citizen isn't left paid-and-rejected with no
+      // automatic retry path, and the lawyer can retry the reject later.
+      await Consultation.findOneAndUpdate(
+        { _id: id, status: 'rejected' },
+        { $set: { status: existing.status }, $unset: { rejectedAt: '', rejectionReason: '' } }
+      );
       return res.status(502).json({ error: 'Refund initiation failed — please try again' });
     }
   }
-
-  consultation.status = 'rejected';
-  consultation.rejectedAt = new Date();
-  if (reason) consultation.rejectionReason = reason;
-  await consultation.save();
 
   await AuditLog.log(req, 'consultation.rejected', 'Consultation', consultation._id, {
     reason,
@@ -492,19 +521,29 @@ const cancelConsultation = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Invalid consultation id' });
   }
 
-  const consultation = await Consultation.findOne({ _id: id, citizen: citizenUserId });
-  if (!consultation) {
+  const existing = await Consultation.findOne({ _id: id, citizen: citizenUserId }).lean();
+  if (!existing) {
     return res.status(404).json({ error: 'Consultation not found' });
   }
-  if (!['requested', 'accepted'].includes(consultation.status)) {
-    return res.status(400).json({ error: `Cannot cancel a consultation with status '${consultation.status}'` });
+  if (!['requested', 'accepted'].includes(existing.status)) {
+    return res.status(400).json({ error: `Cannot cancel a consultation with status '${existing.status}'` });
   }
 
-  const hoursUntilScheduled = (consultation.scheduledAt.getTime() - Date.now()) / (1000 * 60 * 60);
+  const hoursUntilScheduled = (existing.scheduledAt.getTime() - Date.now()) / (1000 * 60 * 60);
   const eligibleForRefund = hoursUntilScheduled >= CANCELLATION_REFUND_WINDOW_HOURS;
 
-  // Attempt refund BEFORE committing cancellation so we don't leave the citizen
-  // paid-and-cancelled with no automatic retry path if Razorpay fails.
+  // Atomic claim BEFORE the refund attempt — prevents a concurrent duplicate
+  // cancel from both passing the status check and both triggering a refund.
+  // If the refund below fails, we revert this claim so the citizen can retry.
+  const consultation = await Consultation.findOneAndUpdate(
+    { _id: id, citizen: citizenUserId, status: existing.status },
+    { $set: { status: 'cancelled', cancelledBy: 'citizen', ...(reason ? { cancellationReason: reason } : {}) } },
+    { new: true }
+  );
+  if (!consultation) {
+    return res.status(400).json({ error: 'Cannot cancel — consultation status changed concurrently' });
+  }
+
   const payment = await Payment.findById(consultation.payment);
   let refundInitiated = false;
   if (eligibleForRefund && payment && payment.status === 'paid' && payment.razorpayPaymentId) {
@@ -522,14 +561,15 @@ const cancelConsultation = asyncHandler(async (req, res) => {
         paymentId: payment.razorpayPaymentId,
         error: err.message,
       });
+      // Revert the claim so the citizen isn't left paid-and-cancelled with no
+      // automatic retry path, and can retry the cancellation later.
+      await Consultation.findOneAndUpdate(
+        { _id: id, status: 'cancelled' },
+        { $set: { status: existing.status }, $unset: { cancelledBy: '', cancellationReason: '' } }
+      );
       return res.status(502).json({ error: 'Refund initiation failed — please try again' });
     }
   }
-
-  consultation.status = 'cancelled';
-  consultation.cancelledBy = 'citizen';
-  if (reason) consultation.cancellationReason = reason;
-  await consultation.save();
 
   await AuditLog.log(req, 'consultation.cancelled', 'Consultation', consultation._id, {
     reason,
@@ -573,24 +613,31 @@ const completeConsultation = asyncHandler(async (req, res) => {
     return res.status(403).json({ error: 'Lawyer profile not found' });
   }
 
-  const consultation = await Consultation.findOne({ _id: id, lawyer: lawyerUserId });
-  if (!consultation) {
+  const existing = await Consultation.findOne({ _id: id, lawyer: lawyerUserId }).lean();
+  if (!existing) {
     return res.status(404).json({ error: 'Consultation not found' });
   }
-  if (consultation.status !== 'accepted') {
-    return res.status(400).json({ error: `Cannot complete a consultation with status '${consultation.status}'` });
+  if (existing.status !== 'accepted') {
+    return res.status(400).json({ error: `Cannot complete a consultation with status '${existing.status}'` });
   }
 
   // Earnings must never be credited on uncaptured money — payment.status only
   // becomes 'paid' via the client verify call or the Razorpay webhook.
-  const payment = consultation.payment ? await Payment.findById(consultation.payment) : null;
+  const payment = existing.payment ? await Payment.findById(existing.payment) : null;
   if (!payment || payment.status !== 'paid') {
     return res.status(400).json({ error: 'Cannot complete a consultation whose payment has not been captured yet' });
   }
 
-  consultation.status = 'completed';
-  consultation.completedAt = new Date();
-  await consultation.save();
+  // Atomic claim — prevents a concurrent duplicate complete (double-click, retry)
+  // from both passing the status check and both crediting the lawyer's earnings.
+  const consultation = await Consultation.findOneAndUpdate(
+    { _id: id, lawyer: lawyerUserId, status: 'accepted' },
+    { $set: { status: 'completed', completedAt: new Date() } },
+    { new: true }
+  );
+  if (!consultation) {
+    return res.status(400).json({ error: 'Cannot complete — consultation status changed concurrently' });
+  }
 
   await AuditLog.log(req, 'consultation.completed', 'Consultation', consultation._id, {
     fee: consultation.fee,
@@ -645,22 +692,29 @@ const markNoShow = asyncHandler(async (req, res) => {
     return res.status(403).json({ error: 'Lawyer profile not found' });
   }
 
-  const consultation = await Consultation.findOne({ _id: id, lawyer: lawyerUserId });
-  if (!consultation) {
+  const existing = await Consultation.findOne({ _id: id, lawyer: lawyerUserId }).lean();
+  if (!existing) {
     return res.status(404).json({ error: 'Consultation not found' });
   }
-  if (consultation.status !== 'accepted') {
-    return res.status(400).json({ error: `Cannot mark no-show for a consultation with status '${consultation.status}'` });
+  if (existing.status !== 'accepted') {
+    return res.status(400).json({ error: `Cannot mark no-show for a consultation with status '${existing.status}'` });
   }
 
-  const payment = consultation.payment ? await Payment.findById(consultation.payment) : null;
+  const payment = existing.payment ? await Payment.findById(existing.payment) : null;
   if (!payment || payment.status !== 'paid') {
     return res.status(400).json({ error: 'Cannot mark no-show for a consultation whose payment has not been captured yet' });
   }
 
-  consultation.status = 'no_show';
-  consultation.endedAt = new Date();
-  await consultation.save();
+  // Atomic claim — prevents a concurrent duplicate no-show (double-click, retry)
+  // from both passing the status check and both crediting the lawyer's earnings.
+  const consultation = await Consultation.findOneAndUpdate(
+    { _id: id, lawyer: lawyerUserId, status: 'accepted' },
+    { $set: { status: 'no_show', endedAt: new Date() } },
+    { new: true }
+  );
+  if (!consultation) {
+    return res.status(400).json({ error: 'Cannot mark no-show — consultation status changed concurrently' });
+  }
 
   await AuditLog.log(req, 'consultation.no_show', 'Consultation', consultation._id, {
     fee: consultation.fee,

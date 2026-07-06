@@ -205,6 +205,10 @@ const lawyerProfileSchema = new Schema(
       type: Number,
       default: 0,    // cumulative in paise, incremented when an admin marks a withdrawal 'completed'
     },
+    pendingWithdrawalAmount: {
+      type: Number,
+      default: 0,    // in paise, reserved atomically at request time; released when admin finalizes (completed/failed)
+    },
     bankAccount: {
       accountHolderName: { type: String, trim: true },
       accountNumber: { type: String, trim: true },

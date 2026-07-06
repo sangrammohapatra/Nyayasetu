@@ -5,8 +5,9 @@
  *
  * Runs hourly checks and enforces the following SLAs:
  *   1. Auto-cancel pending requests with no notary response after 48 h
- *   2. Remind notary to schedule KYC 24 h after citizen payment (one-time, 24–25 h window)
- *   3. Remind notary to stamp 24 h after KYC was marked complete (one-time, 24–25 h window)
+ *   2. Auto-cancel accepted requests the citizen never paid for within 48 h of acceptance
+ *   3. Remind notary to schedule KYC 24 h after citizen payment (one-time, 24–25 h window)
+ *   4. Remind notary to stamp 24 h after KYC was marked complete (one-time, 24–25 h window)
  */
 
 const NotarizationRequest = require('../models/NotarizationRequest.model');
@@ -50,6 +51,58 @@ async function expireStalePending(io) {
       logger.info('[notarizationSla] Auto-cancelled stale pending request', { id: req._id });
     } catch (err) {
       logger.error('[notarizationSla] Failed to expire pending request', { id: req._id, error: err.message });
+    }
+  }
+}
+
+// Once a notary accepts, a Razorpay order is created and the notary can't proceed
+// (scheduleKYC requires payment.status: 'paid') until the citizen pays. Without this
+// sweep, an accepted-but-never-paid request sits forever with only a manual
+// cancelRequest as the escape hatch — same class of bug as consultationSla's
+// expireStaleRequests, mirrored here with the same 48h window.
+async function expireUnpaidAccepted(io) {
+  const cutoff = new Date(Date.now() - 48 * HOUR);
+
+  const stale = await NotarizationRequest.find({
+    status: 'accepted',
+    'payment.status': { $ne: 'paid' },
+    acceptedAt: { $lt: cutoff },
+  }).select('_id citizen notary').lean();
+
+  for (const req of stale) {
+    try {
+      const updated = await NotarizationRequest.findOneAndUpdate(
+        { _id: req._id, status: 'accepted', 'payment.status': { $ne: 'paid' } },
+        {
+          status: 'cancelled',
+          rejectionReason: 'Automatically cancelled: citizen did not complete payment within 48 hours of notary acceptance',
+        }
+      );
+      if (!updated) continue; // already transitioned by another path
+
+      await Notification.createForUser({
+        userId: req.citizen,
+        type: 'notarization_cancelled',
+        title: 'Notarization request expired',
+        body: 'Your notarization request was automatically cancelled because payment was not completed within 48 hours of the notary accepting. Please submit a new request if you still need notarization.',
+        data: { notarizationRequestId: req._id },
+        actionUrl: `/notarization/${req._id}`,
+        io,
+      });
+
+      await Notification.createForUser({
+        userId: req.notary,
+        type: 'notarization_cancelled',
+        title: 'Notarization request expired',
+        body: 'A notarization request you accepted was automatically cancelled because the citizen did not complete payment within 48 hours.',
+        data: { notarizationRequestId: req._id },
+        actionUrl: `/notary/requests/${req._id}`,
+        io,
+      });
+
+      logger.info('[notarizationSla] Auto-cancelled unpaid accepted request', { id: req._id });
+    } catch (err) {
+      logger.error('[notarizationSla] Failed to expire unpaid accepted request', { id: req._id, error: err.message });
     }
   }
 }
@@ -118,6 +171,7 @@ async function runSlaChecks(io) {
   logger.info('[notarizationSla] Running SLA checks');
   await Promise.allSettled([
     expireStalePending(io),
+    expireUnpaidAccepted(io),
     remindKycScheduling(io),
     remindStamping(io),
   ]);

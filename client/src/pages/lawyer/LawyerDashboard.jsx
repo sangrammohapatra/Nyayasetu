@@ -285,7 +285,7 @@ function StepAvailability({ control, modes, setModes, availability, setAvailabil
         </Box>
       </Box>
 
-      <Controller name="isAvailableForConsultation" control={control} render={({ field }) => (
+      <Controller name="isAcceptingClients" control={control} render={({ field }) => (
         <FormControlLabel
           control={<Switch {...field} checked={!!field.value}
             sx={{ '& .MuiSwitch-thumb': { background: 'var(--color-primary)' } }} />}
@@ -453,7 +453,7 @@ function LawyerDashboard() {
       consultationFee: existingProfile?.consultationFee ? Math.round(existingProfile.consultationFee / 100) : '',
       bio: existingProfile?.bio || '',
       district: existingProfile?.district || '',
-      isAvailableForConsultation: existingProfile?.isAvailableForConsultation ?? true,
+      isAcceptingClients: existingProfile?.isAcceptingClients ?? true,
     },
     mode: 'onTouched',
   });
@@ -484,6 +484,7 @@ function LawyerDashboard() {
       fd.append('bio', values.bio || '');
       fd.append('consultationFee', String(values.consultationFee * 100));
       fd.append('district', values.district || '');
+      fd.append('isAcceptingClients', String(values.isAcceptingClients));
       fd.append('availability', JSON.stringify(availability));
       if (certFile) fd.append('certificate', certFile);
 

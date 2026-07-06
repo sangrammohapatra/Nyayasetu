@@ -135,6 +135,9 @@ const notaryProfileSchema = new Schema(
     // stamped/delivered. Lets admins see money collected for work not yet completed.
     pendingEarnings: { type: Number, default: 0 },
     withdrawnAmount: { type: Number, default: 0 },
+    // In paise, reserved atomically at withdrawal-request time; released when
+    // admin finalizes (completed/failed). Distinct from pendingEarnings above.
+    pendingWithdrawalAmount: { type: Number, default: 0 },
 
     // ── Stats ─────────────────────────────────────────────────────────────────
     totalNotarizations: { type: Number, default: 0 },

@@ -87,7 +87,7 @@ const searchLawyers = asyncHandler(async (req, res) => {
     filter.consultationFee = { $lte: parseInt(maxFee, 10) };
   }
   if (availableOnly === 'true') {
-    filter.isAvailableForConsultation = true;
+    filter.isAcceptingClients = true;
   }
 
   try {
@@ -207,6 +207,7 @@ const applyAsLawyer = asyncHandler(async (req, res) => {
     consultationFee,
     district,
     availability: availabilityRaw,
+    isAcceptingClients,
   } = req.body;
 
   if (!barCouncilNumber || !barCouncilState || !specialisations || !practicingStates || !consultationFee) {
@@ -259,6 +260,7 @@ const applyAsLawyer = asyncHandler(async (req, res) => {
           bio: bio || '',
           consultationFee: parseInt(consultationFee, 10),
           district: district || '',
+          ...(isAcceptingClients !== undefined ? { isAcceptingClients: isAcceptingClients === 'true' || isAcceptingClients === true } : {}),
           isVerified: process.env.NODE_ENV === 'development',
           verificationStatus: process.env.NODE_ENV === 'development' ? 'approved' : 'pending',
           ...(certificateUrl ? { barCouncilCertificateUrl: certificateUrl } : {}),
@@ -639,22 +641,34 @@ const requestWithdrawal = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid withdrawal amount' });
   }
 
-  const profile = await LawyerProfile.findOne({ user: req.user.userId });
-  if (!profile) return res.status(404).json({ error: 'NOT_FOUND', message: 'Lawyer profile not found' });
+  const existing = await LawyerProfile.findOne({ user: req.user.userId }).lean();
+  if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Lawyer profile not found' });
 
-  if (!profile.bankAccount?.accountNumber) {
+  if (!existing.bankAccount?.accountNumber) {
     return res.status(400).json({ error: 'NO_BANK_ACCOUNT', message: 'Please add your bank account before requesting a withdrawal' });
   }
 
-  // Calculate pending withdrawal sum to prevent over-withdrawal
-  const pendingSum = await LawyerWithdrawal.aggregate([
-    { $match: { lawyerProfile: profile._id, status: { $in: ['pending', 'processing'] } } },
-    { $group: { _id: null, total: { $sum: '$amount' } } },
-  ]);
-  const pendingTotal = pendingSum[0]?.total || 0;
+  // Atomically reserve the amount against the withdrawable balance: the balance
+  // precondition and the reservation increment happen in one update, so two
+  // concurrent requests can't both read the same withdrawable balance and both
+  // succeed — the loser's $expr precondition fails against the winner's write.
+  const profile = await LawyerProfile.findOneAndUpdate(
+    {
+      _id: existing._id,
+      $expr: {
+        $gte: [
+          { $subtract: ['$totalEarnings', { $add: ['$withdrawnAmount', '$pendingWithdrawalAmount', amount] }] },
+          0,
+        ],
+      },
+    },
+    { $inc: { pendingWithdrawalAmount: amount } },
+    { new: true }
+  );
 
-  const withdrawable = profile.totalEarnings - (profile.withdrawnAmount || 0) - pendingTotal;
-  if (amount > withdrawable) {
+  if (!profile) {
+    const fresh = await LawyerProfile.findById(existing._id).select('totalEarnings withdrawnAmount pendingWithdrawalAmount').lean();
+    const withdrawable = fresh.totalEarnings - (fresh.withdrawnAmount || 0) - (fresh.pendingWithdrawalAmount || 0);
     return res.status(400).json({
       error: 'INSUFFICIENT_BALANCE',
       message: `Withdrawable balance is ₹${(withdrawable / 100).toFixed(2)}`,
@@ -664,17 +678,25 @@ const requestWithdrawal = asyncHandler(async (req, res) => {
   const acct = profile.bankAccount;
   const masked = acct.accountNumber.replace(/.(?=.{4})/g, '*');
 
-  const withdrawal = await LawyerWithdrawal.create({
-    lawyerProfile: profile._id,
-    lawyerUser: req.user.userId,
-    amount,
-    bankSnapshot: {
-      accountHolderName: acct.accountHolderName,
-      maskedAccountNumber: masked,
-      ifscCode: acct.ifscCode,
-      bankName: acct.bankName,
-    },
-  });
+  let withdrawal;
+  try {
+    withdrawal = await LawyerWithdrawal.create({
+      lawyerProfile: profile._id,
+      lawyerUser: req.user.userId,
+      amount,
+      bankSnapshot: {
+        accountHolderName: acct.accountHolderName,
+        maskedAccountNumber: masked,
+        ifscCode: acct.ifscCode,
+        bankName: acct.bankName,
+      },
+    });
+  } catch (err) {
+    // Release the reservation if the withdrawal record couldn't be created, so
+    // the reserved amount doesn't get stuck against the lawyer's balance forever.
+    await LawyerProfile.findByIdAndUpdate(profile._id, { $inc: { pendingWithdrawalAmount: -amount } });
+    throw err;
+  }
 
   await AuditLog.log(req, 'lawyer.withdrawal.requested', 'LawyerWithdrawal', withdrawal._id, {
     amount,

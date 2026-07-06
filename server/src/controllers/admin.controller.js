@@ -451,6 +451,13 @@ const rejectLawyer = asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'NOT_FOUND', message: 'Lawyer profile not found' });
   }
 
+  // Mirrors rejectNotary's guard: "reject" is for pending applications, not for
+  // silently un-verifying a live, working professional — there is no dedicated
+  // "revoke" endpoint, so this prevents the reject action from being misused as one.
+  if (profile.isVerified) {
+    return res.status(409).json({ error: 'ALREADY_VERIFIED', message: 'Cannot reject an already verified lawyer' });
+  }
+
   profile.isVerified = false;
   profile.verificationStatus = 'rejected';
   profile.rejectedAt = new Date();
@@ -603,6 +610,11 @@ const verifyNotary = asyncHandler(async (req, res) => {
   await profile.save();
 
   const notaryUser = profile.user;
+
+  if (notaryUser && notaryUser.persona?.toLowerCase() !== 'notary') {
+    notaryUser.persona = 'notary';
+    await notaryUser.save();
+  }
 
   if (notaryUser && notaryUser.whatsappOptIn && notaryUser.whatsappNumber) {
     try {
@@ -962,32 +974,53 @@ const refundPayment = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid payment id' });
   }
 
-  const payment = await Payment.findById(id);
-  if (!payment) return res.status(404).json({ error: 'NOT_FOUND', message: 'Payment not found' });
-  if (payment.status !== 'paid') {
+  const existing = await Payment.findById(id).lean();
+  if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Payment not found' });
+  if (existing.status !== 'paid') {
     return res.status(400).json({ error: 'NOT_PAID', message: 'Only paid payments can be refunded' });
   }
-  if (!payment.razorpayPaymentId) {
+  if (!existing.razorpayPaymentId) {
     return res.status(400).json({ error: 'NO_PAYMENT_ID', message: 'No Razorpay payment ID on record' });
   }
 
-  const refundAmount = amount ? Number(amount) : payment.amount;
-  if (refundAmount > payment.amount) {
+  const refundAmount = amount ? Number(amount) : existing.amount;
+  if (refundAmount > existing.amount) {
     return res.status(400).json({ error: 'EXCESSIVE_REFUND', message: 'Refund amount cannot exceed the original payment' });
   }
 
-  const refund = await razorpayService.initiateRefund(
-    payment.razorpayPaymentId,
-    refundAmount,
-    { reason: reason || 'Admin refund', adminUserId: String(req.user.userId) }
+  // Atomically claim the refund BEFORE calling Razorpay — the Razorpay SDK has no
+  // idempotency-key hook for this call, so a concurrent duplicate request (double-
+  // click, retry) must be stopped at our own status precondition instead: only one
+  // request can flip 'paid' -> refunded/partially_refunded, the other gets null back.
+  const newStatus = refundAmount < existing.amount ? 'partially_refunded' : 'refunded';
+  const claimed = await Payment.findOneAndUpdate(
+    { _id: id, status: 'paid' },
+    { $set: { status: newStatus, refundAmount, refundedAt: new Date(), refundReason: reason || 'Admin refund' } },
+    { new: true }
   );
+  if (!claimed) {
+    return res.status(409).json({ error: 'ALREADY_REFUNDED', message: 'Payment was already refunded by a concurrent request' });
+  }
 
-  payment.status       = refundAmount < payment.amount ? 'partially_refunded' : 'refunded';
-  payment.refundId     = refund.id;
-  payment.refundAmount = refundAmount;
-  payment.refundedAt   = new Date();
-  payment.refundReason = reason || 'Admin refund';
-  await payment.save();
+  let refund;
+  try {
+    refund = await razorpayService.initiateRefund(
+      claimed.razorpayPaymentId,
+      refundAmount,
+      { reason: reason || 'Admin refund', adminUserId: String(req.user.userId) }
+    );
+  } catch (err) {
+    // Revert the claim — no Razorpay refund actually happened, so don't leave the
+    // payment stuck marked-refunded; let the admin retry.
+    await Payment.findOneAndUpdate(
+      { _id: id, status: newStatus },
+      { $set: { status: 'paid' }, $unset: { refundAmount: '', refundedAt: '', refundReason: '' } }
+    );
+    logger.error('[admin.controller] refundPayment: Razorpay refund failed', { paymentId: id, error: err.message });
+    return res.status(502).json({ error: 'REFUND_FAILED', message: 'Refund initiation failed — please try again' });
+  }
+
+  await Payment.findByIdAndUpdate(id, { $set: { refundId: refund.id } });
 
   await AuditLog.log(req, 'admin.payment.refunded', 'Payment', id, {
     refundId: refund.id,
@@ -995,7 +1028,7 @@ const refundPayment = asyncHandler(async (req, res) => {
     reason,
   });
 
-  return res.json({ ok: true, refundId: refund.id, status: payment.status, refundAmount });
+  return res.json({ ok: true, refundId: refund.id, status: newStatus, refundAmount });
 });
 
 /* ---------------------------------------------------------------------------
@@ -1080,39 +1113,53 @@ const refundConsultationPayment = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid consultation id' });
   }
 
-  const consultation = await Consultation.findById(id);
+  const consultation = await Consultation.findById(id).lean();
   if (!consultation) return res.status(404).json({ error: 'NOT_FOUND', message: 'Consultation not found' });
   if (!consultation.payment) {
     return res.status(400).json({ error: 'NO_PAYMENT', message: 'This consultation has no associated payment' });
   }
 
-  const payment = await Payment.findById(consultation.payment);
-  if (!payment || payment.status !== 'paid' || !payment.razorpayPaymentId) {
+  const existingPayment = await Payment.findById(consultation.payment).lean();
+  if (!existingPayment || existingPayment.status !== 'paid' || !existingPayment.razorpayPaymentId) {
     return res.status(400).json({ error: 'NOT_REFUNDABLE', message: 'Payment has not been captured, or was already refunded' });
   }
 
-  const refundAmount = amount ? Math.min(Math.round(amount), payment.amount) : payment.amount;
+  const refundAmount = amount ? Math.min(Math.round(amount), existingPayment.amount) : existingPayment.amount;
   if (!refundAmount || refundAmount < 1) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid refund amount' });
   }
 
+  // Atomically claim the refund BEFORE calling Razorpay — see refundPayment for why
+  // (no SDK-level idempotency key available; the DB status precondition is the guard).
+  const newStatus = refundAmount >= existingPayment.amount ? 'refunded' : 'partially_refunded';
+  const claimedPayment = await Payment.findOneAndUpdate(
+    { _id: consultation.payment, status: 'paid' },
+    { $set: { status: newStatus } },
+    { new: true }
+  );
+  if (!claimedPayment) {
+    return res.status(409).json({ error: 'ALREADY_REFUNDED', message: 'Payment was already refunded by a concurrent request' });
+  }
+
   try {
-    await razorpayService.initiateRefund(payment.razorpayPaymentId, refundAmount, {
+    await razorpayService.initiateRefund(claimedPayment.razorpayPaymentId, refundAmount, {
       reason: reason || 'Admin-initiated refund (dispute resolution)',
     });
   } catch (err) {
+    // Revert the claim — no Razorpay refund actually happened, so let the admin retry.
+    await Payment.findOneAndUpdate(
+      { _id: consultation.payment, status: newStatus },
+      { $set: { status: 'paid' } }
+    );
     logger.error('[admin.controller] refundConsultationPayment failed', { consultationId: id, error: err.message });
     return res.status(502).json({ error: 'REFUND_FAILED', message: 'Refund initiation failed — please try again' });
   }
 
-  payment.status = refundAmount >= payment.amount ? 'refunded' : 'partially_refunded';
-  await payment.save();
-
   if (['requested', 'accepted'].includes(consultation.status)) {
-    consultation.status = 'cancelled';
-    consultation.cancelledBy = 'admin';
-    consultation.cancellationReason = reason || 'Refunded by admin (dispute resolution)';
-    await consultation.save();
+    await Consultation.findOneAndUpdate(
+      { _id: id, status: consultation.status },
+      { $set: { status: 'cancelled', cancelledBy: 'admin', cancellationReason: reason || 'Refunded by admin (dispute resolution)' } }
+    );
   }
 
   await AuditLog.log(req, 'admin.consultation.refunded', 'Consultation', id, { refundAmount, reason });
@@ -1129,7 +1176,7 @@ const refundConsultationPayment = asyncHandler(async (req, res) => {
     });
   } catch (_) {}
 
-  return res.json({ ok: true, consultationId: id, refundAmount, paymentStatus: payment.status });
+  return res.json({ ok: true, consultationId: id, refundAmount, paymentStatus: newStatus });
 });
 
 /* ---------------------------------------------------------------------------
@@ -1354,7 +1401,20 @@ const extendRTIDeadline = asyncHandler(async (req, res) => {
   newDeadline.setDate(newDeadline.getDate() + daysNum);
   application.responseDeadline = newDeadline;
 
-  const auditLine = `[Admin] Deadline extended by ${daysNum} day(s) on ${new Date().toISOString().slice(0, 10)}${reason ? `: ${reason}` : ''}.`;
+  // checkRTIDeadlines.job.js only scans status: 'filed' for deadline alerts and only
+  // auto-transitions a 'filed' RTI to 'first_appeal_due'. If the deadline was already
+  // passed (status auto-transitioned), extending it must revert status to 'filed' and
+  // clear the pre-deadline alert flags so the job re-enrolls it for the new deadline
+  // instead of leaving it permanently stuck showing "first appeal due".
+  const wasAutoTransitioned = application.status === 'first_appeal_due';
+  if (wasAutoTransitioned) {
+    application.status = 'filed';
+    application.alertSent.day25 = false;
+    application.alertSent.day30 = false;
+    application.alertSent.overdue = false;
+  }
+
+  const auditLine = `[Admin] Deadline extended by ${daysNum} day(s) on ${new Date().toISOString().slice(0, 10)}${reason ? `: ${reason}` : ''}${wasAutoTransitioned ? ' (reverted from first_appeal_due to filed)' : ''}.`;
   application.notes = [application.notes, auditLine].filter(Boolean).join('\n');
 
   await application.save();
@@ -1363,9 +1423,10 @@ const extendRTIDeadline = asyncHandler(async (req, res) => {
     daysExtended: daysNum,
     newDeadline,
     reason,
+    revertedToFiled: wasAutoTransitioned,
   });
 
-  return res.json({ ok: true, rtiId: id, newDeadline, daysExtended: daysNum });
+  return res.json({ ok: true, rtiId: id, newDeadline, daysExtended: daysNum, status: application.status });
 });
 
 /* ---------------------------------------------------------------------------
@@ -1864,23 +1925,36 @@ const processWithdrawal = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'INVALID_STATUS', message: 'Status must be completed, failed, or processing' });
   }
 
-  const withdrawal = await NotaryWithdrawal.findById(id);
-  if (!withdrawal) return res.status(404).json({ error: 'NOT_FOUND', message: 'Withdrawal not found' });
-  if (withdrawal.status === 'completed' || withdrawal.status === 'failed') {
+  // Atomic claim — precondition on not-yet-finalized so two concurrent "mark
+  // completed" calls (e.g. admin double-click) can't both pass the status check
+  // and both $inc withdrawnAmount, corrupting the notary's earnings ledger.
+  const withdrawal = await NotaryWithdrawal.findOneAndUpdate(
+    { _id: id, status: { $nin: ['completed', 'failed'] } },
+    {
+      $set: {
+        status,
+        processedBy: req.user.userId,
+        processedAt: new Date(),
+        ...(reference ? { reference: reference.trim() } : {}),
+        ...(notes ? { notes: notes.trim() } : {}),
+      },
+    },
+    { new: true }
+  );
+  if (!withdrawal) {
+    const exists = await NotaryWithdrawal.exists({ _id: id });
+    if (!exists) return res.status(404).json({ error: 'NOT_FOUND', message: 'Withdrawal not found' });
     return res.status(409).json({ error: 'ALREADY_PROCESSED', message: 'Withdrawal already finalized' });
   }
 
-  withdrawal.status = status;
-  withdrawal.processedBy = req.user.userId;
-  withdrawal.processedAt = new Date();
-  if (reference) withdrawal.reference = reference.trim();
-  if (notes) withdrawal.notes = notes.trim();
-  await withdrawal.save();
-
-  // On completion, add to the notary's withdrawnAmount so balance stays accurate
-  if (status === 'completed') {
+  // Only release the reservation made at request time once finalized (completed
+  // or failed) — 'processing' is still in-flight, the amount stays reserved.
+  if (status === 'completed' || status === 'failed') {
     await NotaryProfile.findByIdAndUpdate(withdrawal.notaryProfile, {
-      $inc: { withdrawnAmount: withdrawal.amount },
+      $inc: {
+        pendingWithdrawalAmount: -withdrawal.amount,
+        ...(status === 'completed' ? { withdrawnAmount: withdrawal.amount } : {}),
+      },
     });
   }
 
@@ -1929,23 +2003,36 @@ const processLawyerWithdrawal = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'INVALID_STATUS', message: 'Status must be completed, failed, or processing' });
   }
 
-  const withdrawal = await LawyerWithdrawal.findById(id);
-  if (!withdrawal) return res.status(404).json({ error: 'NOT_FOUND', message: 'Withdrawal not found' });
-  if (withdrawal.status === 'completed' || withdrawal.status === 'failed') {
+  // Atomic claim — precondition on not-yet-finalized so two concurrent "mark
+  // completed" calls (e.g. admin double-click) can't both pass the status check
+  // and both $inc withdrawnAmount, corrupting the lawyer's earnings ledger.
+  const withdrawal = await LawyerWithdrawal.findOneAndUpdate(
+    { _id: id, status: { $nin: ['completed', 'failed'] } },
+    {
+      $set: {
+        status,
+        processedBy: req.user.userId,
+        processedAt: new Date(),
+        ...(reference ? { reference: reference.trim() } : {}),
+        ...(notes ? { notes: notes.trim() } : {}),
+      },
+    },
+    { new: true }
+  );
+  if (!withdrawal) {
+    const exists = await LawyerWithdrawal.exists({ _id: id });
+    if (!exists) return res.status(404).json({ error: 'NOT_FOUND', message: 'Withdrawal not found' });
     return res.status(409).json({ error: 'ALREADY_PROCESSED', message: 'Withdrawal already finalized' });
   }
 
-  withdrawal.status = status;
-  withdrawal.processedBy = req.user.userId;
-  withdrawal.processedAt = new Date();
-  if (reference) withdrawal.reference = reference.trim();
-  if (notes) withdrawal.notes = notes.trim();
-  await withdrawal.save();
-
-  // On completion, add to the lawyer's withdrawnAmount so balance stays accurate
-  if (status === 'completed') {
+  // Only release the reservation made at request time once finalized (completed
+  // or failed) — 'processing' is still in-flight, the amount stays reserved.
+  if (status === 'completed' || status === 'failed') {
     await LawyerProfile.findByIdAndUpdate(withdrawal.lawyerProfile, {
-      $inc: { withdrawnAmount: withdrawal.amount },
+      $inc: {
+        pendingWithdrawalAmount: -withdrawal.amount,
+        ...(status === 'completed' ? { withdrawnAmount: withdrawal.amount } : {}),
+      },
     });
   }
 

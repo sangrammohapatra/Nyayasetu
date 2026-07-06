@@ -68,6 +68,9 @@ const notarizationRequestSchema = new Schema(
       paidAt: { type: Date },
     },
 
+    // ── Acceptance ────────────────────────────────────────────────────────────
+    acceptedAt: { type: Date }, // set when the notary accepts; used by notarizationSla to expire unpaid-after-acceptance requests
+
     // ── Video KYC ─────────────────────────────────────────────────────────────
     scheduledAt: { type: Date },
     videoLink: { type: String, trim: true },

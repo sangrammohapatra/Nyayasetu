@@ -107,6 +107,9 @@ exports.applyAsNotary = async (req, res) => {
   try {
     const userId = req.user.userId;
 
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: 'NOT_FOUND', message: 'User not found' });
+
     const existing = await NotaryProfile.findOne({ user: userId });
     if (existing && existing.verificationStatus !== 'rejected') {
       return res.status(409).json({ error: 'ALREADY_APPLIED', message: 'You have already applied as a notary' });
@@ -165,7 +168,10 @@ exports.applyAsNotary = async (req, res) => {
       profile = await NotaryProfile.create(profileData);
     }
 
-    // Persona stays unchanged until admin approves — citizen retains full access during review
+    if (user.persona?.toLowerCase() !== 'notary') {
+      user.persona = 'notary';
+      await user.save();
+    }
 
     await AuditLog.log(req, 'notary.applied', 'NotaryProfile', profile._id, {
       notaryRegistrationNumber,
@@ -441,7 +447,7 @@ exports.acceptRequest = async (req, res) => {
     // Atomically claim the request — prevents double-accept on concurrent retries
     const claimed = await NotarizationRequest.findOneAndUpdate(
       { _id: req.params.id, notary: req.user.userId, status: 'pending' },
-      { status: 'accepted' },
+      { status: 'accepted', acceptedAt: new Date() },
       { new: true }
     );
     if (!claimed) return res.status(404).json({ error: 'NOT_FOUND', message: 'Request not found' });
@@ -464,7 +470,7 @@ exports.acceptRequest = async (req, res) => {
     } catch (orderErr) {
       await NotarizationRequest.findOneAndUpdate(
         { _id: claimed._id, status: 'accepted' },
-        { status: 'pending' }
+        { status: 'pending', $unset: { acceptedAt: '' } }
       );
       logger.error('acceptRequest: Razorpay order creation failed, reverted to pending', {
         requestId: claimed._id,
@@ -947,22 +953,34 @@ exports.requestWithdrawal = async (req, res) => {
       return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid withdrawal amount' });
     }
 
-    const profile = await NotaryProfile.findOne({ user: req.user.userId });
-    if (!profile) return res.status(404).json({ error: 'NOT_FOUND', message: 'Notary profile not found' });
+    const existing = await NotaryProfile.findOne({ user: req.user.userId }).lean();
+    if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Notary profile not found' });
 
-    if (!profile.bankAccount?.accountNumber) {
+    if (!existing.bankAccount?.accountNumber) {
       return res.status(400).json({ error: 'NO_BANK_ACCOUNT', message: 'Please add your bank account before requesting a withdrawal' });
     }
 
-    // Calculate pending withdrawal sum to prevent over-withdrawal
-    const pendingSum = await NotaryWithdrawal.aggregate([
-      { $match: { notaryProfile: profile._id, status: { $in: ['pending', 'processing'] } } },
-      { $group: { _id: null, total: { $sum: '$amount' } } },
-    ]);
-    const pendingTotal = pendingSum[0]?.total || 0;
+    // Atomically reserve the amount against the withdrawable balance: the balance
+    // precondition and the reservation increment happen in one update, so two
+    // concurrent requests can't both read the same withdrawable balance and both
+    // succeed — the loser's $expr precondition fails against the winner's write.
+    const profile = await NotaryProfile.findOneAndUpdate(
+      {
+        _id: existing._id,
+        $expr: {
+          $gte: [
+            { $subtract: ['$totalEarnings', { $add: ['$withdrawnAmount', '$pendingWithdrawalAmount', amount] }] },
+            0,
+          ],
+        },
+      },
+      { $inc: { pendingWithdrawalAmount: amount } },
+      { new: true }
+    );
 
-    const withdrawable = profile.totalEarnings - (profile.withdrawnAmount || 0) - pendingTotal;
-    if (amount > withdrawable) {
+    if (!profile) {
+      const fresh = await NotaryProfile.findById(existing._id).select('totalEarnings withdrawnAmount pendingWithdrawalAmount').lean();
+      const withdrawable = fresh.totalEarnings - (fresh.withdrawnAmount || 0) - (fresh.pendingWithdrawalAmount || 0);
       return res.status(400).json({
         error: 'INSUFFICIENT_BALANCE',
         message: `Withdrawable balance is ₹${(withdrawable / 100).toFixed(2)}`,
@@ -972,17 +990,25 @@ exports.requestWithdrawal = async (req, res) => {
     const acct = profile.bankAccount;
     const masked = acct.accountNumber.replace(/.(?=.{4})/g, '*');
 
-    const withdrawal = await NotaryWithdrawal.create({
-      notaryProfile: profile._id,
-      notaryUser: req.user.userId,
-      amount,
-      bankSnapshot: {
-        accountHolderName: acct.accountHolderName,
-        maskedAccountNumber: masked,
-        ifscCode: acct.ifscCode,
-        bankName: acct.bankName,
-      },
-    });
+    let withdrawal;
+    try {
+      withdrawal = await NotaryWithdrawal.create({
+        notaryProfile: profile._id,
+        notaryUser: req.user.userId,
+        amount,
+        bankSnapshot: {
+          accountHolderName: acct.accountHolderName,
+          maskedAccountNumber: masked,
+          ifscCode: acct.ifscCode,
+          bankName: acct.bankName,
+        },
+      });
+    } catch (err) {
+      // Release the reservation if the withdrawal record couldn't be created, so
+      // the reserved amount doesn't get stuck against the notary's balance forever.
+      await NotaryProfile.findByIdAndUpdate(profile._id, { $inc: { pendingWithdrawalAmount: -amount } });
+      throw err;
+    }
 
     await AuditLog.log(req, 'notary.withdrawal.requested', 'NotaryWithdrawal', withdrawal._id, {
       amount,

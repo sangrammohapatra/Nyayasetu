@@ -480,13 +480,19 @@ function Login() {
   const handleRegComplete = async () => {
     setRegLoading(true);
     setRegError(null);
+    // The register endpoint only ever accepts persona: 'citizen' — lawyer/notary
+    // personas are granted exclusively through their dedicated verification
+    // application flows, never at self-registration (server-side, see
+    // auth.routes.js). Sending anything else here always 400s, so the "Lawyer" /
+    // "Notary" cards above capture intent only; everyone registers as a citizen.
+    const wantedProfessionalRole = regData.persona !== 'citizen' ? regData.persona : null;
     const result = await dispatch(registerUser({
       name: regData.name.trim(),
       email: regData.email.trim().toLowerCase(),
       phone: regData.phone ? `+91${regData.phone}` : undefined,
       state: regData.state,
       district: regData.district.trim(),
-      persona: regData.persona,
+      persona: 'citizen',
       preferredLanguage: regData.preferredLanguage,
       preferredTheme: regData.preferredTheme || 'default',
       whatsappOptIn: regData.whatsappOptIn,
@@ -494,7 +500,18 @@ function Login() {
     }));
     if (result.meta.requestStatus === 'fulfilled') {
       const userPersona = (result.payload?.user?.persona || 'citizen').toLowerCase();
-      navigate(`/${userPersona}/home`, { replace: true });
+      if (wantedProfessionalRole) {
+        setSnackMsg({
+          message: `You're registered as a Citizen. ${wantedProfessionalRole === 'lawyer' ? 'Lawyer' : 'Notary'} accounts require a separate verification application — look for that option after logging in.`,
+          severity: 'info',
+        });
+        setSnackOpen(true);
+        // Give the toast time to render before navigating away — navigating
+        // immediately would unmount this page (and the toast with it).
+        setTimeout(() => navigate(`/${userPersona}/home`, { replace: true }), 3000);
+      } else {
+        navigate(`/${userPersona}/home`, { replace: true });
+      }
     } else {
       setRegError(result.payload || 'Registration failed. Please try again.');
     }

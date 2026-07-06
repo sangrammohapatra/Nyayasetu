@@ -197,7 +197,7 @@ function LawyerHome() {
   const profile = useSelector(selectMyLawyerProfile);
 
   const [stats, setStats] = useState({ clientsCount: 0, casesMonth: 0, pendingCount: 0, earningsMonth: 0 });
-  const [available, setAvailable] = useState(profile?.isAvailableForConsultation ?? true);
+  const [available, setAvailable] = useState(profile?.isAcceptingClients ?? true);
   const [activities, setActivities] = useState([]);
   const [loadingStats, setLoadingStats] = useState(true);
 
@@ -254,7 +254,7 @@ function LawyerHome() {
   const handleAvailabilityToggle = async (e) => {
     const val = e.target.checked;
     setAvailable(val);
-    dispatch(updateLawyerProfile({ isAvailableForConsultation: val }));
+    dispatch(updateLawyerProfile({ isAcceptingClients: val }));
   };
 
   const firstName = user?.name?.split(' ')[0] || 'Advocate';
