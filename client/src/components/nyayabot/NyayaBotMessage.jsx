@@ -27,14 +27,14 @@ function BotAvatarSmall() {
   return (
     <Box
       sx={{
-        width: 32, height: 32, borderRadius: '50%',
-        bgcolor: 'var(--color-primary)',
+        width: 28, height: 28, borderRadius: '9px',
+        bgcolor: 'var(--color-primary-alpha)',
+        border: '1px solid color-mix(in srgb, var(--color-primary) 30%, transparent)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexShrink: 0, mt: 0.5,
-        boxShadow: '0 2px 8px var(--color-primary-alpha)',
+        flexShrink: 0, mt: 0.25,
       }}
     >
-      <Balance sx={{ fontSize: 18, color: '#fff' }} />
+      <Balance sx={{ fontSize: 15, color: 'var(--color-primary)' }} />
     </Box>
   );
 }
@@ -153,29 +153,34 @@ function FollowUpChips({ questions, onSelect }) {
 
   return (
     <Box sx={{ mt: 1.5 }}>
-      <Box sx={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-secondary)', mb: 0.75 }}>
+      <Box sx={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-text-secondary)', mb: 0.85 }}>
         {t('nyayabot.followUpQuestions')}
       </Box>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.6 }}>
         {questions.map((q, i) => (
           <Button
             key={i}
             size="small"
-            variant="text"
+            variant="outlined"
             onClick={() => onSelect(q)}
             sx={{
               justifyContent: 'flex-start',
-              textAlign: 'left',
               textTransform: 'none',
-              fontSize: '0.82rem',
+              textAlign: 'left',
+              fontWeight: 500,
+              fontSize: '0.78rem',
               lineHeight: 1.4,
-              color: 'var(--color-primary)',
-              py: 0.5, px: 1,
-              borderRadius: 1,
-              '&:hover': { bgcolor: 'var(--color-primary-alpha)' },
+              color: 'var(--color-text)',
+              py: 0.7, px: 1.25,
+              borderRadius: '12px',
+              borderColor: 'var(--color-border)',
+              '&:hover': {
+                borderColor: 'var(--color-primary)',
+                bgcolor: 'var(--color-primary-alpha)',
+              },
             }}
           >
-            ↳ {q}
+            {q}
           </Button>
         ))}
       </Box>
@@ -185,7 +190,7 @@ function FollowUpChips({ questions, onSelect }) {
 
 // ─── Main NyayaBotMessage component ──────────────────────────────────────────
 
-export default function NyayaBotMessage({ message, onFollowUp, compact = false }) {
+export default function NyayaBotMessage({ message, onFollowUp, compact = false, isGreeting = false }) {
   const dispatch = useDispatch();
   const { t } = useTranslation();
   const prefersReducedMotion = useReducedMotion();
@@ -219,30 +224,29 @@ export default function NyayaBotMessage({ message, onFollowUp, compact = false }
         transition={{ duration: 0.22, ease: 'easeOut' }}
         style={{ display: 'flex', justifyContent: 'flex-end' }}
       >
+        <Box sx={{ maxWidth: compact ? '88%' : '72%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
         <Box
           sx={{
-            maxWidth: compact ? '90%' : '75%',
-            px: 1.75, py: 1.25,
-            borderRadius: '14px 14px 4px 14px',
-            bgcolor: 'primary.main',
+            px: 1.75, py: 1.2,
+            borderRadius: '16px 16px 4px 16px',
+            bgcolor: 'var(--color-primary-dark)',
             color: '#fff',
             fontFamily: TYPOGRAPHY.fontFamily.body,
             fontSize: '0.9rem',
             lineHeight: 1.55,
             wordBreak: 'break-word',
-            boxShadow: '0 2px 8px var(--color-primary-alpha)',
-            position: 'relative',
           }}
         >
           {message.isVoice && (
-            <Box sx={{ fontSize: '0.72rem', opacity: 0.8, mb: 0.5 }}>
-              🎤 {t('nyayabot.voiceMessage')}
+            <Box sx={{ fontSize: '0.68rem', letterSpacing: '0.04em', textTransform: 'uppercase', opacity: 0.8, mb: 0.5 }}>
+              {t('nyayabot.voiceMessage')}
             </Box>
           )}
           <Box sx={{ whiteSpace: 'pre-wrap' }}>{message.content}</Box>
-          <Box sx={{ fontSize: '0.68rem', opacity: 0.7, mt: 0.5, textAlign: 'right' }}>
-            {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </Box>
+        </Box>
+        <Box sx={{ fontSize: '0.65rem', color: 'var(--color-text-secondary)', mt: 0.45, pr: 0.25 }}>
+          {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Box>
         </Box>
       </motion.div>
     );
@@ -258,22 +262,19 @@ export default function NyayaBotMessage({ message, onFollowUp, compact = false }
     >
       <BotAvatarSmall />
 
-      <Box sx={{ maxWidth: '82%', flex: 1, minWidth: 0 }}>
-        {/* Bot name label */}
-        <Box sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-primary)', mb: 0.4, letterSpacing: '0.04em' }}>
-          NyayaBot
-        </Box>
-
-        {/* Main bubble */}
+      <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box
           sx={{
-            px: 1.75, py: 1.5,
-            borderRadius: '14px 14px 14px 4px',
+            px: isGreeting ? 1.85 : 1.6,
+            py: isGreeting ? 1.6 : 1.35,
+            borderRadius: '4px 16px 16px 16px',
             bgcolor: 'var(--color-surface)',
             border: '1px solid var(--color-border)',
-            fontFamily: TYPOGRAPHY.fontFamily.body,
-            fontSize: '0.88rem',
-            lineHeight: 1.65,
+            borderLeft: '2px solid var(--color-primary)',
+            boxShadow: '0 10px 28px rgba(0,0,0,0.12)',
+            fontFamily: isGreeting ? TYPOGRAPHY.fontFamily.display : TYPOGRAPHY.fontFamily.body,
+            fontSize: isGreeting ? '0.98rem' : '0.88rem',
+            lineHeight: isGreeting ? 1.55 : 1.65,
             color: 'var(--color-text)',
             wordBreak: 'break-word',
           }}
@@ -313,8 +314,8 @@ export default function NyayaBotMessage({ message, onFollowUp, compact = false }
           {message.disclaimer && (
             <>
               <Divider sx={{ my: 1.25, borderColor: 'var(--color-border)' }} />
-              <Box sx={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)', fontStyle: 'italic', lineHeight: 1.5 }}>
-                ⚖️ {message.disclaimer}
+              <Box sx={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+                {message.disclaimer}
               </Box>
             </>
           )}

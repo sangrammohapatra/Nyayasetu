@@ -30,7 +30,7 @@ import {
 } from '../../store/slices/nyayabotSlice';
 import { useFeatureFlag } from '../../utils/featureFlags';
 import NyayaBotWindow from './NyayaBotWindow';
-import { RADIUS, SHADOWS } from '../../theme/tokens';
+import { SHADOWS } from '../../theme/tokens';
 
 // ─── Animated FAB label ───────────────────────────────────────────────────────
 
@@ -134,12 +134,12 @@ export default function NyayaBotWidget() {
         position: 'fixed',
         bottom: 96,
         right: 24,
-        width: 380,
-        height: 560,
+        width: 400,
+        height: 600,
         zIndex: 1400,
-        borderRadius: `${RADIUS.xl}px`,
+        borderRadius: 20,
         overflow: 'hidden',
-        boxShadow: SHADOWS.xl,
+        boxShadow: `${SHADOWS.xl}, 0 0 0 1px rgba(255,255,255,0.04)`,
       };
 
   const glowColor = muiTheme.custom?.glowPrimary || '0 0 28px rgba(21, 101, 192, 0.50)';
@@ -158,8 +158,8 @@ export default function NyayaBotWidget() {
             transition={{ type: 'spring', stiffness: 340, damping: 28 }}
             style={{
               ...panelStyle,
-              background: muiTheme.custom?.cardBg || muiTheme.palette.background.paper,
-              border: muiTheme.custom?.cardBorder || '1px solid var(--color-border)',
+              background: 'var(--color-bg)',
+              border: '1px solid var(--color-border)',
               display: 'flex',
               flexDirection: 'column',
             }}
@@ -181,13 +181,19 @@ export default function NyayaBotWidget() {
                   background: 'var(--color-bg)',
                 }}
               >
-                <motion.div
-                  animate={prefersReducedMotion ? undefined : { rotate: [0, 8, -8, 0] }}
-                  transition={{ duration: 2, repeat: Infinity }}
+                <Box
+                  sx={{
+                    width: 52, height: 52, borderRadius: '14px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    bgcolor: 'var(--color-primary-alpha)',
+                    border: '1px solid color-mix(in srgb, var(--color-primary) 28%, transparent)',
+                  }}
                 >
-                  <Balance sx={{ fontSize: 40, color: 'var(--color-primary)' }} />
-                </motion.div>
-                <Box sx={{ fontSize: '0.85rem' }}>{t('nyayabot.loading')}</Box>
+                  <Balance sx={{ fontSize: 26, color: 'var(--color-primary)' }} />
+                </Box>
+                <Box sx={{ fontSize: '0.8rem', letterSpacing: '0.04em', color: 'var(--color-text-secondary)' }}>
+                  {t('nyayabot.loading')}
+                </Box>
               </Box>
             )}
           </motion.div>
