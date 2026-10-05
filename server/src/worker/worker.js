@@ -28,6 +28,7 @@ const { BullAdapter } = require('@bull-board/api/bullAdapter');
 const { ExpressAdapter } = require('@bull-board/express');
 
 const logger = require('../utils/logger');
+const { ensureDnsServers } = require('../config/dns');
 const { buildBullRedisOpts } = require('../utils/bullRedisOpts');
 
 // ─── MongoDB connection ────────────────────────────────────────────────────────
@@ -39,6 +40,7 @@ const REDIS_OPTS = { redis: buildBullRedisOpts(REDIS_URL) };
 
 async function connectMongo() {
   try {
+    ensureDnsServers();
     // Workers run as a separate process from the Express server.
     // Keep the pool small (max 3) so both processes together stay well within
     // Atlas M0's 500-connection limit even when running multiple worker instances.

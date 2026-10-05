@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const logger = require('../utils/logger');
+const { ensureDnsServers } = require('./dns');
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
@@ -16,6 +17,7 @@ async function connectDB(attempt = 1) {
       throw new Error('MONGO_URI environment variable is not defined');
     }
 
+    ensureDnsServers();
     logger.info(`Connecting to MongoDB (attempt ${attempt}/${MAX_RETRIES})...`);
 
     await mongoose.connect(mongoUri, {
