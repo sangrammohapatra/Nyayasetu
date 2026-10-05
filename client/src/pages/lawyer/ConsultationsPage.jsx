@@ -187,10 +187,11 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, onComplete, 
               onClick={() => onAccept(consultation._id)}
               sx={{
                 fontSize: '0.72rem', fontWeight: 600,
-                borderRadius: `${RADIUS.full}px`, py: 0.4,
-                background: muiTheme.custom?.gradientBrand || 'var(--color-primary)',
-                boxShadow: muiTheme.custom?.glowPrimary || 'none',
-                '&:hover': { background: muiTheme.custom?.gradientBrand || 'var(--color-primary-dark, var(--color-primary))' },
+                borderRadius: '8px', py: 0.4,
+                background: 'var(--color-primary)',
+                color: 'var(--color-bg)',
+                boxShadow: 'none',
+                '&:hover': { background: 'var(--color-primary-light)', boxShadow: 'none' },
               }}
             >
               {t('consultations.accept', 'Accept')}

@@ -566,12 +566,12 @@ function LawyerDashboard() {
             )}
             {step < STEP_COUNT - 1 ? (
               <Button variant="contained" onClick={goNext}
-                sx={{ flex: 2, borderRadius: `${RADIUS.full}px`, fontWeight: 700, background: muiTheme.custom?.gradientBrand || 'var(--color-primary)', boxShadow: muiTheme.custom?.glowPrimary || 'none' }}>
-                {t('common.continue', 'Continue')} →
+                sx={{ flex: 2, borderRadius: '8px', fontWeight: 600, boxShadow: 'none', background: 'var(--color-primary)', color: 'var(--color-bg)', '&:hover': { boxShadow: 'none', background: 'var(--color-primary-light)' } }}>
+                {t('common.continue', 'Continue')}
               </Button>
             ) : (
-              <Button variant="contained" onClick={handleSubmit(onFinalSubmit)} disabled={submitting}
-                sx={{ flex: 2, borderRadius: `${RADIUS.full}px`, fontWeight: 700, background: muiTheme.custom?.gradientBrand || 'var(--color-primary)', boxShadow: muiTheme.custom?.glowPrimary || 'none', py: 1.25 }}>
+              <Button variant="contained" disableElevation onClick={handleSubmit(onFinalSubmit)} disabled={submitting}
+                sx={{ flex: 2, borderRadius: '8px', fontWeight: 600, background: 'var(--color-primary)', color: 'var(--color-bg)', boxShadow: 'none', py: 1.25, '&:hover': { boxShadow: 'none', background: 'var(--color-primary-light)' } }}>
                 {submitting ? <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><CircularProgress size={18} sx={{ color: '#fff' }} />{t('lawyer_setup.submitting', 'Submitting…')}</Box>
                   : t('lawyer_setup.submit', 'Submit Application')}
               </Button>

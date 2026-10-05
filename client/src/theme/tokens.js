@@ -29,9 +29,8 @@ export const SHADOWS = {
   md: '0 4px 12px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06)',
   lg: '0 12px 32px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.08)',
   xl: '0 24px 56px rgba(0,0,0,0.16), 0 8px 20px rgba(0,0,0,0.10)',
-  /** Uses CSS custom property — only valid in contexts where :root vars are set */
-  glow: '0 0 20px var(--color-primary-alpha)',
-  glowLg: '0 0 40px var(--color-primary-alpha)',
+  glow: 'none',
+  glowLg: 'none',
   inner: 'inset 0 2px 6px rgba(0,0,0,0.08)',
 };
 

@@ -12,9 +12,20 @@ import React, { useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@mui/material/styles';
 import { motion, useReducedMotion } from 'framer-motion';
+import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
+import NoteAddRoundedIcon from '@mui/icons-material/NoteAddRounded';
+import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
+import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded';
+import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
+import PersonSearchRoundedIcon from '@mui/icons-material/PersonSearchRounded';
+import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded';
 import PeopleAltRounded from '@mui/icons-material/PeopleAltRounded';
+import WorkOutlineRoundedIcon from '@mui/icons-material/WorkOutlineRounded';
+import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded';
+import AccountBalanceWalletRoundedIcon from '@mui/icons-material/AccountBalanceWalletRounded';
+import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
+import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import GavelRounded from '@mui/icons-material/GavelRounded';
 import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded';
 import VerifiedUserRounded from '@mui/icons-material/VerifiedUserRounded';
@@ -41,24 +52,24 @@ const SIDEBAR_FULL = 248;
 // for the 3 IDs that returned 404 on Lordicon's CDN.
 
 const IC = {
-  home:          '/icons/wmwqvixz.json',
-  newDoc:        '/icons/mubdgyyw.json',
-  myDocs:        '/icons/jqqjtvlf.json',
-  caseTracker:   '/icons/warimioc.json',
-  rtiTracker:    '/icons/warimioc.json', // reuse case tracker icon
-  findLawyer:    '/icons/kkvxgpti.json',
-  pricing:       '/icons/qhviklyi.json',
-  clients:       PeopleAltRounded,    // oqjlkyvy.json → 404 on CDN
-  cases:         '/icons/gjjvytyq.json',
-  consultations: '/icons/slduhdil.json',
-  earnings:      '/icons/rfbqeber.json',
-  dashboard:     '/icons/dxoycpzg.json',
-  users:         PeopleAltRounded,    // oqjlkyvy.json → 404 on CDN
-  templates:     '/icons/wloilxuq.json',
-  lawyers:       GavelRounded,           // mxxgldoo.json → 404 on CDN
-  notaries:      VerifiedUserRounded,    // represents official credential verification
-  calendar:      CalendarMonthRounded,  // abvsilmk.json → 404 on CDN
-  settings:      SettingsRounded,       // no dedicated settings Lordicon asset
+  home:          HomeRoundedIcon,
+  newDoc:        NoteAddRoundedIcon,
+  myDocs:        FolderRoundedIcon,
+  caseTracker:   AccountBalanceRoundedIcon,
+  rtiTracker:    AssignmentRoundedIcon,
+  findLawyer:    PersonSearchRoundedIcon,
+  pricing:       PaymentsRoundedIcon,
+  clients:       PeopleAltRounded,
+  cases:         WorkOutlineRoundedIcon,
+  consultations: EventNoteRoundedIcon,
+  earnings:      AccountBalanceWalletRoundedIcon,
+  dashboard:     DashboardRoundedIcon,
+  users:         PeopleAltRounded,
+  templates:     DescriptionRoundedIcon,
+  lawyers:       GavelRounded,
+  notaries:      VerifiedUserRounded,
+  calendar:      CalendarMonthRounded,
+  settings:      SettingsRounded,
 };
 
 // ─── Nav definitions per persona — grouped by section ────────────────────────
@@ -128,11 +139,9 @@ function useNavItems(persona, t) {
 
 function NavItem({ icon, label, path, collapsed, isActive }) {
   const navigate = useNavigate();
-  const theme = useTheme();
-  const prefersReducedMotion = useReducedMotion();
 
   const item = (
-    <motion.div whileHover={prefersReducedMotion ? undefined : { x: collapsed ? 0 : 3 }} transition={{ duration: 0.15 }}>
+    <Box>
       <Box
         className="ns-nav-item"
         onClick={() => navigate(path)}
@@ -143,7 +152,7 @@ function NavItem({ icon, label, path, collapsed, isActive }) {
           px: collapsed ? 0 : 2,
           py: 1.1,
           mx: collapsed ? 'auto' : 1,
-          borderRadius: `${RADIUS.md}px`,
+          borderRadius: '8px',
           cursor: 'pointer',
           justifyContent: collapsed ? 'center' : 'flex-start',
           width: collapsed ? 44 : 'auto',
@@ -156,45 +165,28 @@ function NavItem({ icon, label, path, collapsed, isActive }) {
             background: isActive ? 'var(--color-primary-alpha)' : 'var(--color-overlay)',
             color: 'var(--color-primary)',
           },
-          // Gradient left border for active state (desktop expanded only)
           '&::before': isActive && !collapsed ? {
             content: '""',
             position: 'absolute',
-            left: -8, // sit flush with the mx:1 margin
-            top: '10%',
-            width: 3,
-            height: '80%',
+            left: -8,
+            top: '18%',
+            width: 2,
+            height: '64%',
             borderRadius: '0 2px 2px 0',
-            background: theme.custom?.gradientBrand || 'var(--color-primary)',
+            background: 'var(--color-primary)',
           } : {},
         }}
       >
-        {typeof icon === 'string' ? (
-          <lord-icon
-            src={icon}
-            trigger="loop-on-hover"
-            delay="500"
-            target=".ns-nav-item"
-            style={{
-              width: 22,
-              height: 22,
-              flexShrink: 0,
-              '--lord-icon-primary': 'currentColor',
-              '--lord-icon-secondary': 'currentColor',
-            }}
-          />
-        ) : (
-          React.createElement(icon, {
-            sx: { width: 22, height: 22, flexShrink: 0, color: 'inherit', fontSize: 22 },
-          })
-        )}
+        {React.createElement(icon, {
+          sx: { width: 20, height: 20, flexShrink: 0, color: 'inherit', fontSize: 20 },
+        })}
         {!collapsed && (
-          <Typography variant="body2" sx={{ fontWeight: isActive ? 700 : 500, whiteSpace: 'nowrap' }}>
+          <Typography variant="body2" sx={{ fontWeight: isActive ? 600 : 500, whiteSpace: 'nowrap' }}>
             {label}
           </Typography>
         )}
       </Box>
-    </motion.div>
+    </Box>
   );
 
   return collapsed ? (

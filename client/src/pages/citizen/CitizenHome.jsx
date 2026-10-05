@@ -616,21 +616,7 @@ function CitizenHome() {
               variant="body2"
               sx={{ color: "rgba(255,255,255,0.78)", mb: 0.5 }}
             >
-              {greeting}, {firstName} &nbsp; 
-              <lord-icon
-                src={"/icons/zubhquzc.json"}
-                trigger="loop"
-                delay="500"
-                target=".ns-nav-item"
-                style={{
-                  paddingTop: 3,
-                  width: 22,
-                  height: 22,
-                  flexShrink: 0,
-                  "--lord-icon-primary": "currentColor",
-                  "--lord-icon-secondary": "currentColor",
-                }}
-              />
+              {greeting}, {firstName}
             </Typography>
             <Typography
               variant={isMobile ? "h5" : "h4"}

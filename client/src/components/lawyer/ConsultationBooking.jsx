@@ -30,18 +30,31 @@ import { selectUser } from '../../store/slices/authSlice';
 import { selectDocuments } from '../../store/slices/documentSlice';
 import { openCheckout } from '../../services/razorpay';
 import api from '../../services/api';
-import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
-import GradientHeading from '../ui/GradientHeading';
-import { useTheme } from '@mui/material/styles';
+import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
+import VideocamOutlinedIcon from '@mui/icons-material/VideocamOutlined';
+import PhoneOutlinedIcon from '@mui/icons-material/PhoneOutlined';
+import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
+import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
+
+import { RADIUS, SHADOWS } from '../../theme/tokens';
 
 // ─── Mode options ─────────────────────────────────────────────────────────────
 
 const MODES = [
-  { id: 'chat',      icon: '💬', label: 'Online Chat',   desc: 'Text chat via platform' },
-  { id: 'video',     icon: '📹', label: 'Video Call',     desc: 'Secure link sent on acceptance' },
-  { id: 'phone',     icon: '📞', label: 'Phone Call',     desc: 'Direct call' },
-  { id: 'in_person', icon: '🏛️', label: 'In Person',     desc: 'Visit the chamber' },
+  { id: 'chat', Icon: ChatBubbleOutlineRoundedIcon, label: 'Online Chat', desc: 'Text chat via platform' },
+  { id: 'video', Icon: VideocamOutlinedIcon, label: 'Video Call', desc: 'Secure link sent on acceptance' },
+  { id: 'phone', Icon: PhoneOutlinedIcon, label: 'Phone Call', desc: 'Direct call' },
+  { id: 'in_person', Icon: AccountBalanceOutlinedIcon, label: 'In Person', desc: 'Visit the chamber' },
 ];
+
+const ctaButtonSx = {
+  borderRadius: '8px',
+  fontWeight: 600,
+  boxShadow: 'none',
+  backgroundColor: 'var(--color-primary)',
+  color: 'var(--color-bg)',
+  '&:hover': { backgroundColor: 'var(--color-primary-light)', boxShadow: 'none' },
+};
 
 // ─── Time slots (fetched from API) ───────────────────────────────────────────
 
@@ -58,28 +71,34 @@ function Step1({ mode, onSelect, supportedModes }) {
         {MODES.map((m) => {
           const available = supportedModes.includes(m.id);
           return (
-            <motion.div key={m.id} whileHover={available ? { scale: 1.01 } : {}} whileTap={available ? { scale: 0.99 } : {}}>
-              <Box onClick={() => available && onSelect(m.id)} sx={{
-                display: 'flex', alignItems: 'center', gap: 2, p: 1.75,
-                borderRadius: `${RADIUS.lg}px`,
-                border: mode === m.id ? '2px solid var(--color-primary)' : '1.5px solid var(--color-border)',
-                background: mode === m.id ? 'var(--color-primary-alpha)' : available ? 'var(--color-surface)' : 'var(--color-bg)',
-                cursor: available ? 'pointer' : 'not-allowed',
-                opacity: available ? 1 : 0.45,
-                transition: 'all 0.18s',
+            <Box key={m.id} onClick={() => available && onSelect(m.id)} sx={{
+              display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5,
+              borderRadius: '10px',
+              border: mode === m.id ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
+              background: mode === m.id ? 'var(--color-primary-alpha)' : 'transparent',
+              cursor: available ? 'pointer' : 'not-allowed',
+              opacity: available ? 1 : 0.45,
+              transition: 'border-color 0.15s ease, background-color 0.15s ease',
+            }}>
+              <Box sx={{
+                width: 36, height: 36, borderRadius: '8px', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: '1px solid var(--color-border)',
+                color: mode === m.id ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                background: 'var(--color-surface)',
               }}>
-                <Typography sx={{ fontSize: 24, lineHeight: 1 }}>{m.icon}</Typography>
-                <Box>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: mode === m.id ? 'var(--color-primary)' : 'var(--color-text)' }}>
-                    {m.label}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
-                    {available ? m.desc : t('lawyer.mode_unavailable', 'Not offered by this lawyer')}
-                  </Typography>
-                </Box>
-                {mode === m.id && <Typography sx={{ ml: 'auto', color: 'var(--color-primary)', fontSize: 18 }}>✓</Typography>}
+                <m.Icon sx={{ fontSize: 18 }} />
               </Box>
-            </motion.div>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--color-text)' }}>
+                  {m.label}
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
+                  {available ? m.desc : t('lawyer.mode_unavailable', 'Not offered by this lawyer')}
+                </Typography>
+              </Box>
+              {mode === m.id && <CheckRoundedIcon sx={{ ml: 'auto', color: 'var(--color-primary)', fontSize: 18 }} />}
+            </Box>
           );
         })}
       </Box>
@@ -145,9 +164,9 @@ function Step2({ lawyerId, date, setDate, time, setTime }) {
                     sx={{
                       fontWeight: isActive ? 700 : 500, height: 28, fontSize: '0.78rem',
                       background: isActive ? 'var(--color-primary)' : 'var(--color-surface)',
-                      color: isActive ? '#fff' : 'var(--color-text)',
+                      color: isActive ? 'var(--color-bg)' : 'var(--color-text)',
                       border: isActive ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
-                      boxShadow: isActive ? '0 0 0 3px var(--color-primary-alpha)' : 'none',
+                      boxShadow: 'none',
                       transition: 'all 0.15s',
                       '&:hover': { background: isActive ? 'var(--color-primary)' : 'var(--color-overlay)', borderColor: 'var(--color-primary)' },
                     }} />
@@ -220,7 +239,7 @@ function Step4({ lawyer, mode, date, time, notes, fee, feeLoading }) {
         )}
       </Box>
       <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', lineHeight: 1.6, display: 'block' }}>
-        💳 You will be redirected to Razorpay to complete payment. Your booking is confirmed only after payment.
+        You will be redirected to Razorpay to complete payment. Your booking is confirmed only after payment.
       </Typography>
     </Box>
   );
@@ -229,7 +248,6 @@ function Step4({ lawyer, mode, date, time, notes, fee, feeLoading }) {
 // ─── Main drawer ──────────────────────────────────────────────────────────────
 function ConsultationBooking({ open, onClose, lawyer }) {
   const { t } = useTranslation();
-  const muiTheme = useTheme();
   const prefersReducedMotion = useReducedMotion();
   const user = useSelector(selectUser);
   const documents = useSelector(selectDocuments);
@@ -344,9 +362,9 @@ function ConsultationBooking({ open, onClose, lawyer }) {
         {/* Header */}
         <Box sx={{ px: 3, py: 2.5, borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box>
-            <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
-              📅 {t('lawyer.booking_title', 'Book Consultation')}
-            </GradientHeading>
+            <Typography variant="h6" sx={{ fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--color-text)' }}>
+              {t('lawyer.booking_title', 'Book Consultation')}
+            </Typography>
             {lawyer && <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>with {lawyer.name}</Typography>}
           </Box>
           <IconButton onClick={handleClose} sx={{ color: 'var(--color-text-secondary)' }}>✕</IconButton>
@@ -399,22 +417,14 @@ function ConsultationBooking({ open, onClose, lawyer }) {
                 </Button>
               )}
               {step < 3 ? (
-                <Button variant="contained" onClick={handleNext} disabled={!canNext()}
-                  sx={{
-                    flex: 2, borderRadius: `${RADIUS.full}px`, fontWeight: 700,
-                    background: muiTheme.custom?.gradientBrand || 'var(--color-primary)',
-                    boxShadow: muiTheme.custom?.glowPrimary,
-                  }}>
-                  {t('common.continue', 'Continue')} →
+                <Button variant="contained" disableElevation onClick={handleNext} disabled={!canNext()}
+                  sx={{ flex: 2, ...ctaButtonSx }}>
+                  {t('common.continue', 'Continue')}
                 </Button>
               ) : (
-                <Button variant="contained" onClick={handlePay} disabled={loading || feeLoading}
-                  sx={{
-                    flex: 2, borderRadius: `${RADIUS.full}px`, fontWeight: 700, py: 1.25,
-                    background: muiTheme.custom?.gradientBrand || 'var(--color-primary)',
-                    boxShadow: muiTheme.custom?.glowPrimary,
-                  }}>
-                  {loading || feeLoading ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : `💳 ${t('lawyer.pay', 'Pay')} ₹${Math.round(fee / 100)} & Confirm`}
+                <Button variant="contained" disableElevation onClick={handlePay} disabled={loading || feeLoading}
+                  sx={{ flex: 2, py: 1.1, ...ctaButtonSx }}>
+                  {loading || feeLoading ? <CircularProgress size={18} sx={{ color: 'var(--color-bg)' }} /> : `${t('lawyer.pay', 'Pay')} ₹${Math.round(fee / 100)}`}
                 </Button>
               )}
             </Box>
@@ -422,27 +432,23 @@ function ConsultationBooking({ open, onClose, lawyer }) {
         ) : (
           /* Confirmation screen */
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', px: 3, textAlign: 'center' }}>
-            <motion.div
-              initial={prefersReducedMotion ? false : { scale: 0.5, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 280, damping: 20 }}
-            >
-              <Typography sx={{ fontSize: 72, mb: 2 }}>🎉</Typography>
-            </motion.div>
-            <GradientHeading variant="h5" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 800, mb: 1 }}>
-              {t('lawyer.confirmed', 'Consultation Booked!')}
-            </GradientHeading>
+            <Box sx={{
+              width: 48, height: 48, mb: 2, borderRadius: '12px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'var(--color-primary-alpha)', color: 'var(--color-primary)',
+            }}>
+              <CheckRoundedIcon />
+            </Box>
+            <Typography variant="h5" sx={{ fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--color-text)', mb: 1 }}>
+              {t('lawyer.confirmed', 'Consultation booked')}
+            </Typography>
             <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3, lineHeight: 1.65, maxWidth: 300 }}>
               {mode === 'video'
                 ? t('lawyer.confirmed_desc_video', `Your video consultation with ${lawyer?.name} is booked. Once the lawyer accepts, you'll receive a secure video link via WhatsApp and in-app notification.`, { lawyerName: lawyer?.name })
                 : t('lawyer.confirmed_desc', `Your ${mode} consultation with ${lawyer?.name} has been confirmed. You will receive a WhatsApp reminder before the session.`, { mode, lawyerName: lawyer?.name })}
             </Typography>
-            <Button variant="contained" onClick={handleClose}
-              sx={{
-                borderRadius: `${RADIUS.full}px`, fontWeight: 700, px: 4,
-                background: muiTheme.custom?.gradientBrand || 'var(--color-primary)',
-                boxShadow: muiTheme.custom?.glowPrimary,
-              }}>
+            <Button variant="contained" disableElevation onClick={handleClose}
+              sx={{ px: 3, ...ctaButtonSx }}>
               {t('lawyer.done', 'Done')}
             </Button>
           </Box>

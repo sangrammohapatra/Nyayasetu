@@ -32,6 +32,7 @@ import Divider from "@mui/material/Divider";
 import CircularProgress from "@mui/material/CircularProgress";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import Collapse from "@mui/material/Collapse";
+import BalanceRoundedIcon from "@mui/icons-material/BalanceRounded";
 
 import {
   selectIsAuthenticated,
@@ -305,15 +306,15 @@ function LandingNavbar({ onScrollTo, scrollLockRef, onTargetRef }) {
             width: 36,
             height: 36,
             borderRadius: "10px",
-            background: "linear-gradient(135deg, #1565C0, #4A9BFF)",
+            background: "#1565C0",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: 18,
-            boxShadow: "0 4px 12px rgba(74,155,255,0.4)",
+            color: "#fff",
+            boxShadow: "none",
           }}
         >
-          ⚖️
+          <BalanceRoundedIcon sx={{ fontSize: 20 }} />
         </Box>
         <Typography
           sx={{
@@ -380,7 +381,7 @@ function LandingNavbar({ onScrollTo, scrollLockRef, onTargetRef }) {
             height: 2,
             borderRadius: 2,
             background: "#4A9BFF",
-            boxShadow: "0 0 12px rgba(74,155,255,0.9)",
+            boxShadow: "none",
             pointerEvents: "none",
           }}
         />
@@ -395,12 +396,12 @@ function LandingNavbar({ onScrollTo, scrollLockRef, onTargetRef }) {
               px: 2.5,
               py: 0.75,
               borderRadius: "100px",
-              background: "linear-gradient(135deg, #1565C0, #4A9BFF)",
+              background: "#1565C0",
               color: "#fff",
               fontWeight: 700,
               fontSize: "0.85rem",
               textTransform: "none",
-              boxShadow: "0 4px 12px rgba(74,155,255,0.35)",
+              boxShadow: "none",
             }}
           >
             Go to Dashboard →
@@ -429,12 +430,12 @@ function LandingNavbar({ onScrollTo, scrollLockRef, onTargetRef }) {
                 px: 2.5,
                 py: 0.75,
                 borderRadius: "100px",
-                background: "linear-gradient(135deg, #1565C0, #4A9BFF)",
+                background: "#1565C0",
                 color: "#fff",
                 fontWeight: 700,
                 fontSize: "0.85rem",
                 textTransform: "none",
-                boxShadow: "0 4px 12px rgba(74,155,255,0.35)",
+                boxShadow: "none",
               }}
             >
               Get Started Free
@@ -448,21 +449,9 @@ function LandingNavbar({ onScrollTo, scrollLockRef, onTargetRef }) {
 
 // ─── 2. Hero Section ──────────────────────────────────────────────────────────
 
-const FLOATING_ICONS = [
-  { icon: "⚖️", x: "8%", y: "20%", size: 40, dur: 6 },
-  { icon: "📜", x: "88%", y: "15%", size: 34, dur: 8 },
-  { icon: "🏛️", x: "5%", y: "70%", size: 38, dur: 7 },
-  { icon: "📋", x: "90%", y: "65%", size: 30, dur: 9 },
-  { icon: "🔏", x: "78%", y: "40%", size: 28, dur: 5 },
-  { icon: "💼", x: "18%", y: "85%", size: 32, dur: 10 },
-  { icon: "🏠", x: "82%", y: "82%", size: 26, dur: 7 },
-  { icon: "👨‍⚖️", x: "12%", y: "45%", size: 36, dur: 8 },
-];
-
 function HeroSection({ onScrollTo }) {
   const navigate = useNavigate();
   const canvasRef = useRef(null);
-  const prefersReducedMotion = useReducedMotion();
   useParticles(canvasRef, 55);
 
   return (
@@ -497,32 +486,6 @@ function HeroSection({ onScrollTo }) {
           pointerEvents: "none",
         }}
       />
-
-      {/* Floating icons */}
-      {!prefersReducedMotion &&
-        FLOATING_ICONS.map((f, i) => (
-          <motion.div
-            key={i}
-            animate={{ y: [0, -12, 0], rotate: [0, 5, -5, 0] }}
-            transition={{
-              duration: f.dur,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: i * 0.6,
-            }}
-            style={{
-              position: "absolute",
-              left: f.x,
-              top: f.y,
-              fontSize: f.size,
-              opacity: 0.15,
-              pointerEvents: "none",
-              filter: "blur(0.5px)",
-            }}
-          >
-            {f.icon}
-          </motion.div>
-        ))}
 
       {/* Trust pill */}
       <motion.div
@@ -579,11 +542,7 @@ function HeroSection({ onScrollTo }) {
             lineHeight: 1.1,
             letterSpacing: "-0.02em",
             mb: 0.5,
-            background:
-              "linear-gradient(135deg, #FFFFFF 0%, #B0C8FF 50%, #4A9BFF 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
+            color: "#F4F7FB",
             pb: 2,
           }}
         >
@@ -635,16 +594,14 @@ function HeroSection({ onScrollTo }) {
               px: { xs: 3, sm: 4 },
               py: 1.5,
               borderRadius: "100px",
-              background: "linear-gradient(135deg, #1565C0 0%, #4A9BFF 100%)",
+              background: "#1565C0",
               color: "#fff",
               fontWeight: 700,
               fontSize: "1rem",
               textTransform: "none",
-              boxShadow: "0 8px 24px rgba(74,155,255,0.45)",
-              transition: "transform 0.2s, box-shadow 0.2s",
+              boxShadow: "none",
               "&:hover": {
-                transform: "translateY(-2px)",
-                boxShadow: "0 12px 32px rgba(74,155,255,0.55)",
+                background: "#1E88E5",
               },
             }}
           >
@@ -665,7 +622,7 @@ function HeroSection({ onScrollTo }) {
               transition: "all 0.2s",
               "&:hover": {
                 background: "rgba(255,23,68,0.18)",
-                boxShadow: "0 8px 24px rgba(255,23,68,0.25)",
+                boxShadow: "none",
               },
             }}
           >
@@ -1468,7 +1425,7 @@ function AISection() {
                       width: 36,
                       height: 36,
                       borderRadius: "10px",
-                      background: "linear-gradient(135deg,#1565C0,#4A9BFF)",
+                      background: "#1565C0",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -2151,7 +2108,7 @@ function LiveHelplineSection() {
                           flex: 1,
                           py: 1.25,
                           borderRadius: `${RADIUS.md}px`,
-                          background: "linear-gradient(135deg,#1565C0,#4A9BFF)",
+                          background: "#1565C0",
                           color: "#fff",
                           fontWeight: 700,
                           fontSize: "0.85rem",
@@ -2236,12 +2193,12 @@ function LiveHelplineSection() {
                       sx={{
                         py: 1.5,
                         borderRadius: `${RADIUS.md}px`,
-                        background: "linear-gradient(135deg,#1565C0,#4A9BFF)",
+                        background: "#1565C0",
                         color: "#fff",
                         fontWeight: 700,
                         fontSize: "0.95rem",
                         textTransform: "none",
-                        boxShadow: "0 8px 24px rgba(74,155,255,0.35)",
+                        boxShadow: "none",
                         mb: 1.5,
                       }}
                     >
@@ -2405,7 +2362,7 @@ function PricingSection() {
                         px: 2,
                         py: 0.4,
                         borderRadius: "100px",
-                        background: "linear-gradient(135deg,#1565C0,#4A9BFF)",
+                        background: "#1565C0",
                         fontSize: "0.72rem",
                         fontWeight: 700,
                         color: "#fff",
@@ -2493,7 +2450,7 @@ function PricingSection() {
                       py: 1.25,
                       borderRadius: `${RADIUS.md}px`,
                       background: plan.popular
-                        ? "linear-gradient(135deg,#1565C0,#4A9BFF)"
+                        ? "#1565C0"
                         : `rgba(255,255,255,0.05)`,
                       border: plan.popular
                         ? "none"
@@ -2625,12 +2582,12 @@ function CTASection() {
                 px: 4,
                 py: 1.75,
                 borderRadius: "100px",
-                background: "linear-gradient(135deg,#1565C0,#4A9BFF)",
+                background: "#1565C0",
                 color: "#fff",
                 fontWeight: 700,
                 fontSize: "1rem",
                 textTransform: "none",
-                boxShadow: "0 8px 28px rgba(74,155,255,0.5)",
+                boxShadow: "none",
                 "&:hover": { transform: "translateY(-2px)" },
                 transition: "transform 0.2s",
               }}
@@ -2685,7 +2642,7 @@ function LandingFooter() {
                   width: 32,
                   height: 32,
                   borderRadius: "9px",
-                  background: "linear-gradient(135deg,#1565C0,#4A9BFF)",
+                  background: "#1565C0",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",

@@ -80,10 +80,10 @@ export const muiTheme = createTheme({
   shape: { borderRadius: RADIUS.md },
   spacing: SPACING.sm,
   custom: {
-    gradientText:  'linear-gradient(130deg, #00695C 0%, #006064 100%)',
-    gradientBrand: 'linear-gradient(135deg, #00695C 0%, #558B2F 60%, #006064 100%)',
-    glowPrimary:   '0 0 28px rgba(0, 105, 92, 0.50)',
-    glowAccent:    '0 0 28px rgba(0, 96, 100, 0.45)',
+    gradientText:  '#10241F',
+    gradientBrand: '#00695C',
+    glowPrimary:   'none',
+    glowAccent:    'none',
     cardBg:        '#FFFFFF',
     cardBorder:    '1px solid #B2DFDB',
     cardBlur:      'blur(12px)',
@@ -94,10 +94,12 @@ export const muiTheme = createTheme({
   components: {
     MuiButton: {
       styleOverrides: {
-        root: { borderRadius: RADIUS.md, fontWeight: 600, textTransform: 'none' },
+        root: { borderRadius: RADIUS.md, fontWeight: 600, textTransform: 'none', boxShadow: 'none' },
+        contained: { boxShadow: 'none', '&:hover': { boxShadow: 'none' } },
         containedPrimary: {
           background: 'var(--color-primary)',
-          '&:hover': { background: 'var(--color-primary-dark)' },
+          boxShadow: 'none',
+          '&:hover': { background: 'var(--color-primary-dark)', boxShadow: 'none' },
         },
       },
     },

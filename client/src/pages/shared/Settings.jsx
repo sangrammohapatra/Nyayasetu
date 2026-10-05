@@ -62,16 +62,27 @@ import {
   setLanguage,
 } from "../../store/slices/uiSlice";
 import AnimatedPage from "../../components/ui/AnimatedPage";
-import LordIcon from "../../components/ui/LordIcon";
+import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
+import PaletteOutlinedIcon from "@mui/icons-material/PaletteOutlined";
+import TranslateRoundedIcon from "@mui/icons-material/TranslateRounded";
+import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
+import WorkspacePremiumOutlinedIcon from "@mui/icons-material/WorkspacePremiumOutlined";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+import GavelRoundedIcon from "@mui/icons-material/GavelRounded";
+import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import GlassCard from "../../components/ui/GlassCard";
 import GradientHeading from "../../components/ui/GradientHeading";
 import ThemeSwitcher from "../../components/layout/ThemeSwitcher";
 import { RADIUS, SHADOWS, TYPOGRAPHY } from "../../theme/tokens";
 
 const IC = {
-  settings: "https://cdn.lordicon.com/asyunleq.json",
-  account: "https://cdn.lordicon.com/kdduutaw.json",
-  security: "https://cdn.lordicon.com/urswgamh.json",
+  account: PersonOutlineRoundedIcon,
+  appearance: PaletteOutlinedIcon,
+  language: TranslateRoundedIcon,
+  notificationSec: NotificationsNoneRoundedIcon,
+  subscription: WorkspacePremiumOutlinedIcon,
+  security: LockOutlinedIcon,
+  lawyerProfile: GavelRoundedIcon,
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -184,10 +195,10 @@ const SAMPLE_TEXTS = {
 
 const SECTIONS = [
   { id: "account", icon: IC.account, label: "Account" },
-  { id: "appearance", icon: "🎨", label: "Appearance" },
-  { id: "language", icon: "🌐", label: "Language" },
-  { id: "notificationSec", icon: "🔔", label: "Notifications" },
-  { id: "subscription", icon: "💎", label: "Subscription" },
+  { id: "appearance", icon: IC.appearance, label: "Appearance" },
+  { id: "language", icon: IC.language, label: "Language" },
+  { id: "notificationSec", icon: IC.notificationSec, label: "Notifications" },
+  { id: "subscription", icon: IC.subscription, label: "Subscription" },
   { id: "security", icon: IC.security, label: "Security" },
 ];
 
@@ -1710,15 +1721,8 @@ function SecuritySection({ showSnack }) {
 
 // ─── Section icon — renders LordIcon URL or emoji string ─────────────────────
 
-function SectionIcon({ icon, size = 22 }) {
-  if (typeof icon === "string" && icon.startsWith("https://")) {
-    return (
-      <lord-icon src={icon} trigger="loop-on-hover" delay="500"
-        style={{ width: size, height: size, flexShrink: 0,
-          "--lord-icon-primary": "currentColor", "--lord-icon-secondary": "currentColor" }} />
-    );
-  }
-  return <Typography sx={{ fontSize: size, lineHeight: 1, flexShrink: 0 }}>{icon}</Typography>;
+function SectionIcon({ icon: Icon, size = 20 }) {
+  return <Icon sx={{ fontSize: size, color: "inherit" }} />;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -1745,11 +1749,11 @@ function Settings() {
 
   const sections = [
     { id: "account",         icon: IC.account,  label: "Account" },
-    ...(isLawyer ? [{ id: "lawyerProfile", icon: "⚖️", label: "Lawyer Profile" }] : []),
-    { id: "appearance",      icon: "🎨",         label: "Appearance" },
-    { id: "language",        icon: "🌐",         label: "Language" },
-    { id: "notificationSec", icon: "🔔",         label: "Notifications" },
-    { id: "subscription",    icon: "💎",         label: "Subscription" },
+    ...(isLawyer ? [{ id: "lawyerProfile", icon: IC.lawyerProfile, label: "Lawyer Profile" }] : []),
+    { id: "appearance",      icon: IC.appearance, label: "Appearance" },
+    { id: "language",        icon: IC.language, label: "Language" },
+    { id: "notificationSec", icon: IC.notificationSec, label: "Notifications" },
+    { id: "subscription",    icon: IC.subscription, label: "Subscription" },
     { id: "security",        icon: IC.security,  label: "Security" },
   ];
 
@@ -1779,13 +1783,7 @@ function Settings() {
           transition={{ duration: 0.38 }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 3 }}>
-            <LordIcon
-              src={IC.settings}
-              trigger="loop"
-              size={40}
-              state="loop-cog"
-              colors="primary:#1565C0,secondary:#5C9BF5"
-            />
+            <SettingsRoundedIcon sx={{ fontSize: 28, color: "var(--color-primary)" }} />
             <GradientHeading
               variant="h4"
               sx={{

@@ -41,6 +41,8 @@ import Button from "@mui/material/Button";
 import Tooltip from "@mui/material/Tooltip";
 import CircularProgress from "@mui/material/CircularProgress";
 import MenuIcon from "@mui/icons-material/Menu";
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import BalanceRoundedIcon from "@mui/icons-material/BalanceRounded";
 import useMediaQuery from "@mui/material/useMediaQuery";
 
 import {
@@ -176,7 +178,7 @@ function NotificationPopover({ anchorEl, onClose }) {
               variant="body1"
               sx={{ fontWeight: 700, color: "var(--color-text)" }}
             >
-              🔔 {t("notifications.title", "Notifications")}
+              {t("notifications.title", "Notifications")}
             </Typography>
             {unread > 0 && (
               <Chip
@@ -377,19 +379,18 @@ function SearchBar() {
         display: "flex",
         alignItems: "center",
         background: "var(--color-surface)",
-        border: "1.5px solid var(--color-border)",
-        borderRadius: `${RADIUS.full}px`,
-        px: 2,
+        border: "1px solid var(--color-border)",
+        borderRadius: "8px",
+        px: 1.5,
         py: 0.5,
         width: { md: 220, lg: 300 },
-        transition: "border-color 0.2s, box-shadow 0.2s",
+        transition: "border-color 0.2s",
         "&:focus-within": {
           borderColor: "var(--color-primary)",
-          boxShadow: "0 0 0 3px var(--color-primary-alpha)",
         },
       }}
     >
-      <Typography sx={{ fontSize: 14, mr: 1, opacity: 0.5 }}>🔍</Typography>
+      <SearchRoundedIcon sx={{ fontSize: 18, mr: 1, color: "var(--color-text-secondary)" }} />
       <InputBase
         value={value}
         onChange={(e) => setValue(e.target.value)}
@@ -455,12 +456,11 @@ function DesktopNavLinks({ links, theme }) {
                   left: 10,
                   right: 10,
                   height: 2,
-                  background:
-                    theme.custom?.gradientBrand || "var(--color-primary)",
+                  background: "var(--color-primary)",
                   borderRadius: 1,
                   display: "block",
                 }}
-                transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
               />
             )}
           </Box>
@@ -568,15 +568,15 @@ function Navbar() {
             sx={{
               width: 32,
               height: 32,
-              borderRadius: `${RADIUS.md}px`,
+              borderRadius: "8px",
               background: "var(--color-primary)",
+              color: "var(--color-bg)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 17,
             }}
           >
-            ⚖️
+            <BalanceRoundedIcon sx={{ fontSize: 18 }} />
           </Box>
           {!isMobile && (
             <GradientHeading

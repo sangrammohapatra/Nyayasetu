@@ -80,10 +80,10 @@ function GeneratingOverlay({ error, onRetry, onGoToDocuments }) {
             {error}
           </Typography>
           <Box sx={{ display: 'flex', gap: 1.5 }}>
-            <Button variant="contained" onClick={onRetry} sx={{ borderRadius: `${RADIUS.full}px`, fontWeight: 700 }}>
+            <Button variant="contained" disableElevation onClick={onRetry} sx={{ borderRadius: '8px', fontWeight: 600, boxShadow: 'none' }}>
               {t('common.retry', 'Retry')}
             </Button>
-            <Button variant="outlined" onClick={onGoToDocuments} sx={{ borderRadius: `${RADIUS.full}px`, fontWeight: 600 }}>
+            <Button variant="outlined" onClick={onGoToDocuments} sx={{ borderRadius: '8px', fontWeight: 600 }}>
               {t('myDocs.go_to_documents', 'My Documents')}
             </Button>
           </Box>

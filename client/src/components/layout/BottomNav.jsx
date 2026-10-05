@@ -10,13 +10,23 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { motion, useReducedMotion } from 'framer-motion';
-
 import Paper from '@mui/material/Paper';
 import BottomNavigation from '@mui/material/BottomNavigation';
 import BottomNavigationAction from '@mui/material/BottomNavigationAction';
 import Badge from '@mui/material/Badge';
 import Box from '@mui/material/Box';
+import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
+import NoteAddRoundedIcon from '@mui/icons-material/NoteAddRounded';
+import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded';
+import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
+import PersonSearchRoundedIcon from '@mui/icons-material/PersonSearchRounded';
+import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneRounded';
+import PeopleAltRoundedIcon from '@mui/icons-material/PeopleAltRounded';
+import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded';
+import AccountBalanceWalletRoundedIcon from '@mui/icons-material/AccountBalanceWalletRounded';
+import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
+import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
+import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
 
 import { selectUserPersona } from '../../store/slices/authSlice';
 import { selectUnreadTotal } from '../../store/slices/notificationSlice';
@@ -25,18 +35,19 @@ import { TYPOGRAPHY } from '../../theme/tokens';
 // ─── Lordicon CDN icon URLs ───────────────────────────────────────────────────
 
 const IC = {
-  home:          'https://cdn.lordicon.com/wmwqvixz.json',
-  newDoc:        'https://cdn.lordicon.com/mubdgyyw.json',
-  caseTracker:   'https://cdn.lordicon.com/warimioc.json',
-  findLawyer:    'https://cdn.lordicon.com/kkvxgpti.json',
-  notifications: 'https://cdn.lordicon.com/psnhyobz.json',
-  clients:       'https://cdn.lordicon.com/oqjlkyvy.json',
-  consultations: 'https://cdn.lordicon.com/slduhdil.json',
-  earnings:      'https://cdn.lordicon.com/rfbqeber.json',
-  dashboard:     'https://cdn.lordicon.com/dxoycpzg.json',
-  users:         'https://cdn.lordicon.com/oqjlkyvy.json',
-  templates:     'https://cdn.lordicon.com/wloilxuq.json',
-  lawyers:       'https://cdn.lordicon.com/mxxgldoo.json',
+  home:          HomeRoundedIcon,
+  newDoc:        NoteAddRoundedIcon,
+  caseTracker:   AccountBalanceRoundedIcon,
+  rti:           AssignmentRoundedIcon,
+  findLawyer:    PersonSearchRoundedIcon,
+  notifications: NotificationsNoneRoundedIcon,
+  clients:       PeopleAltRoundedIcon,
+  consultations: EventNoteRoundedIcon,
+  earnings:      AccountBalanceWalletRoundedIcon,
+  dashboard:     DashboardRoundedIcon,
+  users:         PeopleAltRoundedIcon,
+  templates:     DescriptionRoundedIcon,
+  lawyers:       GavelRoundedIcon,
 };
 
 // ─── Nav items per persona ────────────────────────────────────────────────────
@@ -46,7 +57,7 @@ function useBottomNavItems(persona, t, unread) {
     { icon: IC.home,          label: t('nav.home',          'Home'),     path: '/citizen/home' },
     { icon: IC.newDoc,        label: t('nav.new_doc',        'New Doc'),  path: '/citizen/documents/new' },
     { icon: IC.caseTracker,   label: t('nav.cases',          'Cases'),    path: '/citizen/cases' },
-    { icon: IC.caseTracker,   label: t('nav.rti',            'RTI'),      path: '/citizen/rti' },
+    { icon: IC.rti,           label: t('nav.rti',            'RTI'),      path: '/citizen/rti' },
     { icon: IC.findLawyer,    label: t('nav.lawyers',        'Lawyers'),  path: '/citizen/lawyers' },
   ];
 
@@ -76,81 +87,25 @@ function useBottomNavItems(persona, t, unread) {
 
 // ─── Animated icon with dot ───────────────────────────────────────────────────
 
-function NavIcon({ src, isActive, badge, prefersReducedMotion: reducedMotion }) {
+function NavIcon({ Icon, isActive, badge }) {
   return (
-    <Box
-      sx={{
-        position: 'relative',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        // Reserve space for the dot above the icon
-        pt: '8px',
-      }}
-    >
-      {/* Animated active dot — layoutId makes it spring between tabs */}
-      {isActive && !reducedMotion && (
-        <motion.div
-          layoutId="nav-dot"
-          style={{
-            position: 'absolute',
-            top: 0,
-            width: 5,
-            height: 5,
-            borderRadius: '50%',
-            background: 'var(--color-primary)',
-          }}
-          transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-        />
-      )}
-      {/* Static dot fallback for reduced-motion */}
-      {isActive && reducedMotion && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            width: 5,
-            height: 5,
-            borderRadius: '50%',
-            background: 'var(--color-primary)',
-          }}
-        />
-      )}
-
-      <motion.div
-        animate={isActive ? { scale: 1.15 } : { scale: 1 }}
-        transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 18 }}
-        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Badge
+        badgeContent={badge || 0}
+        max={99}
+        sx={{
+          '& .MuiBadge-badge': {
+            background: 'var(--color-error)',
+            color: 'var(--color-bg)',
+            fontSize: '0.6rem',
+            minWidth: 16,
+            height: 16,
+            padding: '0 4px',
+          },
+        }}
       >
-        <Badge
-          badgeContent={badge || 0}
-          max={99}
-          sx={{
-            '& .MuiBadge-badge': {
-              background: 'var(--color-error)',
-              color: '#fff',
-              fontSize: '0.6rem',
-              minWidth: 16,
-              height: 16,
-              padding: '0 4px',
-            },
-          }}
-        >
-          <Box className="ns-bn-item" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <lord-icon
-              src={src}
-              trigger="click"
-              target=".ns-bn-item"
-              style={{
-                width: isActive ? 26 : 24,
-                height: isActive ? 26 : 24,
-                '--lord-icon-primary': 'currentColor',
-                '--lord-icon-secondary': 'currentColor',
-              }}
-            />
-          </Box>
-        </Badge>
-      </motion.div>
+        <Icon sx={{ fontSize: 22, color: isActive ? 'var(--color-primary)' : 'inherit' }} />
+      </Badge>
     </Box>
   );
 }
@@ -161,8 +116,6 @@ function BottomNav() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const prefersReducedMotion = useReducedMotion();
-
   const persona = useSelector(selectUserPersona);
   const unread = useSelector(selectUnreadTotal);
   const navItems = useBottomNavItems(persona || 'citizen', t, unread);
@@ -183,7 +136,7 @@ function BottomNav() {
         zIndex: 1100,
         borderTop: '1px solid var(--color-border)',
         background: 'var(--color-surface)',
-        boxShadow: '0 -4px 20px var(--color-primary-alpha)',
+        boxShadow: 'none',
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
@@ -214,10 +167,9 @@ function BottomNav() {
             label={item.label}
             icon={
               <NavIcon
-                src={item.icon}
+                Icon={item.icon}
                 isActive={i === activeIndex}
                 badge={item.badge}
-                prefersReducedMotion={prefersReducedMotion}
               />
             }
           />

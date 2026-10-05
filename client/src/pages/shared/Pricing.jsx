@@ -238,7 +238,7 @@ function PlanCard({ plan, annual, currentPlan, onSelect, loading, persona }) {
       initial={prefersReducedMotion ? false : { opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
-      whileHover={(!isCurrentPlan && !prefersReducedMotion) ? { y: -6, transition: { duration: 0.2 } } : {}}
+      whileHover={undefined}
       style={{ height: '100%' }}
     >
       <Box sx={{
@@ -250,28 +250,26 @@ function PlanCard({ plan, annual, currentPlan, onSelect, loading, persona }) {
         background: plan.popular ? 'var(--color-primary-alpha)' : 'var(--color-surface)',
         display: 'flex', flexDirection: 'column',
         position: 'relative',
-        boxShadow: plan.popular ? (muiTheme.custom?.glowPrimary || SHADOWS.lg) : SHADOWS.sm,
-        transform: { md: plan.popular ? 'scale(1.03)' : 'none' },
+        boxShadow: 'none',
+        transform: 'none',
         transition: 'box-shadow 0.2s, transform 0.2s',
       }}>
         {/* Popular badge */}
         {plan.popular && (
           <Box sx={{
             position: 'absolute', top: -13, left: '50%', transform: 'translateX(-50%)',
-            background: 'linear-gradient(90deg, var(--color-primary), var(--color-primary-light))',
-            color: '#fff', px: 2, py: 0.4,
-            borderRadius: `${RADIUS.full}px`,
-            fontSize: '0.7rem', fontWeight: 800, whiteSpace: 'nowrap',
-            boxShadow: SHADOWS.md,
+            background: 'var(--color-primary)',
+            color: 'var(--color-bg)', px: 1.5, py: 0.35,
+            borderRadius: '6px',
+            fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.04em', whiteSpace: 'nowrap',
           }}>
-            ⭐ MOST POPULAR
+            MOST POPULAR
           </Box>
         )}
 
         {/* Plan name */}
         <Box sx={{ textAlign: 'center', mb: 0.5 }}>
-          <Typography sx={{ fontSize: 32, mb: 0.5 }}>{plan.icon}</Typography>
-          <Typography variant="h6" sx={{ fontWeight: 800, color: 'var(--color-text)' }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, color: 'var(--color-text)' }}>
             {plan.name}
           </Typography>
         </Box>
@@ -292,8 +290,8 @@ function PlanCard({ plan, annual, currentPlan, onSelect, loading, persona }) {
         <Box sx={{ flex: 1, mb: 2.5 }}>
           {plan.features.map((feat, i) => (
             <Box key={i} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 0.9 }}>
-              <Typography sx={{ fontSize: 14, mt: 0.1, flexShrink: 0 }}>
-                {feat.included ? '✅' : '❌'}
+              <Typography sx={{ fontSize: 13, mt: 0.1, flexShrink: 0, color: feat.included ? 'var(--color-success)' : 'var(--color-text-disabled)', fontWeight: 600 }}>
+                {feat.included ? '✓' : '–'}
               </Typography>
               <Typography variant="caption" sx={{
                 color: feat.included ? 'var(--color-text)' : 'var(--color-text-secondary)',
@@ -308,17 +306,18 @@ function PlanCard({ plan, annual, currentPlan, onSelect, loading, persona }) {
         </Box>
 
         {/* CTA */}
-        <motion.div whileHover={prefersReducedMotion ? undefined : { scale: 1.03 }} whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}>
+        <Box>
           <Button
             fullWidth
+            disableElevation
             variant={plan.popular ? 'contained' : 'outlined'}
             disabled={isCurrentPlan || loading}
             onClick={() => !isFree && onSelect(plan.id, persona)}
             sx={{
-              py: 1.25, borderRadius: `${RADIUS.full}px`, fontWeight: 700, fontSize: '0.95rem',
-              background: plan.popular ? (muiTheme.custom?.gradientBrand || 'var(--color-primary)') : 'transparent',
+              py: 1.15, borderRadius: '8px', fontWeight: 600, fontSize: '0.9rem', boxShadow: 'none',
+              background: plan.popular ? 'var(--color-primary)' : 'transparent',
               borderColor: plan.popular ? 'transparent' : 'var(--color-border)',
-              color: plan.popular ? '#fff' : 'var(--color-text)',
+              color: plan.popular ? 'var(--color-bg)' : 'var(--color-text)',
               '&:hover': {
                 background: plan.popular ? 'var(--color-primary-dark, var(--color-primary))' : 'var(--color-overlay)',
               },
@@ -328,12 +327,12 @@ function PlanCard({ plan, annual, currentPlan, onSelect, loading, persona }) {
               },
             }}
           >
-            {loading ? <CircularProgress size={20} sx={{ color: '#fff' }} /> :
+            {loading ? <CircularProgress size={20} sx={{ color: 'inherit' }} /> :
               isCurrentPlan ? 'Current Plan' :
               isFree ? 'Get Started Free' :
               `Upgrade to ${plan.name}`}
           </Button>
-        </motion.div>
+        </Box>
       </Box>
     </motion.div>
   );
@@ -471,7 +470,7 @@ function Pricing() {
               '& .MuiTabs-indicator': { background: 'var(--color-primary)' },
             }}>
             <Tab value="citizen" label="🏠 For Citizens" />
-            <Tab value="lawyer" label="⚖️ For Lawyers" />
+            <Tab value="lawyer" label="For Lawyers" />
           </Tabs>
 
           {/* Plan cards */}
@@ -541,7 +540,7 @@ function Pricing() {
                             <td style={{ padding: '8px 12px', color: 'var(--color-text)', fontSize: '0.85rem' }}>{feat.label}</td>
                             {plans.map((p) => (
                               <td key={p.id} style={{ padding: '8px 12px', textAlign: 'center', fontSize: '1rem' }}>
-                                {(p.features[fi] || {}).included ? '✅' : '❌'}
+                                {(p.features[fi] || {}).included ? '✓' : '–'}
                               </td>
                             ))}
                           </tr>
@@ -557,7 +556,7 @@ function Pricing() {
           {/* Testimonials */}
           <Box sx={{ mb: 5 }}>
             <GradientHeading variant="h5" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, textAlign: 'center', mb: 3 }}>
-              💬 Still not sure? Here's what our users say
+              What people say
             </GradientHeading>
             <Grid container spacing={2}>
               {TESTIMONIALS.map((t, i) => (
@@ -573,8 +572,7 @@ function Pricing() {
                       border: '1px solid var(--color-border)',
                       background: 'var(--color-surface)',
                     }}>
-                      <Typography sx={{ fontSize: 32, mb: 1.5 }}>{t.avatar}</Typography>
-                      <Typography variant="body2" sx={{ color: 'var(--color-text)', lineHeight: 1.65, mb: 2, fontStyle: 'italic' }}>
+                      <Typography variant="body2" sx={{ color: 'var(--color-text)', lineHeight: 1.65, mb: 2 }}>
                         "{t.quote}"
                       </Typography>
                       <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--color-text)', display: 'block' }}>{t.name}</Typography>

@@ -19,6 +19,9 @@ import Avatar from '@mui/material/Avatar';
 import Skeleton from '@mui/material/Skeleton';
 import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
+import StarRoundedIcon from '@mui/icons-material/StarRounded';
+import StarBorderRoundedIcon from '@mui/icons-material/StarBorderRounded';
+import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded';
 
 import { getLawyerProfile, selectCurrentLawyer, selectLawyerProfileLoading } from '../../store/slices/lawyerSlice';
 import { selectUserPlan, selectIsAuthenticated } from '../../store/slices/authSlice';
@@ -30,14 +33,14 @@ import FeatureGate from '../../components/ui/FeatureGate';
 import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
 
 // ─── Star rating ──────────────────────────────────────────────────────────────
-function StarRating({ rating = 0, size = 18 }) {
+function StarRating({ rating = 0, size = 16 }) {
+  const rounded = Math.round(rating);
   return (
-    <Box sx={{ display: 'inline-flex', gap: 0.25 }}>
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Typography key={i} sx={{ fontSize: size, lineHeight: 1, color: i < Math.round(rating) ? '#F59E0B' : 'var(--color-border)' }}>
-          {i < Math.floor(rating) ? '★' : i < rating ? '⭐' : '☆'}
-        </Typography>
-      ))}
+    <Box sx={{ display: 'inline-flex' }}>
+      {Array.from({ length: 5 }).map((_, i) => {
+        const Icon = i < rounded ? StarRoundedIcon : StarBorderRoundedIcon;
+        return <Icon key={i} sx={{ fontSize: size, color: i < rounded ? '#C9A227' : 'rgba(255,255,255,0.45)' }} />;
+      })}
     </Box>
   );
 }
@@ -175,12 +178,12 @@ function LawyerProfile() {
                     {lawyer.user?.name || 'Advocate'}
                   </Typography>
                   {lawyer.isVerified && (
-                    <Tooltip title="Verified by NyayaSetu" arrow>
-                      <Chip label="✅ Verified" size="small" sx={{ background: 'rgba(255,255,255,0.2)', color: '#fff', fontWeight: 700, fontSize: '0.72rem', height: 22 }} />
+                    <Tooltip title="Verified advocate">
+                      <VerifiedRoundedIcon sx={{ fontSize: 22, color: '#fff' }} />
                     </Tooltip>
                   )}
                   {lawyer.lawyerPlan === 'firm' && (
-                    <Chip label="🥇 FIRM" size="small" sx={{ background: 'rgba(245,158,11,0.25)', color: '#FFD700', fontWeight: 800, fontSize: '0.72rem', height: 22 }} />
+                    <Chip label="Firm" size="small" sx={{ background: 'rgba(255,255,255,0.16)', color: '#fff', fontWeight: 600, fontSize: '0.7rem', height: 22, borderRadius: '6px' }} />
                   )}
                 </Box>
 
@@ -206,21 +209,20 @@ function LawyerProfile() {
             {/* CTA buttons */}
             <Box sx={{ display: 'flex', gap: 1.5, mt: 3, flexWrap: 'wrap' }}>
               <FeatureGate feature="book_consultation" compact>
-                <motion.div whileHover={prefersReducedMotion ? undefined : { scale: 1.03 }} whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}>
-                  <Button
-                    variant="contained"
-                    disabled={!lawyer.isAcceptingClients}
-                    onClick={handleBooking}
-                    sx={{
-                      background: '#fff', color: 'var(--color-primary)', fontWeight: 700,
-                      borderRadius: `${RADIUS.md}px`,
-                      '&:hover': { background: 'rgba(255,255,255,0.9)' },
-                      '&:disabled': { background: 'rgba(255,255,255,0.4)', color: 'rgba(255,255,255,0.6)' },
-                    }}
-                  >
-                    📅 {lawyer.isAcceptingClients ? t('lawyer.book_consultation', 'Book Consultation') : t('lawyer.unavailable', 'Unavailable')}
-                  </Button>
-                </motion.div>
+                <Button
+                  variant="contained"
+                  disableElevation
+                  disabled={!lawyer.isAcceptingClients}
+                  onClick={handleBooking}
+                  sx={{
+                    background: '#fff', color: 'var(--color-primary)', fontWeight: 600,
+                    borderRadius: '8px', boxShadow: 'none',
+                    '&:hover': { background: 'rgba(255,255,255,0.9)', boxShadow: 'none' },
+                    '&:disabled': { background: 'rgba(255,255,255,0.4)', color: 'rgba(255,255,255,0.7)' },
+                  }}
+                >
+                  {lawyer.isAcceptingClients ? t('lawyer.book_consultation', 'Book consultation') : t('lawyer.unavailable', 'Unavailable')}
+                </Button>
               </FeatureGate>
             </Box>
           </Box>
@@ -267,7 +269,7 @@ function LawyerProfile() {
               <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
                 <Box sx={{ p: 3, borderRadius: `${RADIUS.xl}px`, border: '1px solid var(--color-border)', background: 'var(--color-surface)', boxShadow: SHADOWS.sm }}>
                   <GradientHeading variant="h6" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 2 }}>
-                    ⭐ {t('lawyer.reviews', 'Client Reviews')}
+                    {t('lawyer.reviews', 'Client Reviews')}
                   </GradientHeading>
                   {lawyer.recentRatings.map((r, i) => (
                     <ReviewCard key={i} review={r} delay={i * 0.08} />
@@ -285,13 +287,12 @@ function LawyerProfile() {
                   {t('lawyer.details', 'Details')}
                 </Typography>
                 {[
-                  { icon: '📍', label: t('lawyer.states', 'States'), value: (lawyer.practicingStates || []).join(', ') },
-                  { icon: '🎓', label: t('lawyer.experience', 'Experience'), value: `${lawyer.experience || 0} years` },
-                  { icon: '💰', label: t('lawyer.fee', 'Consultation Fee'), value: feeRupees > 0 ? `₹${feeRupees}` : 'Free', bold: true },
-                  { icon: '✅', label: t('lawyer.availability', 'Availability'), value: lawyer.isAcceptingClients ? '🟢 Available' : '🔴 Unavailable' },
+                  { label: t('lawyer.states', 'States'), value: (lawyer.practicingStates || []).join(', ') },
+                  { label: t('lawyer.experience', 'Experience'), value: `${lawyer.experience || 0} years` },
+                  { label: t('lawyer.fee', 'Consultation Fee'), value: feeRupees > 0 ? `₹${feeRupees}` : 'Free', bold: true },
+                  { label: t('lawyer.availability', 'Availability'), value: lawyer.isAcceptingClients ? 'Available' : 'Unavailable' },
                 ].map((row) => (
-                  <Box key={row.label} sx={{ display: 'flex', gap: 1.5, mb: 1.5 }}>
-                    <Typography sx={{ fontSize: 18, flexShrink: 0, mt: 0.1 }}>{row.icon}</Typography>
+                  <Box key={row.label} sx={{ mb: 1.5 }}>
                     <Box>
                       <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', display: 'block' }}>{row.label}</Typography>
                       <Typography variant="body2" sx={{ fontWeight: row.bold ? 800 : 600, color: row.bold ? 'var(--color-primary)' : 'var(--color-text)' }}>

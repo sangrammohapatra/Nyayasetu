@@ -27,6 +27,7 @@ import Switch from '@mui/material/Switch';
 import LinearProgress from '@mui/material/LinearProgress';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import BalanceRoundedIcon from '@mui/icons-material/BalanceRounded';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 
@@ -526,15 +527,14 @@ function Login() {
   // ── Render helpers ────────────────────────────────────────────────────────
 
   const primaryBtnSx = {
-    py: 1.5, fontWeight: 700, fontSize: '1rem',
-    background: 'var(--color-primary)', borderRadius: `${RADIUS.full}px`,
-    boxShadow: theme.custom?.glowPrimary || SHADOWS.md,
-    '&:hover': { background: 'var(--color-primary-dark, var(--color-primary))', transform: 'scale(1.01)' },
-    transition: 'all 0.18s ease',
+    py: 1.4, fontWeight: 600, fontSize: '0.95rem',
+    background: 'var(--color-primary)', color: 'var(--color-bg)', borderRadius: '8px',
+    boxShadow: 'none',
+    '&:hover': { background: 'var(--color-primary-dark, var(--color-primary))', boxShadow: 'none' },
   };
 
   const outlinedBtnSx = {
-    py: 1.4, borderRadius: `${RADIUS.full}px`, fontWeight: 600,
+    py: 1.25, borderRadius: '8px', fontWeight: 600,
     borderColor: 'var(--color-border)', color: 'var(--color-text)',
     '&:hover': { borderColor: 'var(--color-primary)', background: 'var(--color-primary-alpha)' },
   };
@@ -574,7 +574,9 @@ function Login() {
           {/* Brand mark */}
           <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-              <Box sx={{ width: 42, height: 42, borderRadius: `${RADIUS.md}px`, background: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, boxShadow: theme.custom?.glowPrimary || SHADOWS.md }}>⚖️</Box>
+              <Box sx={{ width: 42, height: 42, borderRadius: '8px', background: 'var(--color-primary)', color: 'var(--color-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <BalanceRoundedIcon sx={{ fontSize: 22 }} />
+              </Box>
               <Box>
                 <GradientHeading variant="h5" component="div" sx={{ lineHeight: 1.1 }}>NyayaSetu</GradientHeading>
                 <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>{t('auth.bridge_to_justice', 'Bridge to Justice')}</Typography>

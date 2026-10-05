@@ -104,10 +104,10 @@ export const muiTheme = createTheme({
     HC_SHADOWS.lg, HC_SHADOWS.lg, HC_SHADOWS.lg,
   ],
   custom: {
-    gradientText:  '#0000CC',
-    gradientBrand: 'linear-gradient(135deg, #0000CC 0%, #660000 60%, #00008B 100%)',
-    glowPrimary:   '0 0 0 2px #0000CC',
-    glowAccent:    '0 0 0 2px #00008B',
+    gradientText:  '#000000',
+    gradientBrand: '#0000CC',
+    glowPrimary:   'none',
+    glowAccent:    'none',
     cardBg:        '#FFFFFF',
     cardBorder:    '1px solid #000000',
     cardBlur:      'none',
@@ -128,11 +128,14 @@ export const muiTheme = createTheme({
             outlineOffset: '2px',
           },
         },
+        contained: { boxShadow: 'none', '&:hover': { boxShadow: 'none' } },
         containedPrimary: {
           background: 'var(--color-primary)',
           border: '2px solid var(--color-primary-dark)',
+          boxShadow: 'none',
           '&:hover': {
             background: 'var(--color-primary-dark)',
+            boxShadow: 'none',
           },
         },
         outlinedPrimary: {
