@@ -46,34 +46,117 @@ function getTokenExpiresInSeconds(token) {
   }
 }
 
-async function proactiveRefresh(token) {
+/**
+ * One in-flight refresh shared by Axios and raw fetch/SSE callers.
+ * Refresh tokens rotate, so a second parallel refresh looks like token reuse
+ * and the server revokes the session.
+ */
+function refreshAccessToken() {
+  if (refreshPromise) return refreshPromise;
+
   const refreshToken = getRefreshToken();
-  if (!refreshToken || isRefreshing) return;
+  if (!refreshToken) return Promise.reject(new Error('NO_REFRESH'));
 
   isRefreshing = true;
-  try {
-    const response = await axios.post(
-      `${BASE_URL}/auth/refresh`,
-      { refreshToken },
-      { withCredentials: true }
-    );
-    const { accessToken: newToken, refreshToken: newRefreshToken } = response.data;
-    setAccessToken(newToken);
-    if (newRefreshToken) tokenStore.setRefresh(newRefreshToken);
-    import('../store/store').then(({ default: store }) => {
-      import('../store/slices/authSlice').then(({ setToken }) => {
-        store.dispatch(setToken({ token: newToken }));
+  refreshPromise = (async () => {
+    try {
+      const response = await axios.post(
+        `${BASE_URL}/auth/refresh`,
+        { refreshToken },
+        { withCredentials: true }
+      );
+      const { accessToken: newToken, refreshToken: newRefreshToken } = response.data;
+      setAccessToken(newToken);
+      if (newRefreshToken) tokenStore.setRefresh(newRefreshToken);
+      import('../store/store').then(({ default: store }) => {
+        import('../store/slices/authSlice').then(({ setToken }) => {
+          store.dispatch(setToken({ token: newToken }));
+        });
       });
-    });
-    // Release any requests that queued behind this refresh (e.g. concurrent 401s
-    // that arrived while isRefreshing was true — they must not be left hanging).
-    processRefreshQueue(null, newToken);
-  } catch (err) {
-    // Drain the queue with an error so queued requests reject rather than hanging.
-    processRefreshQueue(err);
-  } finally {
-    isRefreshing = false;
+      processRefreshQueue(null, newToken);
+      return newToken;
+    } catch (err) {
+      processRefreshQueue(err);
+      throw err;
+    } finally {
+      isRefreshing = false;
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
+async function proactiveRefresh() {
+  try {
+    await refreshAccessToken();
+  } catch {
+    // The response interceptor logs the user out if the follow-up request 401s.
   }
+}
+
+/**
+ * Access token for callers that cannot use Axios (SSE via fetch, EventSource).
+ * Refreshes when the token is expired or inside the 60s window.
+ */
+export async function ensureAccessToken() {
+  const token = getAccessToken();
+  if (!token) return null;
+  const expiresIn = getTokenExpiresInSeconds(token);
+  if (expiresIn !== null && expiresIn < 60) {
+    try {
+      return await refreshAccessToken();
+    } catch {
+      return expiresIn <= 0 ? null : getAccessToken();
+    }
+  }
+  return getAccessToken();
+}
+
+/**
+ * fetch() with a bearer token, refreshing once on TOKEN_EXPIRED.
+ * Axios already does this; SSE endpoints use fetch and were skipping it.
+ */
+export async function authorizedFetch(url, options = {}) {
+  const send = (token) => {
+    const headers = new Headers(options.headers || {});
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    return fetch(url, {
+      ...options,
+      headers,
+      credentials: options.credentials ?? 'include',
+    });
+  };
+
+  let token = await ensureAccessToken();
+  if (!token) {
+    clearAuthStorage();
+    handleForcedLogout();
+    return new Response(
+      JSON.stringify({ error: 'TOKEN_EXPIRED', message: 'Authentication token has expired' }),
+      { status: 401, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  let response = await send(token);
+  if (response.status !== 401) return response;
+
+  let code = '';
+  try {
+    code = (await response.clone().json()).error;
+  } catch {
+    /* non-JSON 401 */
+  }
+  if (code !== 'TOKEN_EXPIRED' && code !== 'INVALID_TOKEN') return response;
+
+  try {
+    token = await refreshAccessToken();
+  } catch {
+    clearAuthStorage();
+    handleForcedLogout();
+    return response;
+  }
+  return send(token);
 }
 
 /* ---------------------------------------------------------------------------
@@ -128,6 +211,7 @@ function processReauthQueue(err = null) {
  * ------------------------------------------------------------------------ */
 
 let isRefreshing = false;
+let refreshPromise = null;
 // Queue of { resolve, reject } for requests that came in while a refresh was in-flight
 let refreshQueue = [];
 
@@ -216,46 +300,18 @@ api.interceptors.response.use(
       }
 
       originalRequest._retried = true;
-      isRefreshing = true;
 
-      const refreshToken = getRefreshToken();
-
-      if (!refreshToken) {
-        isRefreshing = false;
+      if (!getRefreshToken()) {
         clearAuthStorage();
         handleForcedLogout();
         return Promise.reject(error);
       }
 
       try {
-        const response = await axios.post(
-          `${BASE_URL}/auth/refresh`,
-          { refreshToken },
-          { withCredentials: true }
-        );
-
-        const { accessToken: newToken, refreshToken: newRefreshToken } = response.data;
-
-        setAccessToken(newToken);
-        if (newRefreshToken) {
-          localStorage.setItem('nyayasetu_refresh_token', newRefreshToken);
-        }
-
-        // Update store token without triggering another 401 cycle
-        import('../store/store').then(({ default: store }) => {
-          import('../store/slices/authSlice').then(({ setToken }) => {
-            store.dispatch(setToken({ token: newToken }));
-          });
-        });
-
-        processRefreshQueue(null, newToken);
-        isRefreshing = false;
-
+        const newToken = await refreshAccessToken();
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        processRefreshQueue(refreshError);
-        isRefreshing = false;
         clearAuthStorage();
         handleForcedLogout();
         return Promise.reject(refreshError);

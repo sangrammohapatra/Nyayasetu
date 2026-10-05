@@ -8,7 +8,7 @@
  */
 
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import api from '../../services/api';
+import api, { authorizedFetch } from '../../services/api';
 
 // ─── Async thunks ────────────────────────────────────────────────────────────
 
@@ -74,20 +74,15 @@ export const abandonSession = createAsyncThunk(
 export const sendMessage = createAsyncThunk(
   'chat/sendMessage',
   async ({ sessionId, message }, { dispatch, rejectWithValue, getState }) => {
-    const token = localStorage.getItem('nyayasetu_token');
     const baseUrl = import.meta.env.VITE_API_URL || '/v1';
 
     dispatch(streamStart());
 
     let response;
     try {
-      response = await fetch(`${baseUrl}/chat/sessions/${sessionId}/message`, {
+      response = await authorizedFetch(`${baseUrl}/chat/sessions/${sessionId}/message`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message }),
       });
     } catch (networkErr) {

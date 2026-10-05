@@ -5,7 +5,7 @@
  * document template suggestions, follow-up question chips, thumbs feedback.
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDispatch } from 'react-redux';
 import {
@@ -21,6 +21,7 @@ import ReactMarkdown from 'react-markdown';
 import { rateNyayaBotMessage } from '../../store/slices/nyayabotSlice';
 import { useNavigate } from 'react-router-dom';
 import { TYPOGRAPHY } from '../../theme/tokens';
+import { normalizeNyayaBotMessage } from '../../utils/nyayabotContent';
 
 // ─── NyayaBot avatar SVG ──────────────────────────────────────────────────────
 function BotAvatarSmall() {
@@ -194,14 +195,15 @@ export default function NyayaBotMessage({ message, onFollowUp, compact = false, 
   const dispatch = useDispatch();
   const { t } = useTranslation();
   const prefersReducedMotion = useReducedMotion();
+  const view = useMemo(() => normalizeNyayaBotMessage(message), [message]);
   const [copied, setCopied] = useState(false);
   const [localThumb, setLocalThumb] = useState(message.thumbsUp); // null | true | false
 
-  const isBot = message.role === 'nyayabot';
-  const isOptimistic = !!message.isOptimistic;
+  const isBot = view.role === 'nyayabot';
+  const isOptimistic = !!view.isOptimistic;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(message.content);
+    navigator.clipboard.writeText(view.content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -237,12 +239,12 @@ export default function NyayaBotMessage({ message, onFollowUp, compact = false, 
             wordBreak: 'break-word',
           }}
         >
-          {message.isVoice && (
+          {view.isVoice && (
             <Box sx={{ fontSize: '0.68rem', letterSpacing: '0.04em', textTransform: 'uppercase', opacity: 0.8, mb: 0.5 }}>
               {t('nyayabot.voiceMessage')}
             </Box>
           )}
-          <Box sx={{ whiteSpace: 'pre-wrap' }}>{message.content}</Box>
+          <Box sx={{ whiteSpace: 'pre-wrap' }}>{view.content}</Box>
         </Box>
         <Box sx={{ fontSize: '0.65rem', color: 'var(--color-text-secondary)', mt: 0.45, pr: 0.25 }}>
           {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -296,26 +298,26 @@ export default function NyayaBotMessage({ message, onFollowUp, compact = false, 
               },
             }}
           >
-            <ReactMarkdown>{message.content}</ReactMarkdown>
+            <ReactMarkdown>{view.content}</ReactMarkdown>
           </Box>
 
           {/* Legal citations */}
-          <CitationsAccordion citations={message.citations} />
+          <CitationsAccordion citations={view.citations} />
 
           {/* Document suggestions */}
-          <TemplateSuggestions templates={message.suggestedTemplates} />
+          <TemplateSuggestions templates={view.suggestedTemplates} />
 
           {/* Follow-up questions */}
           {onFollowUp && (
-            <FollowUpChips questions={message.followUpQuestions} onSelect={onFollowUp} />
+            <FollowUpChips questions={view.followUpQuestions} onSelect={onFollowUp} />
           )}
 
           {/* Disclaimer */}
-          {message.disclaimer && (
+          {view.disclaimer && (
             <>
               <Divider sx={{ my: 1.25, borderColor: 'var(--color-border)' }} />
               <Box sx={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-                {message.disclaimer}
+                {view.disclaimer}
               </Box>
             </>
           )}
@@ -323,7 +325,7 @@ export default function NyayaBotMessage({ message, onFollowUp, compact = false, 
           {/* Actions bar */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1.25, justifyContent: 'space-between' }}>
             <Box sx={{ fontSize: '0.68rem', color: 'var(--color-text-secondary)' }}>
-              {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {new Date(view.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
               {/* Thumbs */}

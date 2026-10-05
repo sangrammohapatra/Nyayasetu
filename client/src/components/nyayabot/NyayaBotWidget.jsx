@@ -4,7 +4,7 @@
  * Renders globally via AppLayout — persists across page navigation.
  *
  * Changes from restyle (Chunk 4):
- * - FAB: 56×56, gradientBrand bg, glowPrimary shadow, responsive bottom position
+ * - FAB: 56×56 rounded mark, surface background, accent hairline, responsive bottom position
  * - Mount animation: spring scale pop (gated by useReducedMotion)
  * - Pulse animation: gated by enableScrollReveal flag, disabled after first interaction
  * - Panel: 380×560 desktop, full-viewport mobile (<sm)
@@ -22,7 +22,7 @@ import Box from '@mui/material/Box';
 import Badge from '@mui/material/Badge';
 import Tooltip from '@mui/material/Tooltip';
 import Fab from '@mui/material/Fab';
-import { Balance, Close, AutoAwesome } from '@mui/icons-material';
+import { Balance, Close } from '@mui/icons-material';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   toggleWidget,
@@ -30,7 +30,7 @@ import {
 } from '../../store/slices/nyayabotSlice';
 import { useFeatureFlag } from '../../utils/featureFlags';
 import NyayaBotWindow from './NyayaBotWindow';
-import { SHADOWS } from '../../theme/tokens';
+import { SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
 
 // ─── Animated FAB label ───────────────────────────────────────────────────────
 
@@ -47,18 +47,20 @@ function FabLabel({ show }) {
           transition={{ duration: 0.2 }}
           style={{
             position: 'absolute',
-            right: 64,
-            bottom: 2,
-            backgroundColor: 'var(--color-primary)',
-            color: '#fff',
-            fontSize: '0.78rem',
-            fontWeight: 700,
-            padding: '5px 12px',
-            borderRadius: 20,
+            right: 68,
+            bottom: 8,
+            backgroundColor: 'var(--color-surface)',
+            color: 'var(--color-text)',
+            fontFamily: TYPOGRAPHY.fontFamily.display,
+            fontSize: '0.82rem',
+            fontWeight: 600,
+            padding: '8px 12px',
+            borderRadius: 12,
+            border: '1px solid var(--color-border)',
             whiteSpace: 'nowrap',
             pointerEvents: 'none',
-            boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
-            letterSpacing: '0.02em',
+            boxShadow: '0 10px 28px rgba(0,0,0,0.22)',
+            letterSpacing: '-0.02em',
           }}
         >
           {t('nyayabot.fabLabel')}
@@ -141,9 +143,6 @@ export default function NyayaBotWidget() {
         overflow: 'hidden',
         boxShadow: `${SHADOWS.xl}, 0 0 0 1px rgba(255,255,255,0.04)`,
       };
-
-  const glowColor = muiTheme.custom?.glowPrimary || '0 0 28px rgba(21, 101, 192, 0.50)';
-  const gradientBrand = muiTheme.custom?.gradientBrand || 'var(--color-primary)';
 
   return (
     <>
@@ -234,17 +233,31 @@ export default function NyayaBotWidget() {
                 onClick={handleFabClick}
                 aria-label="NyayaBot"
                 sx={{
-                  width: 56, height: 56,
-                  background: isOpen ? 'var(--color-text-secondary)' : gradientBrand,
-                  color: '#fff',
-                  boxShadow: isOpen ? SHADOWS.md : glowColor,
-                  '&:hover': {
-                    background: isOpen ? 'var(--color-text)' : gradientBrand,
-                    boxShadow: isOpen ? SHADOWS.md : `${glowColor}, 0 6px 24px rgba(0,0,0,0.18)`,
-                    transform: 'scale(1.06)',
+                  width: 56,
+                  height: 56,
+                  borderRadius: '16px',
+                  background: 'var(--color-surface)',
+                  color: 'var(--color-primary)',
+                  border: '1px solid var(--color-border)',
+                  boxShadow: `${SHADOWS.lg}, inset 0 1px 0 rgba(255,255,255,0.06)`,
+                  position: 'relative',
+                  overflow: 'hidden',
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 2,
+                    background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
                   },
-                  '&:active': { transform: 'scale(0.97)' },
-                  transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  '&:hover': {
+                    background: 'var(--color-surface-raised)',
+                    boxShadow: `${SHADOWS.xl}, inset 0 1px 0 rgba(255,255,255,0.06)`,
+                    transform: 'translateY(-1px)',
+                  },
+                  '&:active': { transform: 'translateY(0)' },
+                  transition: 'background 0.2s, box-shadow 0.2s, transform 0.2s',
                 }}
               >
                 <AnimatePresence mode="wait">
@@ -255,8 +268,9 @@ export default function NyayaBotWidget() {
                       animate={{ rotate: 0, opacity: 1 }}
                       exit={prefersReducedMotion ? undefined : { rotate: 90, opacity: 0 }}
                       transition={{ duration: 0.2 }}
+                      style={{ display: 'flex' }}
                     >
-                      <Close />
+                      <Close sx={{ fontSize: 22 }} />
                     </motion.div>
                   ) : (
                     <motion.div
@@ -265,8 +279,9 @@ export default function NyayaBotWidget() {
                       animate={{ rotate: 0, opacity: 1 }}
                       exit={prefersReducedMotion ? undefined : { rotate: -90, opacity: 0 }}
                       transition={{ duration: 0.2 }}
+                      style={{ display: 'flex' }}
                     >
-                      <AutoAwesome sx={{ fontSize: 24 }} />
+                      <Balance sx={{ fontSize: 24 }} />
                     </motion.div>
                   )}
                 </AnimatePresence>

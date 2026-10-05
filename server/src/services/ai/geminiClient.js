@@ -158,7 +158,9 @@ async function chat(messages, systemPrompt, stream = false, jsonMode = false) {
         temperature: 0.7,
         topK: 40,
         topP: 0.95,
-        maxOutputTokens: 2048,
+        // JSON replies include the answer plus citations and follow-ups.
+        // 2048 was cutting the object off mid-field, which then rendered as raw JSON.
+        maxOutputTokens: jsonMode ? 8192 : 2048,
         ...(jsonMode && { responseMimeType: 'application/json' }),
       },
     });
@@ -170,7 +172,12 @@ async function chat(messages, systemPrompt, stream = false, jsonMode = false) {
     if (!stream) {
       const result = await chatSession.sendMessage(latestUserMessage);
       const text = result.response.text();
-      logger.debug(`[gemini] chat() → ${text.length} chars`);
+      const finish = result.response?.candidates?.[0]?.finishReason;
+      if (finish && finish !== 'STOP') {
+        logger.warn(`[gemini] chat() finishReason=${finish}`, { chars: text.length, jsonMode });
+      } else {
+        logger.debug(`[gemini] chat() → ${text.length} chars`);
+      }
       return text;
     }
 

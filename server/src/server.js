@@ -80,7 +80,11 @@ async function startServer() {
       logger.info(`  NyayaSetu API Server`);
       logger.info(`  Environment : ${process.env.NODE_ENV || 'development'}`);
       logger.info(`  Port        : ${PORT}`);
-      logger.info(`  AI Provider : ${process.env.AI_PROVIDER || 'gemini'}`);
+      const aiProviderName = process.env.AI_PROVIDER || 'gemini';
+      const aiProviderLabel = aiProviderName === 'ollama'
+        ? `ollama (${process.env.OLLAMA_MODEL || 'llama3.2:1b'})`
+        : aiProviderName;
+      logger.info(`  AI Provider : ${aiProviderLabel}`);
       logger.info(`  Storage     : ${process.env.STORAGE_PROVIDER || 'cloudinary'}`);
       logger.info(`  Client URL  : ${process.env.CLIENT_URL || 'http://localhost:5173'}`);
       logger.info(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);

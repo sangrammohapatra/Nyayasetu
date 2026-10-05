@@ -8,6 +8,7 @@ const logger = require('../../utils/logger');
 // To add a new provider: add an entry to PROVIDERS, set AI_PROVIDER in .env.
 
 const PROVIDERS = {
+  ollama: () => require('./ollamaClient'),
   gemini: () => require('./geminiClient'),
   claude: () => require('./claudeClient'),
 };

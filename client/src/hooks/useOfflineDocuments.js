@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { authorizedFetch } from '../services/api';
 
 const STORAGE_KEY = 'nyayasetu_offline_docs';
 
@@ -18,13 +19,9 @@ export function useOfflineDocuments() {
 
   const pin = useCallback(async (documentId) => {
     // Warm the Workbox runtime cache for this document
-    const token = localStorage.getItem('nyayasetu_token');
     const base  = import.meta.env.VITE_API_URL || '/v1';
     try {
-      await fetch(`${base}/documents/${documentId}`, {
-        credentials: 'include',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      await authorizedFetch(`${base}/documents/${documentId}`);
     } catch {
       // Offline — cache will be warmed next time they open it online
     }

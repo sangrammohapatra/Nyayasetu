@@ -3,7 +3,7 @@
  */
 
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import api from '../../services/api';
+import api, { authorizedFetch } from '../../services/api';
 
 // ─── Async thunks ────────────────────────────────────────────────────────────
 
@@ -62,20 +62,15 @@ export const getPDF = createAsyncThunk(
 export const explainClause = createAsyncThunk(
   'document/explainClause',
   async ({ documentId, clauseIndex, clauseText }, { dispatch, rejectWithValue }) => {
-    const token = localStorage.getItem('nyayasetu_token');
     const baseUrl = import.meta.env.VITE_API_URL || '/v1';
 
     dispatch(clauseExplanationStart({ clauseIndex }));
 
     let response;
     try {
-      response = await fetch(`${baseUrl}/documents/${documentId}/explain-clause`, {
+      response = await authorizedFetch(`${baseUrl}/documents/${documentId}/explain-clause`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clauseIndex, clauseText }),
       });
     } catch (_) {

@@ -17,6 +17,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useDispatch } from 'react-redux';
 import { setGenerationProgress, getDocument } from '../store/slices/documentSlice';
+import { ensureAccessToken } from '../services/api';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/v1';
 
@@ -36,6 +37,7 @@ const BASE_URL = import.meta.env.VITE_API_URL || '/v1';
 export function useDocumentStream(documentId = null) {
   const dispatch = useDispatch();
   const esRef = useRef(null);
+  const streamGen = useRef(0);
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -45,6 +47,7 @@ export function useDocumentStream(documentId = null) {
   const [activeDocId, setActiveDocId] = useState(documentId);
 
   const stopStream = useCallback(() => {
+    streamGen.current += 1;
     if (esRef.current) {
       esRef.current.close();
       esRef.current = null;
@@ -56,13 +59,13 @@ export function useDocumentStream(documentId = null) {
     (docId) => {
       if (!docId) return;
       stopStream();
+      const gen = streamGen.current;
 
-      const token = localStorage.getItem('nyayasetu_token');
-      // EventSource doesn't support custom headers — append token as query param
-      // (backend must accept token via query param on SSE endpoints)
-      const url = `${BASE_URL}/documents/${docId}/stream?token=${encodeURIComponent(token || '')}`;
-
-      const es = new EventSource(url, { withCredentials: true });
+      // EventSource doesn't support custom headers — append a fresh token as a query param.
+      ensureAccessToken().then((token) => {
+        if (!token || gen !== streamGen.current) return;
+        const url = `${BASE_URL}/documents/${docId}/stream?token=${encodeURIComponent(token)}`;
+        const es = new EventSource(url, { withCredentials: true });
       esRef.current = es;
       setActiveDocId(docId);
       setIsStreaming(true);
@@ -120,6 +123,7 @@ export function useDocumentStream(documentId = null) {
           esRef.current = null;
         }
       };
+      });
     },
     [dispatch, stopStream]
   );

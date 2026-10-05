@@ -14,7 +14,7 @@
  */
 
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import api from "../../services/api";
+import api, { authorizedFetch } from "../../services/api";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -104,17 +104,13 @@ export const sendNyayaBotMessage = createAsyncThunk(
     dispatch(addOptimisticUserMessage({ sessionId, content }));
 
     try {
-      const token = localStorage.getItem('nyayasetu_token');
       const baseURL = import.meta.env.VITE_API_URL || '/v1';
 
-      const response = await fetch(
+      const response = await authorizedFetch(
         `${baseURL}/nyayabot/sessions/${sessionId}/message`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content }),
         },
       );
