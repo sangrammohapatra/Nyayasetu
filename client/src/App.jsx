@@ -133,6 +133,7 @@ const NotaryVerificationPending = lazy(
 );
 const NotaryHome = lazy(() => import("./pages/notary/NotaryHome"));
 const NotaryDashboard = lazy(() => import("./pages/notary/NotaryDashboard"));
+const NotaryApply = lazy(() => import("./pages/notary/NotaryApply"));
 const NotarizationRequests = lazy(
   () => import("./pages/notary/NotarizationRequests"),
 );
@@ -564,8 +565,16 @@ const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <Navigate to="/notary/home" replace /> },
-      // Settings is always accessible so an unverified notary can update their profile
+      // Settings and the application stay open before verification.
       { path: "settings", element: <Settings /> },
+      {
+        path: "apply",
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <NotaryApply />
+          </Suspense>
+        ),
+      },
       // Everything else requires verification
       {
         element: <NotaryVerifiedGate />,
@@ -683,27 +692,30 @@ function AppBootstrap() {
   const language = useSelector(selectLanguage);
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const token = useSelector(selectAccessToken);
+  const profilesHydrated = useSelector(selectProfilesHydrated);
   const sessionToken = useRef(undefined);
 
-  // Load lawyer/notary profiles when a session already exists, and again when
-  // login, OTP, or registration creates one. Password login does not return
-  // those profiles. A refreshed access token is not a new session.
+  // Load lawyer/notary profiles when a session starts, and again after
+  // registration. Register runs on an existing OTP token and clears
+  // profilesHydrated, so a "new session" check would never refetch and every
+  // gated page would spin forever.
   useEffect(() => {
     const liveToken = tokenStore.get();
     const previous = sessionToken.current;
     sessionToken.current = token;
 
-    const establishing =
-      previous === undefined ? Boolean(liveToken) : !previous && Boolean(token);
-    if (establishing && liveToken) {
-      dispatch(getMe());
-      return;
-    }
     if (previous === undefined && !liveToken) {
       dispatch(forceLogout());
       tokenStore.clear();
+      return;
     }
-  }, [dispatch, token]);
+
+    const sessionStarted =
+      previous === undefined ? Boolean(liveToken) : !previous && Boolean(token);
+    if (liveToken && (sessionStarted || !profilesHydrated)) {
+      dispatch(getMe());
+    }
+  }, [dispatch, token, profilesHydrated]);
 
   // Cross-tab logout sync: the `storage` event fires in every OTHER tab (never
   // the tab that made the change) whenever localStorage is modified, so a

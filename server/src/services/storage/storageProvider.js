@@ -80,4 +80,21 @@ async function deletePDF(storageKey) {
   }
 }
 
-module.exports = { uploadPDF, getSignedPdfUrl, deletePDF };
+/**
+ * upload — store an arbitrary file (certificate, notarized PDF) and return a URL.
+ * Callers pass { folder, filename, mimetype }.
+ */
+async function upload(buffer, { folder, filename, mimetype } = {}) {
+  const result = await cloudinaryService.uploadBuffer(buffer, mimetype || 'application/octet-stream', {
+    folder: folder || 'nyayasetu/uploads',
+    public_id: filename,
+    resource_type: 'auto',
+  });
+  return {
+    url: result.secure_url || result.url,
+    storageKey: result.storageKey || result.public_id,
+    provider: result.provider || 'cloudinary',
+  };
+}
+
+module.exports = { uploadPDF, getSignedPdfUrl, deletePDF, upload };

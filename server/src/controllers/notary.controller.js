@@ -12,6 +12,7 @@ const storageProvider = require('../services/storage/storageProvider');
 const videoProvider = require('../services/video/videoProvider');
 const logger = require('../utils/logger');
 const AuditLog = require('../models/AuditLog.model');
+const { signTokenPair } = require('../utils/token');
 const { PERSONAS, NOTARIZATION_FEE } = require('../config/constants');
 
 // ─── Multer (certificate upload) ─────────────────────────────────────────────
@@ -126,16 +127,31 @@ exports.applyAsNotary = async (req, res) => {
       practicingStates,
     } = req.body;
 
+    const toList = (value, fallback) => {
+      const raw = Array.isArray(value) ? value : (value ? String(value).split(',') : []);
+      const list = raw.map((item) => String(item).trim()).filter(Boolean);
+      return list.length ? list : fallback;
+    };
+
+    if (!notaryRegistrationNumber?.trim() || !registrationState?.trim() || experience === undefined || experience === '') {
+      return res.status(400).json({
+        error: 'MISSING_FIELDS',
+        message: 'Registration number, state, and years of experience are required',
+      });
+    }
+
     const profileData = {
       user: userId,
-      notaryRegistrationNumber: notaryRegistrationNumber?.trim(),
-      registrationState: registrationState?.trim(),
+      notaryRegistrationNumber: notaryRegistrationNumber.trim(),
+      registrationState: registrationState.trim(),
       appointingAuthority: appointingAuthority?.trim(),
-      appointmentYear: appointmentYear ? parseInt(appointmentYear) : undefined,
-      experience: parseInt(experience),
-      languages: Array.isArray(languages) ? languages : (languages ? [languages] : ['en']),
+      appointmentYear: appointmentYear ? parseInt(appointmentYear, 10) : undefined,
+      experience: parseInt(experience, 10),
+      languages: toList(languages, ['en']),
       bio: bio?.trim(),
-      practicingStates: Array.isArray(practicingStates) ? practicingStates : (practicingStates ? [practicingStates] : []),
+      practicingStates: toList(practicingStates, []),
+      isVerified: false,
+      verificationStatus: 'pending',
     };
 
     if (!req.file) {
@@ -159,8 +175,14 @@ exports.applyAsNotary = async (req, res) => {
       profile = await NotaryProfile.findByIdAndUpdate(
         existing._id,
         {
-          $set: { ...profileData, verificationStatus: 'pending', isVerified: false },
-          $unset: { rejectionReason: '', rejectedAt: '', rejectedBy: '', verifiedAt: '', verifiedBy: '' },
+          $set: profileData,
+          $unset: {
+            rejectionReason: '',
+            rejectedAt: '',
+            rejectedBy: '',
+            verifiedAt: '',
+            verifiedBy: '',
+          },
         },
         { new: true }
       );
@@ -168,9 +190,30 @@ exports.applyAsNotary = async (req, res) => {
       profile = await NotaryProfile.create(profileData);
     }
 
+    let personaChanged = false;
     if (user.persona?.toLowerCase() !== 'notary') {
       user.persona = 'notary';
       await user.save();
+      personaChanged = true;
+    }
+
+    try {
+      const admins = await User.find({ persona: { $regex: /^admin$/i } }).select('_id').lean();
+      if (admins.length) {
+        await Notification.insertMany(
+          admins.map((admin) => ({
+            user: admin._id,
+            type: 'notary_application',
+            title: 'New notary application',
+            body: `${user.name || user.phone} applied as a notary. Registration: ${notaryRegistrationNumber}`,
+            data: { notaryProfileId: profile._id, userId },
+            channel: 'web',
+            isRead: false,
+          }))
+        );
+      }
+    } catch (notifErr) {
+      logger.warn('[notary.controller] Admin notification failed', { error: notifErr.message });
     }
 
     await AuditLog.log(req, 'notary.applied', 'NotaryProfile', profile._id, {
@@ -179,7 +222,22 @@ exports.applyAsNotary = async (req, res) => {
       reapplication: !!existing,
     });
 
-    res.status(201).json({ message: 'Application submitted. Under review.', profile });
+    let accessToken;
+    let refreshToken;
+    if (personaChanged) {
+      const tokens = signTokenPair(user);
+      await user.addRefreshToken(tokens.refreshToken);
+      accessToken = tokens.accessToken;
+      refreshToken = tokens.refreshToken;
+    }
+
+    res.status(201).json({
+      message: profile.isVerified
+        ? 'Application approved.'
+        : 'Application submitted. Under review.',
+      isVerified: !!profile.isVerified,
+      ...(accessToken ? { accessToken, refreshToken } : {}),
+    });
   } catch (err) {
     logger.error('applyAsNotary error:', err);
     if (err.code === 11000) {

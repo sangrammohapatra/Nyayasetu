@@ -135,6 +135,7 @@ const LANGUAGES = [
   { code: "ml", name: "Malayalam", nativeName: "മലയാളം", dir: "ltr" },
   { code: "pa", name: "Punjabi", nativeName: "ਪੰਜਾਬੀ", dir: "ltr" },
   { code: "ur", name: "Urdu", nativeName: "اردو", dir: "rtl" },
+  { code: "od", name: "Odia", nativeName: "ଓଡ଼ିଆ", dir: "ltr" },
 ];
 
 // ─── Document categories ──────────────────────────────────────────────────────

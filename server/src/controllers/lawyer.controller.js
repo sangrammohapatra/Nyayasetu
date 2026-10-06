@@ -19,6 +19,7 @@ const { resolveAvailability } = require('../services/lawyerAvailability');
 const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
 const AuditLog = require('../models/AuditLog.model');
+const { signTokenPair } = require('../utils/token');
 
 /* ---------------------------------------------------------------------------
  * redactReviewerName — "Priya Sharma" -> "Priya S." for public review display.
@@ -223,9 +224,11 @@ const applyAsLawyer = asyncHandler(async (req, res) => {
   const user = await User.findById(userId);
   if (!user) return res.status(404).json({ error: 'User not found' });
 
+  let personaChanged = false;
   if (user.persona?.toLowerCase() !== 'lawyer') {
     user.persona = 'lawyer';
     await user.save();
+    personaChanged = true;
   }
 
   let certificateUrl = null;
@@ -247,7 +250,15 @@ const applyAsLawyer = asyncHandler(async (req, res) => {
     }
   }
 
+  const VALID_MODES = ['chat', 'video', 'phone', 'in_person'];
+  const consultationModes = req.body.consultationModes
+    ? toArray(req.body.consultationModes).filter((m) => VALID_MODES.includes(m))
+    : null;
+
   try {
+    const existingProfile = await LawyerProfile.findOne({ user: userId }).select('verificationStatus isVerified').lean();
+    const needsReview = !existingProfile || existingProfile.verificationStatus === 'rejected';
+
     const profile = await LawyerProfile.findOneAndUpdate(
       { user: userId },
       {
@@ -261,9 +272,12 @@ const applyAsLawyer = asyncHandler(async (req, res) => {
           bio: bio || '',
           consultationFee: parseInt(consultationFee, 10),
           district: district || '',
+          ...(consultationModes ? { consultationModes } : {}),
           ...(isAcceptingClients !== undefined ? { isAcceptingClients: isAcceptingClients === 'true' || isAcceptingClients === true } : {}),
-          isVerified: process.env.NODE_ENV === 'development',
-          verificationStatus: process.env.NODE_ENV === 'development' ? 'approved' : 'pending',
+          ...(needsReview ? {
+            isVerified: false,
+            verificationStatus: 'pending',
+          } : {}),
           ...(certificateUrl ? { barCouncilCertificateUrl: certificateUrl } : {}),
           ...(availabilityRaw ? (() => {
             try {
@@ -302,10 +316,22 @@ const applyAsLawyer = asyncHandler(async (req, res) => {
       specialisations: toArray(specialisations),
     });
 
+    let accessToken;
+    let refreshToken;
+    if (personaChanged) {
+      const tokens = signTokenPair(user);
+      await user.addRefreshToken(tokens.refreshToken);
+      accessToken = tokens.accessToken;
+      refreshToken = tokens.refreshToken;
+    }
+
     return res.status(201).json({
-      message: 'Application submitted. An admin will verify your profile within 2-3 business days.',
+      message: profile.isVerified
+        ? 'Application approved.'
+        : 'Application submitted. An admin will verify your profile within 2-3 business days.',
       lawyerProfileId: profile._id,
-      isVerified: false,
+      isVerified: !!profile.isVerified,
+      ...(accessToken ? { accessToken, refreshToken } : {}),
     });
   } catch (err) {
     if (err.code === 11000) {

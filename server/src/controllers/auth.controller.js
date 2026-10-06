@@ -450,10 +450,10 @@ const register = asyncHandler(async (req, res) => {
     }
   }
 
-  // Lawyer/notary personas are granted only via their dedicated, document-
-  // verified application flows — direct registration may only self-select 'citizen'.
-  const validPersonas = [PERSONA_MAP.CITIZEN];
-  const selectedPersona = persona || PERSONA_MAP.CITIZEN;
+  // Registration records the role they chose. Lawyer and notary accounts stay
+  // locked behind the verification gates until their application is approved.
+  const validPersonas = [PERSONA_MAP.CITIZEN, PERSONA_MAP.LAWYER, PERSONA_MAP.NOTARY];
+  const selectedPersona = String(persona || PERSONA_MAP.CITIZEN).toLowerCase();
 
   if (!validPersonas.includes(selectedPersona)) {
     throw createError(

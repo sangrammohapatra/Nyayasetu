@@ -37,6 +37,14 @@ const STATUS_META = {
     heading: 'Verification was not successful',
     body: 'Your notary profile could not be verified at this time. Please update your documents and contact support if you need help.',
   },
+  not_started: {
+    icon: '📜',
+    label: 'Application needed',
+    chipColor: '#1565C0',
+    chipBg: 'rgba(21,101,192,0.12)',
+    heading: 'Finish your notary application',
+    body: 'Your account is a notary account, but the registration details and certificate still need to be submitted before the profile can be reviewed.',
+  },
 };
 
 export default function NotaryVerificationPending() {
@@ -44,7 +52,8 @@ export default function NotaryVerificationPending() {
   const navigate = useNavigate();
   const notaryProfile = useSelector(selectNotaryProfile);
 
-  const status = notaryProfile?.verificationStatus || 'pending';
+  const hasProfile = !!notaryProfile;
+  const status = hasProfile ? (notaryProfile.verificationStatus || 'pending') : 'not_started';
   const meta = STATUS_META[status] || STATUS_META.pending;
   const rejectionReason = notaryProfile?.rejectionReason;
 
@@ -164,7 +173,7 @@ export default function NotaryVerificationPending() {
             <Button
               variant="contained"
               fullWidth
-              onClick={() => navigate('/notary/settings')}
+              onClick={() => navigate(hasProfile && status !== 'rejected' ? '/notary/settings' : '/notary/apply')}
               sx={{
                 borderRadius: 2,
                 fontWeight: 600,
@@ -172,7 +181,7 @@ export default function NotaryVerificationPending() {
                 '&:hover': { background: 'var(--color-primary-dark, var(--color-primary))' },
               }}
             >
-              Go to Settings
+              {!hasProfile || status === 'rejected' ? 'Complete application' : 'Go to Settings'}
             </Button>
             <Button
               variant="outlined"

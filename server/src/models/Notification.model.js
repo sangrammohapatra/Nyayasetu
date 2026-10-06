@@ -45,6 +45,8 @@ const notificationSchema = new Schema(
         'subscription_expiring',
         'subscription_cancelled',
         'lawyer_verified',
+        'lawyer_application',
+        'notary_application',
         'quota_warning',
         'quota_exceeded',
         'system',

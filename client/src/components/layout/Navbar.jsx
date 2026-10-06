@@ -92,6 +92,7 @@ const NOTIF_ICONS = {
   consultation_completed_: "🎉",
   lawyer_verified: "⚖️",
   lawyer_application: "📋",
+  notary_application: "📋",
   new_consultation_request: "🔔",
   default: "🔔",
 };

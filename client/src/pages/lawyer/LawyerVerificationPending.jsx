@@ -38,6 +38,14 @@ const STATUS_META = {
     heading: 'Verification was not successful',
     body: 'Your profile could not be verified at this time. Please update your documents and contact support if you need help.',
   },
+  not_started: {
+    icon: '⚖️',
+    label: 'Application needed',
+    chipColor: '#1565C0',
+    chipBg: 'rgba(21,101,192,0.12)',
+    heading: 'Finish your lawyer application',
+    body: 'Your account is a lawyer account, but the Bar Council details and certificate still need to be submitted before the profile can be reviewed.',
+  },
 };
 
 export default function LawyerVerificationPending() {
@@ -45,7 +53,8 @@ export default function LawyerVerificationPending() {
   const navigate = useNavigate();
   const lawyerProfile = useSelector(selectLawyerProfile);
 
-  const status = lawyerProfile?.verificationStatus || 'pending';
+  const hasProfile = !!lawyerProfile;
+  const status = hasProfile ? (lawyerProfile.verificationStatus || 'pending') : 'not_started';
   const meta = STATUS_META[status] || STATUS_META.pending;
   const rejectionReason = lawyerProfile?.rejectionReason;
 
@@ -173,7 +182,7 @@ export default function LawyerVerificationPending() {
                 '&:hover': { background: 'var(--color-primary-dark, var(--color-primary))' },
               }}
             >
-              {status === 'rejected' ? 'Update & Resubmit Application' : 'Update Application'}
+              {!hasProfile ? 'Complete application' : status === 'rejected' ? 'Update & Resubmit Application' : 'View application'}
             </Button>
             <Button
               variant="outlined"

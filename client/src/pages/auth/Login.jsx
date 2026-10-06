@@ -361,11 +361,11 @@ function Login() {
           phone: identifierIsPhone ? identifier : prev.phone,
           state: user?.state || prev.state,
         }));
-        setRegStep(2);
+        setRegStep(0);
         setPageMode('register');
       } else {
         const userPersona = (user?.persona || 'citizen').toLowerCase();
-        navigate(`/${userPersona}/home`);
+        navigate(userPersona === 'admin' ? '/admin/dashboard' : `/${userPersona}/home`);
       }
     }
   };
@@ -398,7 +398,7 @@ function Login() {
           phone: identifierIsPhone ? identifier : prev.phone,
           state: user?.state || prev.state,
         }));
-        setRegStep(2);
+        setRegStep(0);
         setPageMode('register');
         return;
       }
@@ -480,40 +480,37 @@ function Login() {
   };
 
   const handleRegComplete = async () => {
+    const errs = validateRegStep0();
+    if (Object.keys(errs).length > 0) {
+      setRegErrors(errs);
+      setRegDirection(-1);
+      setRegStep(0);
+      setRegError('Add your name, state, and district before finishing.');
+      return;
+    }
     setRegLoading(true);
     setRegError(null);
-    // The register endpoint only ever accepts persona: 'citizen' — lawyer/notary
-    // personas are granted exclusively through their dedicated verification
-    // application flows, never at self-registration (server-side, see
-    // auth.routes.js). Sending anything else here always 400s, so the "Lawyer" /
-    // "Notary" cards above capture intent only; everyone registers as a citizen.
-    const wantedProfessionalRole = regData.persona !== 'citizen' ? regData.persona : null;
+    const selectedPersona = ['lawyer', 'notary'].includes(regData.persona) ? regData.persona : 'citizen';
     const result = await dispatch(registerUser({
       name: regData.name.trim(),
       email: regData.email.trim().toLowerCase(),
       phone: regData.phone ? `+91${regData.phone}` : undefined,
       state: regData.state,
       district: regData.district.trim(),
-      persona: 'citizen',
+      persona: selectedPersona,
       preferredLanguage: regData.preferredLanguage,
       preferredTheme: regData.preferredTheme || 'default',
       whatsappOptIn: regData.whatsappOptIn,
       ...(regData.password && { password: regData.password }),
     }));
     if (result.meta.requestStatus === 'fulfilled') {
-      const userPersona = (result.payload?.user?.persona || 'citizen').toLowerCase();
-      if (wantedProfessionalRole) {
-        setSnackMsg({
-          message: `You're registered as a Citizen. ${wantedProfessionalRole === 'lawyer' ? 'Lawyer' : 'Notary'} accounts require a separate verification application — look for that option after logging in.`,
-          severity: 'info',
-        });
-        setSnackOpen(true);
-        // Give the toast time to render before navigating away — navigating
-        // immediately would unmount this page (and the toast with it).
-        setTimeout(() => navigate(`/${userPersona}/home`, { replace: true }), 3000);
-      } else {
-        navigate(`/${userPersona}/home`, { replace: true });
-      }
+      const userPersona = (result.payload?.user?.persona || selectedPersona).toLowerCase();
+      const next = userPersona === 'lawyer'
+        ? '/lawyer/profile'
+        : userPersona === 'notary'
+          ? '/notary/apply'
+          : '/citizen/home';
+      navigate(next, { replace: true });
     } else {
       setRegError(result.payload || 'Registration failed. Please try again.');
     }
@@ -942,7 +939,7 @@ function Login() {
                             {t('register.step2_title', 'Choose Your Role')}
                           </Typography>
                           <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 2.5 }}>
-                            {t('register.step2_subtitle', 'You can change this later in settings.')}
+                            {t('register.step2_subtitle', 'Lawyer and notary accounts continue into a verification application.')}
                           </Typography>
 
                           <RadioGroup value={regData.persona} onChange={(e) => updateRegData('persona', e.target.value)} sx={{ gap: 2 }}>

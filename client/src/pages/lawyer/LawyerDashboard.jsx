@@ -27,8 +27,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Switch from '@mui/material/Switch';
 import Slider from '@mui/material/Slider';
 
-import { applyAsLawyer, updateLawyerProfile } from '../../store/slices/lawyerSlice';
-import { selectLawyerProfile, selectProfilesHydrated } from '../../store/slices/authSlice';
+import { applyAsLawyer } from '../../store/slices/lawyerSlice';
+import { selectLawyerProfile, selectProfilesHydrated, getMe, setToken } from '../../store/slices/authSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GradientHeading from '../../components/ui/GradientHeading';
 import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
@@ -442,7 +442,7 @@ function LawyerDashboard() {
   const [error, setError] = useState('');
   const [specError, setSpecError] = useState('');
 
-  const { control, handleSubmit, watch, formState: { errors } } = useForm({
+  const { control, handleSubmit, trigger, formState: { errors } } = useForm({
     resolver: yupResolver(schema),
     defaultValues: {
       barCouncilNumber: existingProfile?.barCouncilNumber || '',
@@ -463,6 +463,15 @@ function LawyerDashboard() {
 
   const goNext = async () => {
     if (step === 1 && specialisations.length === 0) { setSpecError('Select at least one specialisation'); return; }
+    const fieldsByStep = [
+      ['barCouncilNumber', 'barCouncilState', 'experience'],
+      [],
+      ['bio'],
+      ['consultationFee'],
+      [],
+    ];
+    const fields = fieldsByStep[step] || [];
+    if (fields.length && !(await trigger(fields))) return;
     if (step < STEP_COUNT - 1) { setDirection(1); setStep((s) => s + 1); }
   };
 
@@ -483,19 +492,31 @@ function LawyerDashboard() {
       fd.append('consultationFee', String(values.consultationFee * 100));
       fd.append('district', values.district || '');
       fd.append('isAcceptingClients', String(values.isAcceptingClients));
+      fd.append('consultationModes', modes.join(','));
       fd.append('availability', JSON.stringify(availability));
       if (certFile) fd.append('certificate', certFile);
 
       const result = await dispatch(applyAsLawyer(fd));
       if (result.meta.requestStatus === 'fulfilled') {
-        setSubmitted(true);
+        if (result.payload?.accessToken) {
+          localStorage.setItem('nyayasetu_token', result.payload.accessToken);
+          if (result.payload.refreshToken) localStorage.setItem('nyayasetu_refresh_token', result.payload.refreshToken);
+          dispatch(setToken({ token: result.payload.accessToken, refreshToken: result.payload.refreshToken }));
+        }
+        await dispatch(getMe());
+        if (result.payload?.isVerified) {
+          navigate('/lawyer/home', { replace: true });
+        } else {
+          setSubmitted(true);
+        }
       } else {
         setError(result.payload || 'Submission failed. Please try again.');
       }
     } finally { setSubmitting(false); }
   };
 
-  if (submitted || existingProfile?.isVerified === false) {
+  const awaitingReview = existingProfile && !existingProfile.isVerified && existingProfile.verificationStatus !== 'rejected';
+  if (submitted || awaitingReview) {
     return <AnimatedPage><Box sx={{ p: { xs: 2, sm: 4 }, maxWidth: 600, mx: 'auto' }}><UnderReview /></Box></AnimatedPage>;
   }
 

@@ -178,7 +178,7 @@ router.post(
   validate([
     requirePhoneOrEmail,
     optionalPhoneValidator,
-    body('email').optional({ checkFalsy: true }).isEmail().withMessage('Please enter a valid email address').normalizeEmail(),
+    body('email').optional({ checkFalsy: true }).isEmail().withMessage('Please enter a valid email address').normalizeEmail({ gmail_remove_dots: false, gmail_remove_subaddress: false }),
   ]),
   sendOTPHandler
 );
@@ -197,7 +197,7 @@ router.post(
   validate([
     requirePhoneOrEmail,
     optionalPhoneValidator,
-    body('email').optional({ checkFalsy: true }).isEmail().withMessage('Please enter a valid email address').normalizeEmail(),
+    body('email').optional({ checkFalsy: true }).isEmail().withMessage('Please enter a valid email address').normalizeEmail({ gmail_remove_dots: false, gmail_remove_subaddress: false }),
     body('otp')
       .notEmpty().withMessage('OTP is required')
       .isLength({ min: 6, max: 6 }).withMessage('OTP must be exactly 6 digits')
@@ -223,15 +223,14 @@ router.post(
       .isLength({ min: 2, max: 100 }).withMessage('Name must be 2–100 characters')
       .trim(),
 
-    // Lawyer/notary personas are granted only via their dedicated
-    // application flows (POST /v1/lawyers/apply, /v1/notary/apply), which
-    // collect verification documents before flipping the persona. Direct
-    // registration may only self-select 'citizen'.
+    // The role chosen here only unlocks that persona's onboarding.
+    // Lawyer and notary dashboards stay behind verification until
+    // POST /v1/lawyers/apply or /v1/notaries/apply is approved.
     body('persona')
       .optional()
       .customSanitizer((v) => v?.toLowerCase())
-      .isIn([PERSONAS.CITIZEN])
-      .withMessage('Persona must be: citizen'),
+      .isIn([PERSONAS.CITIZEN, PERSONAS.LAWYER, PERSONAS.NOTARY])
+      .withMessage('Persona must be one of: citizen, lawyer, notary'),
 
     body('preferredLanguage')
       .optional()
@@ -241,7 +240,7 @@ router.post(
     body('email')
       .optional()
       .isEmail().withMessage('Please enter a valid email address')
-      .normalizeEmail(),
+      .normalizeEmail({ gmail_remove_dots: false, gmail_remove_subaddress: false }),
 
     body('state')
       .optional()
@@ -313,7 +312,7 @@ router.patch(
     body('email')
       .optional()
       .isEmail().withMessage('Please enter a valid email address')
-      .normalizeEmail(),
+      .normalizeEmail({ gmail_remove_dots: false, gmail_remove_subaddress: false }),
 
     body('whatsappOptIn')
       .optional()
@@ -380,7 +379,7 @@ router.post(
   validate([
     requirePhoneOrEmail,
     optionalPhoneValidator,
-    body('email').optional({ checkFalsy: true }).isEmail().withMessage('Please enter a valid email address').normalizeEmail(),
+    body('email').optional({ checkFalsy: true }).isEmail().withMessage('Please enter a valid email address').normalizeEmail({ gmail_remove_dots: false, gmail_remove_subaddress: false }),
     body('password').notEmpty().withMessage('Password is required'),
   ]),
   loginWithPassword
