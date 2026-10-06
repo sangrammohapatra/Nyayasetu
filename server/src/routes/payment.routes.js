@@ -26,7 +26,7 @@ const express = require('express');
 const router = express.Router();
 
 const paymentController = require('../controllers/payment.controller');
-const { verifyToken } = require('../middleware/auth.middleware');
+const { verifyToken, requireApprovedPractice } = require('../middleware/auth.middleware');
 
 /* ---------------------------------------------------------------------------
  * Razorpay webhook
@@ -65,6 +65,7 @@ router.post(
 router.get(
   '/history',
   verifyToken,
+  requireApprovedPractice,
   paymentController.getPaymentHistory
 );
 

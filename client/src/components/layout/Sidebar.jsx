@@ -40,7 +40,7 @@ import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 
 
-import { selectUser, selectUserPlan, selectUserPersona } from '../../store/slices/authSlice';
+import { selectUserPlan, selectUserPersona, selectLawyerProfile, selectNotaryProfile, selectProfilesHydrated } from '../../store/slices/authSlice';
 import { selectFreeUsage } from '../../store/slices/subscriptionSlice';
 import { selectSidebarOpen, setSidebarOpen } from '../../store/slices/uiSlice';
 import { RADIUS, SHADOWS } from '../../theme/tokens';
@@ -76,6 +76,11 @@ const IC = {
 
 function useNavItems(persona) {
   const { t, i18n } = useTranslation();
+  const profilesHydrated = useSelector(selectProfilesHydrated);
+  const lawyerProfile = useSelector(selectLawyerProfile);
+  const notaryProfile = useSelector(selectNotaryProfile);
+  const lawyerApproved = !profilesHydrated || (lawyerProfile?.isVerified === true && lawyerProfile?.verificationStatus === 'approved');
+  const notaryApproved = !profilesHydrated || (notaryProfile?.isVerified === true && notaryProfile?.verificationStatus === 'approved');
   return useMemo(() => {
     const citizen = [
       { section: t('sidebar.section_main', 'Main') },
@@ -93,7 +98,7 @@ function useNavItems(persona) {
       { icon: IC.settings,    label: t('sidebar.settings',    'Settings'),      path: '/citizen/settings' },
     ];
 
-    const lawyer = [
+    const lawyer = lawyerApproved ? [
       { section: t('sidebar.section_main', 'Main') },
       { icon: IC.home,          label: t('sidebar.home',          'Home'),          path: '/lawyer/home' },
       { icon: IC.clients,       label: t('sidebar.clients',       'My Clients'),    path: '/lawyer/clients' },
@@ -102,6 +107,9 @@ function useNavItems(persona) {
       { section: t('sidebar.section_business', 'Business') },
       { icon: IC.consultations, label: t('sidebar.consultations', 'Consultations'), path: '/lawyer/consultations' },
       { icon: IC.earnings,      label: t('sidebar.earnings',      'Earnings'),      path: '/lawyer/earnings' },
+      { section: t('sidebar.section_account', 'Account') },
+      { icon: IC.settings,      label: t('sidebar.settings',      'Settings'),      path: '/lawyer/settings' },
+    ] : [
       { section: t('sidebar.section_account', 'Account') },
       { icon: IC.settings,      label: t('sidebar.settings',      'Settings'),      path: '/lawyer/settings' },
     ];
@@ -123,17 +131,20 @@ function useNavItems(persona) {
       { icon: IC.cases,         label: t('sidebar.auditLog',        'Audit Log'),       path: '/admin/audit-logs' },
     ];
 
-    const notary = [
+    const notary = notaryApproved ? [
       { section: t('sidebar.section_notary', 'Notary') },
       { icon: IC.home,          label: t('sidebar.home',     'Home'),       path: '/notary/home' },
       { icon: IC.consultations, label: t('sidebar.requests', 'Requests'),    path: '/notary/requests' },
       { icon: IC.earnings,      label: t('sidebar.earnings', 'Earnings'),    path: '/notary/earnings' },
       { icon: IC.calendar,      label: t('sidebar.calendar', 'Calendar'),    path: '/notary/calendar' },
       { icon: IC.dashboard,     label: t('sidebar.profile',  'My Profile'),  path: '/notary/profile' },
+    ] : [
+      { section: t('sidebar.section_account', 'Account') },
+      { icon: IC.settings,      label: t('sidebar.settings', 'Settings'),    path: '/notary/settings' },
     ];
 
     return { citizen, lawyer, admin, notary }[persona] || citizen;
-  }, [persona, t, i18n.language]);
+  }, [persona, t, i18n.language, lawyerApproved, notaryApproved]);
 }
 
 // ─── Single nav item ──────────────────────────────────────────────────────────

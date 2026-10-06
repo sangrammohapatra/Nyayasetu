@@ -28,7 +28,7 @@ import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
 
-import { selectUserPersona } from '../../store/slices/authSlice';
+import { selectUserPersona, selectLawyerProfile, selectNotaryProfile, selectProfilesHydrated } from '../../store/slices/authSlice';
 import { selectUnreadTotal } from '../../store/slices/notificationSlice';
 import { TYPOGRAPHY } from '../../theme/tokens';
 
@@ -53,6 +53,12 @@ const IC = {
 // ─── Nav items per persona ────────────────────────────────────────────────────
 
 function useBottomNavItems(persona, t, unread) {
+  const profilesHydrated = useSelector(selectProfilesHydrated);
+  const lawyerProfile = useSelector(selectLawyerProfile);
+  const notaryProfile = useSelector(selectNotaryProfile);
+  const lawyerApproved = !profilesHydrated || (lawyerProfile?.isVerified === true && lawyerProfile?.verificationStatus === 'approved');
+  const notaryApproved = !profilesHydrated || (notaryProfile?.isVerified === true && notaryProfile?.verificationStatus === 'approved');
+
   const citizen = [
     { icon: IC.home,          label: t('nav.home',          'Home'),     path: '/citizen/home' },
     { icon: IC.newDoc,        label: t('nav.new_doc',        'New Doc'),  path: '/citizen/documents/new' },
@@ -61,12 +67,14 @@ function useBottomNavItems(persona, t, unread) {
     { icon: IC.findLawyer,    label: t('nav.lawyers',        'Lawyers'),  path: '/citizen/lawyers' },
   ];
 
-  const lawyer = [
+  const lawyer = lawyerApproved ? [
     { icon: IC.home,          label: t('nav.home',          'Home'),        path: '/lawyer/home' },
     { icon: IC.clients,       label: t('nav.clients',       'Clients'),     path: '/lawyer/clients' },
     { icon: IC.consultations, label: t('nav.consultations', 'Sessions'),    path: '/lawyer/consultations' },
     { icon: IC.earnings,      label: t('nav.earnings',      'Earnings'),    path: '/lawyer/earnings' },
     { icon: IC.notifications, label: t('nav.alerts',        'Alerts'),      path: '/notifications', badge: unread },
+  ] : [
+    { icon: IC.home, label: t('nav.application', 'Application'), path: '/lawyer/profile' },
   ];
 
   const admin = [
@@ -76,10 +84,12 @@ function useBottomNavItems(persona, t, unread) {
     { icon: IC.lawyers,   label: t('nav.lawyers',    'Lawyers'),    path: '/admin/lawyers' },
   ];
 
-  const notary = [
+  const notary = notaryApproved ? [
     { icon: IC.home,          label: t('nav.home', 'Home'),           path: '/notary/home' },
     { icon: IC.consultations, label: t('sidebar.requests', 'Requests'), path: '/notary/requests' },
     { icon: IC.dashboard,     label: t('nav.profile', 'Profile'),      path: '/notary/profile' },
+  ] : [
+    { icon: IC.home, label: t('nav.application', 'Application'), path: '/notary/apply' },
   ];
 
   return ({ citizen, lawyer, admin, notary }[persona] || citizen);

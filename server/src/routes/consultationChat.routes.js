@@ -12,7 +12,7 @@ const express    = require('express');
 const { body, param, validationResult } = require('express-validator');
 const { getMessages, sendMessage, getUnreadCount } = require('../controllers/consultationChat.controller');
 const { getDocumentForLawyer } = require('../controllers/document.controller');
-const { verifyToken } = require('../middleware/auth.middleware');
+const { verifyToken, requireApprovedLawyerWhenLawyer } = require('../middleware/auth.middleware');
 const asyncHandler    = require('../utils/asyncHandler');
 
 const router = express.Router();
@@ -30,7 +30,7 @@ const validate = (checks) => [
   }),
 ];
 
-router.use(verifyToken);
+router.use(verifyToken, requireApprovedLawyerWhenLawyer);
 
 router.get(
   '/:id/messages',

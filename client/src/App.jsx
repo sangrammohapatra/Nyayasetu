@@ -11,7 +11,7 @@
  * - Service Worker registration
  */
 
-import React, { useEffect, useRef, Suspense, lazy } from "react";
+import React, { useCallback, useEffect, useRef, useState, Suspense, lazy } from "react";
 import { Provider, useDispatch, useSelector } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
 import {
@@ -53,8 +53,6 @@ import {
   selectIsAuthenticated,
   selectUserPersona,
   selectAuthLoading,
-  selectLawyerProfile,
-  selectNotaryProfile,
   selectProfilesHydrated,
   selectAccessToken,
   getMe,
@@ -281,13 +279,44 @@ function NotFound() {
 // pending page. Settings remains accessible regardless so lawyers can update
 // their profile while waiting.
 
+function profileIsApproved(profile) {
+  return profile?.isVerified === true && profile?.verificationStatus === "approved";
+}
+
+const pickLawyerProfile = (payload) => payload?.lawyerProfile;
+const pickNotaryProfile = (payload) => payload?.notaryProfile;
+
+// Always re-reads /auth/me. A session can still hold an approved profile from
+// before an admin (or a dev reset) moved the application back to pending.
+function useVerificationPhase(pickProfile) {
+  const dispatch = useDispatch();
+  const [phase, setPhase] = useState("loading");
+
+  const refresh = useCallback(() => {
+    dispatch(getMe()).then((action) => {
+      if (!getMe.fulfilled.match(action)) {
+        setPhase((current) => (current === "allowed" ? "allowed" : "blocked"));
+        return;
+      }
+      setPhase(profileIsApproved(pickProfile(action.payload)) ? "allowed" : "blocked");
+    });
+  }, [dispatch, pickProfile]);
+
+  useEffect(() => {
+    refresh();
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, [refresh]);
+
+  return phase;
+}
+
 function LawyerVerifiedGate() {
-  const lawyerProfile = useSelector(selectLawyerProfile);
-  const profilesHydrated = useSelector(selectProfilesHydrated);
+  const phase = useVerificationPhase(pickLawyerProfile);
 
-  if (!profilesHydrated) return <PageLoader />;
+  if (phase === "loading") return <PageLoader />;
 
-  if (!lawyerProfile?.isVerified) {
+  if (phase !== "allowed") {
     return (
       <Suspense fallback={<PageLoader />}>
         <LawyerVerificationPending />
@@ -301,12 +330,11 @@ function LawyerVerifiedGate() {
 // ─── Notary verification gate ────────────────────────────────────────────────
 
 function NotaryVerifiedGate() {
-  const notaryProfile = useSelector(selectNotaryProfile);
-  const profilesHydrated = useSelector(selectProfilesHydrated);
+  const phase = useVerificationPhase(pickNotaryProfile);
 
-  if (!profilesHydrated) return <PageLoader />;
+  if (phase === "loading") return <PageLoader />;
 
-  if (!notaryProfile?.isVerified) {
+  if (phase !== "allowed") {
     return (
       <Suspense fallback={<PageLoader />}>
         <NotaryVerificationPending />

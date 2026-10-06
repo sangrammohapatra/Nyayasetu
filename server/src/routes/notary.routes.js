@@ -32,7 +32,14 @@
 const express = require('express');
 
 const notaryController = require('../controllers/notary.controller');
-const { verifyToken, optionalAuth, requireCitizen, requireNotary } = require('../middleware/auth.middleware');
+const {
+  verifyToken,
+  optionalAuth,
+  requireCitizen,
+  requireNotary,
+  requireApprovedNotary,
+  requireApprovedNotaryWhenNotary,
+} = require('../middleware/auth.middleware');
 
 // ─── Notary Profile Router ────────────────────────────────────────────────────
 // Mount at: app.use('/v1/notaries', notaryProfileRouter)
@@ -76,6 +83,7 @@ notaryProfileRouter.get(
   '/me/withdrawals',
   verifyToken,
   requireNotary,
+  requireApprovedNotary,
   notaryController.listWithdrawals
 );
 
@@ -83,6 +91,7 @@ notaryProfileRouter.put(
   '/bank-account',
   verifyToken,
   requireNotary,
+  requireApprovedNotary,
   notaryController.saveBankAccount
 );
 
@@ -90,6 +99,7 @@ notaryProfileRouter.post(
   '/withdraw',
   verifyToken,
   requireNotary,
+  requireApprovedNotary,
   notaryController.requestWithdrawal
 );
 
@@ -114,21 +124,28 @@ notarizationRouter.post(
   notaryController.verifyNotarizationPayment
 );
 
-notarizationRouter.get('/', verifyToken, notaryController.listNotarizationRequests);
+notarizationRouter.get('/', verifyToken, requireApprovedNotaryWhenNotary, notaryController.listNotarizationRequests);
 
 // Static sub-path must be before /:id
 notarizationRouter.get(
   '/document/:documentId',
   verifyToken,
+  requireApprovedNotaryWhenNotary,
   notaryController.getDocumentNotarizationStatus
 );
 
-notarizationRouter.get('/:id', verifyToken, notaryController.getNotarizationRequest);
+notarizationRouter.get(
+  '/:id',
+  verifyToken,
+  requireApprovedNotaryWhenNotary,
+  notaryController.getNotarizationRequest
+);
 
 notarizationRouter.patch(
   '/:id/accept',
   verifyToken,
   requireNotary,
+  requireApprovedNotary,
   notaryController.acceptRequest
 );
 
@@ -136,6 +153,7 @@ notarizationRouter.patch(
   '/:id/schedule-kyc',
   verifyToken,
   requireNotary,
+  requireApprovedNotary,
   notaryController.scheduleKYC
 );
 
@@ -143,6 +161,7 @@ notarizationRouter.patch(
   '/:id/complete-kyc',
   verifyToken,
   requireNotary,
+  requireApprovedNotary,
   notaryController.completeKYC
 );
 
@@ -150,6 +169,7 @@ notarizationRouter.patch(
   '/:id/stamp',
   verifyToken,
   requireNotary,
+  requireApprovedNotary,
   notaryController.stampDocument
 );
 
@@ -157,6 +177,7 @@ notarizationRouter.patch(
   '/:id/reject',
   verifyToken,
   requireNotary,
+  requireApprovedNotary,
   notaryController.rejectRequest
 );
 
@@ -178,6 +199,7 @@ notarizationRouter.patch(
   '/:id/dispatch',
   verifyToken,
   requireNotary,
+  requireApprovedNotary,
   notaryController.markDispatched
 );
 

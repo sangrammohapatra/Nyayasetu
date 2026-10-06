@@ -34,7 +34,13 @@ const { query, validationResult } = require('express-validator');
 
 const lawyerController = require('../controllers/lawyer.controller');
 const consultationController = require('../controllers/consultation.controller');
-const { verifyToken, optionalAuth, requirePersona } = require('../middleware/auth.middleware');
+const {
+  verifyToken,
+  optionalAuth,
+  requirePersona,
+  requireApprovedLawyer,
+  requireApprovedLawyerWhenLawyer,
+} = require('../middleware/auth.middleware');
 const { PERSONAS } = require('../config/constants');
 
 const rejectIfInvalid = (req, res, next) => {
@@ -80,6 +86,7 @@ router.get(
   '/lawyers/me/clients',
   verifyToken,
   requirePersona('lawyer'),
+  requireApprovedLawyer,
   lawyerController.getMyClients
 );
 
@@ -91,6 +98,7 @@ router.get(
   '/lawyers/me/withdrawals',
   verifyToken,
   requirePersona(PERSONAS.LAWYER),
+  requireApprovedLawyer,
   lawyerController.listWithdrawals
 );
 
@@ -101,6 +109,7 @@ router.put(
   '/lawyers/bank-account',
   verifyToken,
   requirePersona(PERSONAS.LAWYER),
+  requireApprovedLawyer,
   lawyerController.saveBankAccount
 );
 
@@ -111,6 +120,7 @@ router.post(
   '/lawyers/withdraw',
   verifyToken,
   requirePersona(PERSONAS.LAWYER),
+  requireApprovedLawyer,
   lawyerController.requestWithdrawal
 );
 
@@ -184,6 +194,7 @@ router.post(
 router.get(
   '/consultations',
   verifyToken,
+  requireApprovedLawyerWhenLawyer,
   consultationController.listConsultations
 );
 
@@ -194,6 +205,7 @@ router.patch(
   '/consultations/:id/accept',
   verifyToken,
   requirePersona(PERSONAS.LAWYER),
+  requireApprovedLawyer,
   consultationController.acceptConsultation
 );
 
@@ -205,6 +217,7 @@ router.patch(
   '/consultations/:id/reject',
   verifyToken,
   requirePersona(PERSONAS.LAWYER),
+  requireApprovedLawyer,
   consultationController.rejectConsultation
 );
 
@@ -227,6 +240,7 @@ router.patch(
   '/consultations/:id/complete',
   verifyToken,
   requirePersona(PERSONAS.LAWYER),
+  requireApprovedLawyer,
   consultationController.completeConsultation
 );
 
@@ -238,6 +252,7 @@ router.patch(
   '/consultations/:id/no-show',
   verifyToken,
   requirePersona(PERSONAS.LAWYER),
+  requireApprovedLawyer,
   consultationController.markNoShow
 );
 

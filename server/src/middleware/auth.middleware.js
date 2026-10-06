@@ -3,6 +3,8 @@ const { createError } = require('./error.middleware');
 const asyncHandler = require('../utils/asyncHandler');
 const { getRedisClient } = require('../config/redis');
 const User = require('../models/User.model');
+const LawyerProfile = require('../models/LawyerProfile.model');
+const NotaryProfile = require('../models/NotaryProfile.model');
 
 // ─── verifyToken ───────────────────────────────────────────────────────────────
 
@@ -163,6 +165,72 @@ const requireCitizen = requirePersona('citizen', 'admin');
 /** requireNotary — allows notaries and admins */
 const requireNotary = requirePersona('notary', 'admin');
 
+function isPracticeApproved(profile) {
+  return profile?.isVerified === true && profile?.verificationStatus === 'approved';
+}
+
+/**
+ * Blocks lawyer practice features until an admin has approved the profile.
+ * Profile editing and the application itself stay open.
+ */
+const requireApprovedLawyer = asyncHandler(async (req, res, next) => {
+  if (!req.user) {
+    return next(createError(401, 'UNAUTHORIZED', 'Authentication required'));
+  }
+
+  const profile = await LawyerProfile.findOne({ user: req.user.userId })
+    .select('isVerified verificationStatus')
+    .lean();
+
+  if (!isPracticeApproved(profile)) {
+    return next(createError(
+      403,
+      'LAWYER_NOT_VERIFIED',
+      'Your lawyer application is awaiting admin approval.'
+    ));
+  }
+
+  next();
+});
+
+/** Same check, skipped for citizens and other personas that share the route. */
+const requireApprovedLawyerWhenLawyer = asyncHandler(async (req, res, next) => {
+  if (req.user?.persona !== 'lawyer') return next();
+  return requireApprovedLawyer(req, res, next);
+});
+
+const requireApprovedNotary = asyncHandler(async (req, res, next) => {
+  if (!req.user) {
+    return next(createError(401, 'UNAUTHORIZED', 'Authentication required'));
+  }
+
+  const profile = await NotaryProfile.findOne({ user: req.user.userId })
+    .select('isVerified verificationStatus')
+    .lean();
+
+  if (!isPracticeApproved(profile)) {
+    return next(createError(
+      403,
+      'NOTARY_NOT_VERIFIED',
+      'Your notary application is awaiting admin approval.'
+    ));
+  }
+
+  next();
+});
+
+const requireApprovedNotaryWhenNotary = asyncHandler(async (req, res, next) => {
+  if (req.user?.persona !== 'notary') return next();
+  return requireApprovedNotary(req, res, next);
+});
+
+/** Shared routes (payment history) used by every persona. */
+const requireApprovedPractice = asyncHandler(async (req, res, next) => {
+  if (req.user?.persona === 'lawyer') return requireApprovedLawyer(req, res, next);
+  if (req.user?.persona === 'notary') return requireApprovedNotary(req, res, next);
+  next();
+});
+
 module.exports = {
   verifyToken,
   optionalAuth,
@@ -172,4 +240,9 @@ module.exports = {
   requireCitizen,
   requireNotary,
   requireCompleteProfile,
+  requireApprovedLawyer,
+  requireApprovedLawyerWhenLawyer,
+  requireApprovedNotary,
+  requireApprovedNotaryWhenNotary,
+  requireApprovedPractice,
 };
