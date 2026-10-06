@@ -626,17 +626,41 @@ const cancelUserSubscription = asyncHandler(async (req, res) => {
  * GET /v1/payments/history
  * Query: page, limit, type
  * ------------------------------------------------------------------------ */
+function projectLawyerShare(amount, referralFeePercent = 10) {
+  const platformEarnings = Math.round((amount * referralFeePercent) / 100);
+  return { platformEarnings, lawyerEarnings: amount - platformEarnings };
+}
+
 const getPaymentHistory = asyncHandler(async (req, res) => {
   const userId = req.user.userId;
   const { page = 1, limit = 20, type } = req.query;
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
-  const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+  const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 20));
   const skip = (pageNum - 1) * limitNum;
 
-  const filter = { user: userId };
   const VALID_TYPES = ['pay_per_doc', 'subscription', 'consultation'];
+  const filter = { user: userId };
   if (type && VALID_TYPES.includes(type)) filter.type = type;
+
+  // Consultation payments are owned by the citizen who paid. A lawyer's earnings
+  // page still needs those rows, matched through the consultations they hold.
+  let referralFeePercent = 10;
+  if (req.user.persona === 'lawyer' && (!type || type === 'consultation')) {
+    const [consultations, profile] = await Promise.all([
+      Consultation.find({ lawyer: userId }).select('payment').lean(),
+      LawyerProfile.findOne({ user: userId }).select('referralFeePercent').lean(),
+    ]);
+    referralFeePercent = profile?.referralFeePercent ?? 10;
+    const paymentIds = consultations.map((c) => c.payment).filter(Boolean);
+    if (type === 'consultation') {
+      delete filter.user;
+      filter._id = { $in: paymentIds };
+    } else {
+      delete filter.user;
+      filter.$or = [{ user: userId }, { _id: { $in: paymentIds } }];
+    }
+  }
 
   try {
     const [items, total] = await Promise.all([
@@ -647,6 +671,17 @@ const getPaymentHistory = asyncHandler(async (req, res) => {
         .lean(),
       Payment.countDocuments(filter),
     ]);
+
+    if (req.user.persona === 'lawyer') {
+      for (const item of items) {
+        if (item.type !== 'consultation') continue;
+        const credited = item.lawyerEarnings > 0;
+        item.earningsCredited = credited;
+        if (item.status === 'paid' && !credited) {
+          item.projectedLawyerEarnings = projectLawyerShare(item.amount, referralFeePercent).lawyerEarnings;
+        }
+      }
+    }
 
     return res.json({
       items,
@@ -782,25 +817,14 @@ async function handlePaymentCaptured(payload, io = null) {
       payment.razorpayPaymentId = razorpayPaymentId;
       payment.paidAt = new Date();
 
+      // Earnings are credited when the lawyer completes the consultation
+      // (or marks a no-show). Capture only records that the fee was collected.
       if (payment.type === 'consultation' && payment.entityId) {
-        const consultation = await Consultation.findById(payment.entityId)
-          .select('lawyer')
-          .session(session)
-          .lean();
-        if (consultation) {
-          const profile = await LawyerProfile.findById(consultation.lawyer)
-            .select('referralFeePercent')
-            .session(session)
-            .lean();
-          const referralFeePercent = profile?.referralFeePercent ?? 10;
-          payment.platformEarnings = Math.round(payment.amount * referralFeePercent / 100);
-          payment.lawyerEarnings   = payment.amount - payment.platformEarnings;
-          await Consultation.updateOne(
-            { _id: payment.entityId },
-            { $set: { isPaid: true } },
-            { session }
-          );
-        }
+        await Consultation.updateOne(
+          { _id: payment.entityId },
+          { $set: { isPaid: true } },
+          { session }
+        );
       }
 
       await payment.save({ session });

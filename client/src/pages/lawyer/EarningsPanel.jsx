@@ -61,8 +61,12 @@ function EarningCard({ icon, label, value, sub, color, delay = 0 }) {
 function PaymentRow({ payment, i }) {
   const prefersReducedMotion = useReducedMotion();
   const date = new Date(payment.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' });
-  const earning = Math.round((payment.lawyerEarnings || 0) / 100);
+  const credited = (payment.lawyerEarnings || 0) > 0;
+  const earningPaise = credited ? payment.lawyerEarnings : (payment.projectedLawyerEarnings || 0);
+  const earning = Math.round(earningPaise / 100);
+  const fee = Math.round((payment.amount || 0) / 100);
   const type = payment.type?.replace(/_/g, ' ') || 'consultation';
+  const chipLabel = payment.status === 'paid' && !credited ? 'pending' : payment.status;
 
   return (
     <motion.div initial={prefersReducedMotion ? false : { opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}>
@@ -76,14 +80,16 @@ function PaymentRow({ payment, i }) {
         </Box>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--color-text)', textTransform: 'capitalize' }}>{type}</Typography>
-          <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>{date}</Typography>
+          <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
+            {date}{fee ? ` · ₹${fee.toLocaleString('en-IN')} fee` : ''}
+          </Typography>
         </Box>
         <Box sx={{ textAlign: 'right' }}>
-          <Typography variant="body2" sx={{ fontWeight: 800, color: 'var(--color-success)' }}>+₹{earning}</Typography>
-          <Chip size="small" label={payment.status} sx={{
+          <Typography variant="body2" sx={{ fontWeight: 800, color: credited ? 'var(--color-success)' : 'var(--color-text)' }}>+₹{earning}</Typography>
+          <Chip size="small" label={chipLabel} sx={{
             height: 18, fontSize: '0.62rem', fontWeight: 600,
-            background: payment.status === 'paid' ? 'rgba(46,125,50,0.1)' : 'var(--color-border)',
-            color: payment.status === 'paid' ? 'var(--color-success)' : 'var(--color-text-secondary)',
+            background: credited ? 'rgba(46,125,50,0.1)' : chipLabel === 'pending' ? 'rgba(230,81,0,0.1)' : 'var(--color-border)',
+            color: credited ? 'var(--color-success)' : chipLabel === 'pending' ? '#e65100' : 'var(--color-text-secondary)',
           }} />
         </Box>
       </Box>
@@ -221,21 +227,24 @@ function EarningsPanel() {
       const monthMap = {};
 
       list.forEach((p) => {
-        const earning = p.lawyerEarnings || 0;
-        if (p.status === 'paid') {
-          lifetime += earning;
-          if (new Date(p.createdAt) >= monthStart) thisMonth += earning;
+        const credited = p.status === 'paid' ? (p.lawyerEarnings || 0) : 0;
+        const pendingShare = p.status === 'paid' && !credited ? (p.projectedLawyerEarnings || 0) : 0;
+        if (credited) {
+          lifetime += credited;
+          if (new Date(p.createdAt) >= monthStart) thisMonth += credited;
         }
-        if (p.status === 'created') pending += p.amount || 0;
+        pending += pendingShare;
 
-        // Aggregate by month for chart
+        // Aggregate by month for chart. Pending share is expected earnings
+        // for a fee already collected, before the consultation is completed.
         const d = new Date(p.createdAt);
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         const label = d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
         if (!monthMap[key]) monthMap[key] = { month: label, Earnings: 0, Platform: 0 };
-        if (p.status === 'paid') {
-          monthMap[key].Earnings += Math.round(earning / 100);
-          monthMap[key].Platform += Math.round((p.platformEarnings || 0) / 100);
+        const shown = credited || pendingShare;
+        if (shown) {
+          monthMap[key].Earnings += Math.round(shown / 100);
+          monthMap[key].Platform += Math.round((p.platformEarnings || (p.amount - shown)) / 100);
         }
       });
 
