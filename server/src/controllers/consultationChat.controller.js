@@ -124,6 +124,8 @@ const sendMessage = asyncHandler(async (req, res) => {
   const io = req.app.get('io');
   if (io) {
     io.to(`consultation:${consultationId}`).emit('consultation:message', populated);
+    io.to(`user:${consultation.citizen.toString()}`).emit('consultation:message', populated);
+    io.to(`user:${consultation.lawyer.toString()}`).emit('consultation:message', populated);
 
     const otherId = await getOtherPartyId(consultation, userId);
     if (otherId) {

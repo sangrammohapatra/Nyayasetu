@@ -31,6 +31,7 @@ import {
   selectConsultationsLoading,
 } from '../../store/slices/lawyerSlice';
 import ConsultationChat from '../../components/consultation/ConsultationChat';
+import JoinCallButton from '../../components/consultation/JoinCallButton';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GradientHeading from '../../components/ui/GradientHeading';
 import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
@@ -115,12 +116,12 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, onComplete, 
       transition={{ delay, duration: 0.3 }}
     >
       <Box sx={{
-        display: 'flex', alignItems: 'center', gap: 2, p: 2,
+        display: 'flex', flexDirection: 'column', gap: 1.25, p: 2,
         borderBottom: '1px solid var(--color-border)',
         transition: 'background 0.15s',
         '&:hover': { background: 'var(--color-overlay)' },
-        flexWrap: { xs: 'wrap', sm: 'nowrap' },
       }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
         {/* Avatar */}
         <Avatar sx={{
           width: 44, height: 44, background: 'var(--color-primary)',
@@ -130,7 +131,7 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, onComplete, 
         </Avatar>
 
         {/* Client info */}
-        <Box sx={{ flex: 1, minWidth: 120 }}>
+        <Box sx={{ flex: '1 1 160px', minWidth: 140 }}>
           <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)' }}>
             {citizen.name || t('consultations.unknownClient', 'Client')}
           </Typography>
@@ -153,7 +154,6 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, onComplete, 
         {/* Scheduled time */}
         <Typography variant="caption" sx={{
           color: 'var(--color-text-secondary)', flexShrink: 0,
-          minWidth: 140, display: { xs: 'none', md: 'block' },
         }}>
           📅 {scheduledDate}
         </Typography>
@@ -162,7 +162,6 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, onComplete, 
         {feeFormatted && (
           <Typography variant="caption" sx={{
             fontWeight: 700, color: 'var(--color-text)', flexShrink: 0,
-            display: { xs: 'none', sm: 'block' },
           }}>
             {feeFormatted}
           </Typography>
@@ -178,15 +177,16 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, onComplete, 
             flexShrink: 0,
           }}
         />
+        </Box>
 
         {/* Actions for pending requests */}
         {isRequested && (
-          <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             <Button
               size="small" variant="contained" disabled={actionLoading}
               onClick={() => onAccept(consultation._id)}
               sx={{
-                fontSize: '0.72rem', fontWeight: 600,
+                fontSize: '0.72rem', fontWeight: 600, whiteSpace: 'nowrap',
                 borderRadius: '8px', py: 0.4,
                 background: 'var(--color-primary)',
                 color: 'var(--color-bg)',
@@ -200,7 +200,7 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, onComplete, 
               size="small" variant="outlined" disabled={actionLoading}
               onClick={() => onReject(consultation._id)}
               sx={{
-                fontSize: '0.72rem', fontWeight: 600,
+                fontSize: '0.72rem', fontWeight: 600, whiteSpace: 'nowrap',
                 borderRadius: `${RADIUS.md}px`, py: 0.4,
                 borderColor: '#d32f2f', color: '#d32f2f',
                 '&:hover': { background: 'rgba(211,47,47,0.06)', borderColor: '#d32f2f' },
@@ -213,29 +213,16 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, onComplete, 
 
         {/* Chat button for accepted/completed consultations */}
         {(consultation.status === 'accepted' || consultation.status === 'completed') && (
-          <Box sx={{ display: 'flex', gap: 0.75, flexShrink: 0 }}>
-            {consultation.mode === 'video' && consultation.meetingLink && consultation.status === 'accepted' && (
-              <Button
-                size="small" variant="contained"
-                component="a" href={consultation.meetingLink} target="_blank" rel="noopener noreferrer"
-                sx={{
-                  fontSize: '0.72rem', fontWeight: 700,
-                  borderRadius: `${RADIUS.md}px`, py: 0.4,
-                  background: '#1565c0',
-                  '&:hover': { background: '#0d47a1' },
-                }}
-              >
-                📹 Join Call
-              </Button>
-            )}
+          <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+            <JoinCallButton consultation={consultation} />
             {isChatOpen(consultation) && (
               <Button
                 size="small" variant="outlined" disabled={actionLoading}
                 onClick={() => onChat(consultation)}
                 sx={{
-                  fontSize: '0.72rem', fontWeight: 600,
-                  borderRadius: `${RADIUS.md}px`, py: 0.4,
-                  borderColor: 'var(--color-primary)', color: 'var(--color-primary)',
+                fontSize: '0.72rem', fontWeight: 600, whiteSpace: 'nowrap',
+                borderRadius: `${RADIUS.md}px`, py: 0.4,
+                borderColor: 'var(--color-primary)', color: 'var(--color-primary)',
                   '&:hover': { background: 'var(--color-primary-alpha)' },
                 }}
               >
@@ -247,9 +234,9 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, onComplete, 
                 size="small" variant="contained" disabled={actionLoading}
                 onClick={() => onComplete(consultation._id)}
                 sx={{
-                  fontSize: '0.72rem', fontWeight: 700,
-                  borderRadius: `${RADIUS.md}px`, py: 0.4,
-                  background: '#2e7d32',
+                fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap',
+                borderRadius: `${RADIUS.md}px`, py: 0.4,
+                background: '#2e7d32',
                   '&:hover': { background: '#1b5e20' },
                 }}
               >
@@ -261,9 +248,9 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, onComplete, 
                 size="small" variant="outlined" disabled={actionLoading}
                 onClick={() => onNoShow(consultation._id)}
                 sx={{
-                  fontSize: '0.72rem', fontWeight: 600,
-                  borderRadius: `${RADIUS.md}px`, py: 0.4,
-                  borderColor: '#757575', color: '#757575',
+                fontSize: '0.72rem', fontWeight: 600, whiteSpace: 'nowrap',
+                borderRadius: `${RADIUS.md}px`, py: 0.4,
+                borderColor: '#757575', color: '#757575',
                   '&:hover': { background: 'rgba(117,117,117,0.08)', borderColor: '#757575' },
                 }}
               >

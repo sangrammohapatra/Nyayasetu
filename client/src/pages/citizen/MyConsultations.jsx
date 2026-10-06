@@ -33,6 +33,7 @@ import {
   selectConsultationsLoading,
 } from '../../store/slices/lawyerSlice';
 import ConsultationChat from '../../components/consultation/ConsultationChat';
+import JoinCallButton from '../../components/consultation/JoinCallButton';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GradientHeading from '../../components/ui/GradientHeading';
 import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
@@ -121,12 +122,12 @@ function ConsultationRow({ consultation, delay, onCancel, onChat, actionLoading 
       transition={{ delay, duration: 0.3 }}
     >
       <Box sx={{
-        display: 'flex', alignItems: 'center', gap: 2, p: 2,
+        display: 'flex', flexDirection: 'column', gap: 1.25, p: 2,
         borderBottom: '1px solid var(--color-border)',
         transition: 'background 0.15s',
         '&:hover': { background: 'var(--color-overlay)' },
-        flexWrap: { xs: 'wrap', sm: 'nowrap' },
       }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
         {/* Avatar */}
         <Avatar sx={{
           width: 44, height: 44, background: 'var(--color-primary)',
@@ -136,7 +137,7 @@ function ConsultationRow({ consultation, delay, onCancel, onChat, actionLoading 
         </Avatar>
 
         {/* Lawyer info */}
-        <Box sx={{ flex: 1, minWidth: 120 }}>
+        <Box sx={{ flex: '1 1 160px', minWidth: 140 }}>
           <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-text)' }}>
             {lawyer.name || t('consultations.unknownLawyer', 'Lawyer')}
           </Typography>
@@ -158,7 +159,6 @@ function ConsultationRow({ consultation, delay, onCancel, onChat, actionLoading 
         {/* Scheduled time */}
         <Typography variant="caption" sx={{
           color: 'var(--color-text-secondary)', flexShrink: 0,
-          minWidth: 140, display: { xs: 'none', md: 'block' },
         }}>
           📅 {scheduledDate}
         </Typography>
@@ -167,7 +167,6 @@ function ConsultationRow({ consultation, delay, onCancel, onChat, actionLoading 
         {feeFormatted && (
           <Typography variant="caption" sx={{
             fontWeight: 700, color: 'var(--color-text)', flexShrink: 0,
-            display: { xs: 'none', sm: 'block' },
           }}>
             {feeFormatted}
           </Typography>
@@ -183,30 +182,18 @@ function ConsultationRow({ consultation, delay, onCancel, onChat, actionLoading 
             flexShrink: 0,
           }}
         />
+        </Box>
 
         {/* Actions */}
-        <Box sx={{ display: 'flex', gap: 0.75, flexShrink: 0 }}>
-          {consultation.mode === 'video' && consultation.meetingLink && consultation.status === 'accepted' && (
-            <Button
-              size="small" variant="contained"
-              component="a" href={consultation.meetingLink} target="_blank" rel="noopener noreferrer"
-              sx={{
-                fontSize: '0.72rem', fontWeight: 700,
-                borderRadius: `${RADIUS.md}px`, py: 0.4,
-                background: '#1565c0',
-                '&:hover': { background: '#0d47a1' },
-              }}
-            >
-              📹 Join Call
-            </Button>
-          )}
+        <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+          <JoinCallButton consultation={consultation} />
 
           {isChatOpen(consultation) && (
             <Button
               size="small" variant="outlined" disabled={actionLoading}
               onClick={() => onChat(consultation)}
               sx={{
-                fontSize: '0.72rem', fontWeight: 600,
+                fontSize: '0.72rem', fontWeight: 600, whiteSpace: 'nowrap',
                 borderRadius: `${RADIUS.md}px`, py: 0.4,
                 borderColor: 'var(--color-primary)', color: 'var(--color-primary)',
                 '&:hover': { background: 'var(--color-primary-alpha)' },
@@ -221,7 +208,7 @@ function ConsultationRow({ consultation, delay, onCancel, onChat, actionLoading 
               size="small" variant="outlined" disabled={actionLoading}
               onClick={() => onCancel(consultation._id, isRefundEligible)}
               sx={{
-                fontSize: '0.72rem', fontWeight: 600,
+                fontSize: '0.72rem', fontWeight: 600, whiteSpace: 'nowrap',
                 borderRadius: `${RADIUS.md}px`, py: 0.4,
                 borderColor: '#d32f2f', color: '#d32f2f',
                 '&:hover': { background: 'rgba(211,47,47,0.06)', borderColor: '#d32f2f' },

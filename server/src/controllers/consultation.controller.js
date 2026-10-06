@@ -16,6 +16,7 @@ const Notification = require('../models/Notification.model');
 const Document = require('../models/Document.model');
 
 const whatsappService = require('../services/notification/whatsappService');
+const { DAY_NAMES, resolveAvailability } = require('../services/lawyerAvailability');
 const emailService = require('../services/notification/emailService');
 const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
@@ -170,29 +171,27 @@ const createConsultation = asyncHandler(async (req, res) => {
   // is a UTC instant and the server may not run in IST (getDay() would use server tz).
   const istDate = new Date(scheduledDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
   const dayOfWeek = istDate.getDay();
-  if (!lawyerProfile.availability || lawyerProfile.availability.length === 0) {
-    // No schedule configured yet — refuse rather than silently allowing any time.
-    return res.status(409).json({
-      error: 'LAWYER_SCHEDULE_NOT_SET',
-      message: 'This lawyer has not set up their availability schedule yet. Please choose another lawyer or check back later.',
-    });
-  }
-  const rule = lawyerProfile.availability.find((a) => a.dayOfWeek === dayOfWeek && a.isActive !== false);
-  if (!rule) {
-    const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayRules = resolveAvailability(lawyerProfile).filter(
+    (a) => a.dayOfWeek === dayOfWeek && a.isActive !== false
+  );
+  if (!dayRules.length) {
     return res.status(409).json({
       error: 'LAWYER_UNAVAILABLE',
       message: `Lawyer is not available on ${DAY_NAMES[dayOfWeek]}. Please choose another date.`,
     });
   }
-  // Verify the slot time falls within the rule's window
+  // Verify the slot time falls within any window for that day
   const slotMinutes = istDate.getHours() * 60 + istDate.getMinutes();
-  const [sH, sM] = rule.startTime.split(':').map(Number);
-  const [eH, eM] = rule.endTime.split(':').map(Number);
-  if (slotMinutes < sH * 60 + sM || slotMinutes >= eH * 60 + eM) {
+  const matchingRule = dayRules.find((rule) => {
+    const [sH, sM] = rule.startTime.split(':').map(Number);
+    const [eH, eM] = rule.endTime.split(':').map(Number);
+    return slotMinutes >= sH * 60 + sM && slotMinutes < eH * 60 + eM;
+  });
+  if (!matchingRule) {
+    const hours = dayRules.map((rule) => `${rule.startTime}–${rule.endTime}`).join(', ');
     return res.status(409).json({
       error: 'OUTSIDE_HOURS',
-      message: `Slot is outside the lawyer's working hours (${rule.startTime}–${rule.endTime} IST).`,
+      message: `Slot is outside the lawyer's working hours (${hours} IST).`,
     });
   }
 
@@ -288,8 +287,8 @@ const createConsultation = asyncHandler(async (req, res) => {
   }
 
   // Link payment back to consultation
-  payment.relatedEntity = consultation._id;
-  payment.relatedEntityType = 'Consultation';
+  payment.entityId = consultation._id;
+  payment.entityModel = 'Consultation';
   await payment.save();
 
   await AuditLog.log(req, 'consultation.requested', 'Consultation', consultation._id, {

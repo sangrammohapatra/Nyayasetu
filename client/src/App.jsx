@@ -718,41 +718,42 @@ function AppBootstrap() {
     return () => window.removeEventListener("storage", handleStorage);
   }, [dispatch]);
 
-  // Connect / disconnect socket based on auth state
+  // Connect while logged in, and hand the socket the latest access token
+  // after a refresh. Do not tear the connection down on token change — that
+  // drops the consultation room and live messages stop until a reload.
   useEffect(() => {
-    const token = tokenStore.get();
-    if (isAuthenticated && token) {
-      socketService.connect(token);
-
-      // Forward consultation messages to Redux
-      const handleMessage = (msg) => {
-        if (msg?.consultation) {
-          dispatch(
-            receiveMessage({ consultationId: msg.consultation, message: msg }),
-          );
-        }
-      };
-      const handleNewMessage = ({ consultationId }) => {
-        dispatch(incrementUnread({ consultationId }));
-      };
-
-      const handleNotification = (notification) => {
-        dispatch(pushRealtimeNotification(notification));
-      };
-
-      socketService.on("consultation:message", handleMessage);
-      socketService.on("consultation:new_message", handleNewMessage);
-      socketService.on("notification", handleNotification);
-
-      return () => {
-        socketService.off("consultation:message", handleMessage);
-        socketService.off("consultation:new_message", handleNewMessage);
-        socketService.off("notification", handleNotification);
-        socketService.disconnect();
-      };
-    } else {
+    if (!isAuthenticated) {
       socketService.disconnect();
+      return;
     }
+    const liveToken = tokenStore.get() || token;
+    if (liveToken) socketService.connect(liveToken);
+  }, [isAuthenticated, token]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const handleMessage = (msg) => {
+      const consultationId = msg?.consultation?._id || msg?.consultation;
+      if (!consultationId) return;
+      dispatch(receiveMessage({ consultationId, message: msg }));
+    };
+    const handleNewMessage = ({ consultationId }) => {
+      dispatch(incrementUnread({ consultationId }));
+    };
+    const handleNotification = (notification) => {
+      dispatch(pushRealtimeNotification(notification));
+    };
+
+    socketService.on("consultation:message", handleMessage);
+    socketService.on("consultation:new_message", handleNewMessage);
+    socketService.on("notification", handleNotification);
+
+    return () => {
+      socketService.off("consultation:message", handleMessage);
+      socketService.off("consultation:new_message", handleNewMessage);
+      socketService.off("notification", handleNotification);
+    };
   }, [isAuthenticated, dispatch]);
 
   // Set document direction for RTL languages

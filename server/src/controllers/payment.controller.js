@@ -144,8 +144,8 @@ const createDocumentOrder = asyncHandler(async (req, res) => {
     amount,
     currency: 'INR',
     status: 'created',
-    relatedEntity: doc._id,
-    relatedEntityType: 'Document',
+    entityId: doc._id,
+    entityModel: 'Document',
     lawyerEarnings: 0,
     platformEarnings: amount,
   });
@@ -194,14 +194,14 @@ const verifyDocumentPayment = asyncHandler(async (req, res) => {
   // Bind the order to the entity it was actually created for. The signature only
   // proves paymentId <-> orderId <-> Razorpay; without this check, a paid order for
   // a cheap document/consultation could be replayed against an expensive one.
-  const orderPayment = await Payment.findOne({ razorpayOrderId: orderId }).select('user relatedEntity relatedEntityType type').lean();
+  const orderPayment = await Payment.findOne({ razorpayOrderId: orderId }).select('user entityId entityModel type').lean();
   if (!orderPayment) {
     return res.status(404).json({ error: 'Payment record not found' });
   }
   if (documentId) {
     if (
-      orderPayment.relatedEntityType !== 'Document' ||
-      String(orderPayment.relatedEntity) !== String(documentId)
+      orderPayment.entityModel !== 'Document' ||
+      String(orderPayment.entityId) !== String(documentId)
     ) {
       await AuditLog.log(req, 'payment.document.entity_mismatch', 'Payment', null, { orderId, documentId }, false);
       return res.status(400).json({ error: 'Payment does not match the specified document' });
@@ -209,8 +209,8 @@ const verifyDocumentPayment = asyncHandler(async (req, res) => {
   }
   if (consultationId) {
     if (
-      orderPayment.relatedEntityType !== 'Consultation' ||
-      String(orderPayment.relatedEntity) !== String(consultationId)
+      orderPayment.entityModel !== 'Consultation' ||
+      String(orderPayment.entityId) !== String(consultationId)
     ) {
       await AuditLog.log(req, 'payment.consultation.entity_mismatch', 'Payment', null, { orderId, consultationId }, false);
       return res.status(400).json({ error: 'Payment does not match the specified consultation' });
@@ -498,8 +498,8 @@ const verifySubscription = asyncHandler(async (req, res) => {
       currency: 'INR',
       status: 'paid',
       paidAt: new Date(),
-      relatedEntity: subscription._id,
-      relatedEntityType: 'Subscription',
+      entityId: subscription._id,
+      entityModel: 'Subscription',
       platformEarnings: amount,
       lawyerEarnings: 0,
     });
@@ -782,8 +782,8 @@ async function handlePaymentCaptured(payload, io = null) {
       payment.razorpayPaymentId = razorpayPaymentId;
       payment.paidAt = new Date();
 
-      if (payment.type === 'consultation' && payment.relatedEntity) {
-        const consultation = await Consultation.findById(payment.relatedEntity)
+      if (payment.type === 'consultation' && payment.entityId) {
+        const consultation = await Consultation.findById(payment.entityId)
           .select('lawyer')
           .session(session)
           .lean();
@@ -796,7 +796,7 @@ async function handlePaymentCaptured(payload, io = null) {
           payment.platformEarnings = Math.round(payment.amount * referralFeePercent / 100);
           payment.lawyerEarnings   = payment.amount - payment.platformEarnings;
           await Consultation.updateOne(
-            { _id: payment.relatedEntity },
+            { _id: payment.entityId },
             { $set: { isPaid: true } },
             { session }
           );
@@ -805,8 +805,8 @@ async function handlePaymentCaptured(payload, io = null) {
 
       await payment.save({ session });
 
-      if (payment.type === 'pay_per_doc' && payment.relatedEntity) {
-        await Document.findByIdAndUpdate(payment.relatedEntity, {
+      if (payment.type === 'pay_per_doc' && payment.entityId) {
+        await Document.findByIdAndUpdate(payment.entityId, {
           $set: {
             isPaid: true,
             accessType: 'pay_per_doc',
@@ -814,7 +814,7 @@ async function handlePaymentCaptured(payload, io = null) {
           },
         }, { session });
         logger.info('[payment.controller] handlePaymentCaptured: document unlocked', {
-          documentId: payment.relatedEntity,
+          documentId: payment.entityId,
         });
       }
 
@@ -951,8 +951,8 @@ async function handleSubscriptionCharged(payload) {
           currency: 'INR',
           status: 'paid',
           paidAt: new Date(),
-          relatedEntity: subscription._id,
-          relatedEntityType: 'Subscription',
+          entityId: subscription._id,
+          entityModel: 'Subscription',
           platformEarnings: paymentEntity.amount,
           lawyerEarnings: 0,
         }], { session });

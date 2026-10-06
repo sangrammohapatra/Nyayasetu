@@ -13,6 +13,7 @@ import Alert from "@mui/material/Alert";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
@@ -1160,6 +1161,17 @@ function SubscriptionSection() {
 
 // ─── Section: Lawyer Profile ─────────────────────────────────────────────────
 
+const SCHEDULE_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function defaultWeeklySchedule() {
+  return SCHEDULE_DAYS.map((_, dayOfWeek) => ({
+    dayOfWeek,
+    startTime: "09:00",
+    endTime: "17:00",
+    isActive: dayOfWeek >= 1 && dayOfWeek <= 5,
+  }));
+}
+
 function LawyerProfileSection({ lawyerProfile, showSnack }) {
   const dispatch = useDispatch();
 
@@ -1176,6 +1188,7 @@ function LawyerProfileSection({ lawyerProfile, showSnack }) {
     consultationModes: [],
     isAcceptingClients: true,
     isPublic: true,
+    availability: defaultWeeklySchedule(),
   });
   const [saving, setSaving] = useState(false);
 
@@ -1194,6 +1207,12 @@ function LawyerProfileSection({ lawyerProfile, showSnack }) {
       consultationModes:lawyerProfile.consultationModes || [],
       isAcceptingClients: lawyerProfile.isAcceptingClients ?? true,
       isPublic:          lawyerProfile.isPublic          ?? true,
+      availability: Array.isArray(lawyerProfile.availability) && lawyerProfile.availability.length
+        ? SCHEDULE_DAYS.map((_, dayOfWeek) => {
+            const saved = lawyerProfile.availability.find((slot) => slot.dayOfWeek === dayOfWeek);
+            return saved || { dayOfWeek, startTime: "09:00", endTime: "17:00", isActive: false };
+          })
+        : defaultWeeklySchedule(),
     });
   }, [lawyerProfile]);
 
@@ -1368,6 +1387,72 @@ function LawyerProfileSection({ lawyerProfile, showSnack }) {
                 sx={{ ...chipSx(active), height: 32, fontSize: "0.8rem" }} />
             );
           })}
+        </Box>
+
+        <Typography variant="caption" sx={{ fontWeight: 600, color: "var(--color-text)", mb: 1, display: "block" }}>
+          Weekly hours
+        </Typography>
+        <Typography variant="caption" sx={{ color: "var(--color-text-secondary)", display: "block", mb: 1 }}>
+          Citizens can only book inside these hours. Weekdays are 9:00–17:00 until you change them.
+        </Typography>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75, mb: 2 }}>
+          {form.availability.map((day, idx) => (
+            <Box key={day.dayOfWeek} sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "88px 1fr" },
+              alignItems: "center",
+              gap: 1,
+              px: 1.25, py: 0.75,
+              borderRadius: `${RADIUS.md}px`,
+              border: "1px solid var(--color-border)",
+              opacity: day.isActive ? 1 : 0.6,
+            }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={!!day.isActive}
+                    onChange={(e) => {
+                      const next = form.availability.map((slot, i) => (
+                        i === idx ? { ...slot, isActive: e.target.checked } : slot
+                      ));
+                      set("availability", next);
+                    }}
+                    size="small"
+                    sx={{ color: "var(--color-primary)", "&.Mui-checked": { color: "var(--color-primary)" }, p: 0.5 }}
+                  />
+                }
+                label={<Typography variant="caption" sx={{ fontWeight: 700 }}>{SCHEDULE_DAYS[day.dayOfWeek]}</Typography>}
+                sx={{ m: 0 }}
+              />
+              {day.isActive && (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                  <TextField
+                    type="time" size="small" value={day.startTime}
+                    onChange={(e) => {
+                      const next = form.availability.map((slot, i) => (
+                        i === idx ? { ...slot, startTime: e.target.value } : slot
+                      ));
+                      set("availability", next);
+                    }}
+                    inputProps={{ step: 1800 }}
+                    sx={{ width: 120, "& .MuiOutlinedInput-root": { borderRadius: `${RADIUS.sm}px`, fontSize: "0.8rem" } }}
+                  />
+                  <Typography variant="caption" sx={{ color: "var(--color-text-secondary)" }}>to</Typography>
+                  <TextField
+                    type="time" size="small" value={day.endTime}
+                    onChange={(e) => {
+                      const next = form.availability.map((slot, i) => (
+                        i === idx ? { ...slot, endTime: e.target.value } : slot
+                      ));
+                      set("availability", next);
+                    }}
+                    inputProps={{ step: 1800 }}
+                    sx={{ width: 120, "& .MuiOutlinedInput-root": { borderRadius: `${RADIUS.sm}px`, fontSize: "0.8rem" } }}
+                  />
+                </Box>
+              )}
+            </Box>
+          ))}
         </Box>
 
         <FormControlLabel

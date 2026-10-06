@@ -15,6 +15,7 @@ const CaseTracker = require('../models/CaseTracker.model');
 const Notification = require('../models/Notification.model');
 
 const cloudinaryService = require('../services/storage/cloudinaryService');
+const { resolveAvailability } = require('../services/lawyerAvailability');
 const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
 const AuditLog = require('../models/AuditLog.model');
@@ -327,7 +328,7 @@ const updateLawyerProfile = asyncHandler(async (req, res) => {
     'specialisations', 'practicingStates', 'practicingCourts',
     'experience', 'languages', 'bio',
     'consultationFee', 'consultationModes', 'isAcceptingClients',
-    'isPublic', 'district',
+    'isPublic', 'district', 'availability',
   ];
 
   const ARRAY_FIELDS = ['specialisations', 'practicingStates', 'practicingCourts', 'languages', 'consultationModes'];
@@ -345,6 +346,28 @@ const updateLawyerProfile = asyncHandler(async (req, res) => {
 
   if (updates.experience !== undefined) {
     updates.experience = Math.max(0, parseInt(updates.experience, 10) || 0);
+  }
+
+  if (updates.availability !== undefined) {
+    if (!Array.isArray(updates.availability)) {
+      return res.status(400).json({ error: 'INVALID_INPUT', message: 'availability must be an array' });
+    }
+    const TIME_RE = /^\d{2}:\d{2}$/;
+    for (const slot of updates.availability) {
+      const day = Number(slot.dayOfWeek);
+      if (!Number.isInteger(day) || day < 0 || day > 6) {
+        return res.status(400).json({ error: 'INVALID_DAY', message: 'dayOfWeek must be an integer 0–6' });
+      }
+      if (!TIME_RE.test(slot.startTime) || !TIME_RE.test(slot.endTime) || slot.startTime >= slot.endTime) {
+        return res.status(400).json({ error: 'INVALID_TIME', message: 'Each day needs a startTime before endTime, as HH:MM' });
+      }
+    }
+    updates.availability = updates.availability.map((s) => ({
+      dayOfWeek: Number(s.dayOfWeek),
+      startTime: s.startTime,
+      endTime: s.endTime,
+      isActive: s.isActive !== false,
+    }));
   }
 
   if (Object.keys(updates).length === 0) {
@@ -480,7 +503,7 @@ const getAvailableSlots = asyncHandler(async (req, res) => {
   const localDate = new Date(y, m - 1, d);
   const dayOfWeek = localDate.getDay(); // 0 = Sunday
 
-  const rules = (profile.availability || []).filter((a) => a.dayOfWeek === dayOfWeek && a.isActive !== false);
+  const rules = resolveAvailability(profile).filter((a) => a.dayOfWeek === dayOfWeek && a.isActive !== false);
   if (!rules.length) {
     return res.json({ slots: [], date, dayOfWeek, reason: 'Lawyer is not available on this day' });
   }
@@ -542,6 +565,15 @@ const getAvailableSlots = asyncHandler(async (req, res) => {
         iso:  `${date}T${hh}:${mm}:00+05:30`,
       };
     });
+
+  if (!available.length && isToday) {
+    return res.json({
+      slots: [],
+      date,
+      dayOfWeek,
+      reason: 'No remaining slots today. Choose a later date.',
+    });
+  }
 
   return res.json({ slots: available, date, dayOfWeek });
 });

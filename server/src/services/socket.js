@@ -109,8 +109,12 @@ function initSocket(io) {
           .populate('sender', 'name persona avatar')
           .lean();
 
-        // Broadcast to everyone in the consultation room (including sender)
+        // Room members, plus each party's personal room. A client that
+        // reconnected and has not rejoined the consultation room still
+        // receives the message. The client ignores duplicates by message id.
         io.to(`consultation:${consultationId}`).emit('consultation:message', populated);
+        io.to(`user:${consultation.citizen.toString()}`).emit('consultation:message', populated);
+        io.to(`user:${consultation.lawyer.toString()}`).emit('consultation:message', populated);
 
         // Notify the other party's personal room (for unread badge even if not in room)
         const otherId = consultation.citizen.toString() === socket.userId
