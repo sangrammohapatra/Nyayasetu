@@ -34,7 +34,7 @@ import { useTheme } from '@mui/material/styles';
 import {
   sendOTP, verifyOTP, loginWithPassword,
   register as registerUser,
-  selectAuthLoading, selectAuthError, selectOtpSent,
+  selectAuthLoading, selectAuthError, selectOtpSent, selectDevOtp,
   selectIsAuthenticated, selectUserPersona, clearError, resetOtpState,
 } from '../../store/slices/authSlice';
 import { setLanguage, setTheme } from '../../store/slices/uiSlice';
@@ -201,6 +201,7 @@ function Login() {
   const loading = useSelector(selectAuthLoading);
   const error = useSelector(selectAuthError);
   const otpSent = useSelector(selectOtpSent);
+  const devOtp = useSelector(selectDevOtp);
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const persona = useSelector(selectUserPersona);
 
@@ -681,6 +682,11 @@ function Login() {
                             {t('auth.change', 'Change')}
                           </Typography>
                         </Typography>
+                        {devOtp && (
+                          <Alert severity="warning" sx={{ borderRadius: `${RADIUS.md}px`, mb: 2 }}>
+                            Email is not configured on this server, so nothing was delivered to your inbox. Your code is <strong>{devOtp}</strong>.
+                          </Alert>
+                        )}
                       </motion.div>
 
                       <motion.form variants={stagger} onSubmit={handleVerifyOTP}>
@@ -904,6 +910,11 @@ function Login() {
                               <strong style={{ color: 'var(--color-primary)' }}>{regData.email}</strong>
                             </Typography>
                           </Box>
+                          {devOtp && (
+                            <Alert severity="warning" sx={{ borderRadius: `${RADIUS.md}px` }}>
+                              Email is not configured on this server, so nothing was delivered to your inbox. Your code is <strong>{devOtp}</strong>.
+                            </Alert>
+                          )}
                           <OTPInput value={regOtp} onChange={setRegOtp} disabled={regLoading || loading} />
                           <Box sx={{ textAlign: 'center' }}>
                             {regCountdown > 0 ? (

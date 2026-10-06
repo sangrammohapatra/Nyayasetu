@@ -173,6 +173,7 @@ const initialState = {
   loading: false,
   error: null,
   otpSent: false,
+  devOtp: null,
 };
 
 function applySession(state, payload) {
@@ -216,9 +217,11 @@ const authSlice = createSlice({
       state.loading = false;
       state.error = null;
       state.otpSent = false;
+      state.devOtp = null;
     },
     resetOtpState(state) {
       state.otpSent = false;
+      state.devOtp = null;
       state.error = null;
     },
   },
@@ -229,9 +232,10 @@ const authSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(sendOTP.fulfilled, (state) => {
+      .addCase(sendOTP.fulfilled, (state, action) => {
         state.loading = false;
         state.otpSent = true;
+        state.devOtp = action.payload?.devOtp || null;
       })
       .addCase(sendOTP.rejected, (state, action) => {
         state.loading = false;
@@ -247,6 +251,7 @@ const authSlice = createSlice({
       .addCase(verifyOTP.fulfilled, (state, action) => {
         applySession(state, action.payload);
         state.otpSent = false;
+        state.devOtp = null;
       })
       .addCase(verifyOTP.rejected, (state, action) => {
         state.loading = false;
@@ -331,6 +336,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = null;
         state.otpSent = false;
+        state.devOtp = null;
       });
 
     // deactivateAccount
@@ -346,6 +352,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = null;
         state.otpSent = false;
+        state.devOtp = null;
       })
       .addCase(deactivateAccount.rejected, (state, action) => {
         state.error = action.payload;
@@ -369,5 +376,6 @@ export const selectUserPersona = (state) => (state.auth.user?.persona || 'citize
 export const selectAuthLoading = (state) => state.auth.loading;
 export const selectAuthError = (state) => state.auth.error;
 export const selectOtpSent = (state) => state.auth.otpSent;
+export const selectDevOtp = (state) => state.auth.devOtp;
 
 export default authSlice.reducer;

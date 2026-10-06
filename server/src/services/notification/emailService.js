@@ -113,7 +113,7 @@ async function sendEmail({ to, subject, html, text, attachments }) {
         { headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, timeout: 15000 }
       );
       logger.info('[emailService] Email sent via Resend', { to, subject, id: data?.id });
-      return data;
+      return { ...data, delivery: 'resend' };
     } catch (err) {
       const detail = err.response?.data ? JSON.stringify(err.response.data) : err.message;
       logger.error('[emailService] Resend API error', { to, subject, error: detail });
@@ -132,16 +132,19 @@ async function sendEmail({ to, subject, html, text, attachments }) {
       attachments,
     });
 
-    logger.info('[emailService] Email sent', { to, subject, messageId: info.messageId });
+    const previewUrl = etherealPreviewUrlBuilder ? etherealPreviewUrlBuilder(info) : null;
+    logger.info('[emailService] Email sent', {
+      to,
+      subject,
+      messageId: info.messageId,
+      delivery: previewUrl ? 'ethereal' : 'smtp',
+    });
 
-    if (etherealPreviewUrlBuilder) {
-      const previewUrl = etherealPreviewUrlBuilder(info);
-      if (previewUrl) {
-        logger.info('[emailService] Ethereal preview URL', { previewUrl });
-      }
+    if (previewUrl) {
+      logger.warn('[emailService] Gmail is not configured, so this message stayed in the Ethereal test inbox and was not delivered', { previewUrl });
     }
 
-    return info;
+    return { ...info, delivery: previewUrl ? 'ethereal' : 'smtp', previewUrl: previewUrl || undefined };
   } catch (err) {
     logger.error('[emailService] sendMail failed', { to, subject, error: err.message });
     throw err;

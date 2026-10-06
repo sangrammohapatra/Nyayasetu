@@ -235,8 +235,9 @@ const sendOTPHandler = asyncHandler(async (req, res) => {
       logger.warn(`[sendOTP] Redis unavailable — using in-memory OTP store for ${email}`);
     }
 
+    let sent;
     try {
-      await sendEmail({
+      sent = await sendEmail({
         to: email,
         subject: "Your NyayaSetu Login Code",
         html: otpEmailTemplate(otp),
@@ -251,10 +252,18 @@ const sendOTPHandler = asyncHandler(async (req, res) => {
     await AuditLog.log(req, "otp.requested", "User", null, { email, isNewUser: !existingUser });
     logger.info(`[sendOTP] OTP emailed to ${maskEmail(email)}`);
 
+    const devInbox = process.env.NODE_ENV !== "production" && sent?.delivery === "ethereal";
+    if (devInbox) {
+      logger.warn(`[sendOTP] Dev inbox only — OTP for ${maskEmail(email)} is ${otp}`);
+    }
+
     return res.status(200).json({
-      message: `OTP sent to ${maskEmail(email)}`,
+      message: devInbox
+        ? `Email is not configured locally. Use the code shown on screen.`
+        : `OTP sent to ${maskEmail(email)}`,
       expiresIn: OTP_TTL_SECONDS,
       isNewUser: !existingUser,
+      ...(devInbox ? { devOtp: otp, emailDelivery: "ethereal" } : {}),
     });
   }
 
