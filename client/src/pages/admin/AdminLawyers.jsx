@@ -15,20 +15,53 @@ import TableRow from '@mui/material/TableRow';
 import TablePagination from '@mui/material/TablePagination';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import Skeleton from '@mui/material/Skeleton';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
 
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GlassCard from '../../components/ui/GlassCard';
 import GradientHeading from '../../components/ui/GradientHeading';
+import ApplicationReviewDialog from '../../components/admin/ApplicationReviewDialog';
 import api from '../../services/api';
 import { RADIUS, TYPOGRAPHY } from '../../theme/tokens';
+
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function listText(values) {
+  return Array.isArray(values) && values.length ? values.map((v) => String(v).replace(/_/g, ' ')).join(', ') : '';
+}
+
+function rupees(paise) {
+  if (paise == null || paise === '') return '';
+  return `₹${Math.round(Number(paise) / 100).toLocaleString('en-IN')}`;
+}
+
+function formatWhen(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function availabilityText(slots) {
+  if (!Array.isArray(slots) || slots.length === 0) return '';
+  return slots
+    .filter((slot) => slot.isActive !== false)
+    .map((slot) => `${DAYS[slot.dayOfWeek] || 'Day'} ${slot.startTime || ''}${slot.endTime ? `–${slot.endTime}` : ''}`)
+    .join('\n');
+}
+
+function lawyerDocuments(lp) {
+  const docs = [];
+  if (lp.barCouncilCertificateUrl) docs.push({ label: 'Bar Council certificate', url: lp.barCouncilCertificateUrl });
+  (lp.verificationDocs || []).forEach((doc, index) => {
+    if (!doc?.url || doc.url === lp.barCouncilCertificateUrl) return;
+    docs.push({ label: (doc.type || `Document ${index + 1}`).replace(/_/g, ' '), url: doc.url });
+  });
+  if (docs.length === 0) docs.push({ label: 'Bar Council certificate', url: '' });
+  return docs;
+}
 
 const STATUS_COLORS = {
   approved:     { bg: 'rgba(46,125,50,0.12)',  color: '#2e7d32', label: 'Approved' },
@@ -48,10 +81,7 @@ export default function AdminLawyers() {
   const [statusFilter, setStatusFilter] = useState('');
   const [actionId, setActionId]     = useState(null); // LawyerProfile._id being acted on
   const [snack, setSnack]           = useState({ open: false, msg: '', severity: 'success' });
-
-  // Reject dialog
-  const [rejectDialog, setRejectDialog] = useState({ open: false, lawyerId: null, name: '' });
-  const [rejectReason, setRejectReason] = useState('');
+  const [review, setReview]         = useState(null);
 
   const fetchLawyers = useCallback(() => {
     setLoading(true);
@@ -72,11 +102,14 @@ export default function AdminLawyers() {
 
   useEffect(() => { fetchLawyers(); }, [fetchLawyers]);
 
-  const handleVerify = async (lawyerProfileId, name) => {
-    setActionId(lawyerProfileId);
+  const handleVerify = async () => {
+    if (!review) return;
+    const name = review.user?.name || 'Lawyer';
+    setActionId(review._id);
     try {
-      await api.post(`/admin/lawyers/${lawyerProfileId}/verify`);
+      await api.post(`/admin/lawyers/${review._id}/verify`);
       setSnack({ open: true, msg: `${name} verified successfully.`, severity: 'success' });
+      setReview(null);
       fetchLawyers();
     } catch (err) {
       setSnack({ open: true, msg: err.response?.data?.message || 'Verification failed.', severity: 'error' });
@@ -85,11 +118,14 @@ export default function AdminLawyers() {
     }
   };
 
-  const handleReset = async (lawyerProfileId, name) => {
-    setActionId(lawyerProfileId);
+  const handleReset = async () => {
+    if (!review) return;
+    const name = review.user?.name || 'Lawyer';
+    setActionId(review._id);
     try {
-      await api.post(`/admin/lawyers/${lawyerProfileId}/reset-verification`);
+      await api.post(`/admin/lawyers/${review._id}/reset-verification`);
       setSnack({ open: true, msg: `${name} reset to pending.`, severity: 'info' });
+      setReview(null);
       fetchLawyers();
     } catch (err) {
       setSnack({ open: true, msg: err.response?.data?.message || 'Reset failed.', severity: 'error' });
@@ -98,24 +134,19 @@ export default function AdminLawyers() {
     }
   };
 
-  const openRejectDialog = (lawyerProfileId, name) => {
-    setRejectDialog({ open: true, lawyerId: lawyerProfileId, name });
-    setRejectReason('');
-  };
-
-  const handleReject = async () => {
-    const { lawyerId, name } = rejectDialog;
-    setRejectDialog((d) => ({ ...d, open: false }));
-    setActionId(lawyerId);
+  const handleReject = async (reason) => {
+    if (!review) return;
+    const name = review.user?.name || 'Lawyer';
+    setActionId(review._id);
     try {
-      await api.post(`/admin/lawyers/${lawyerId}/reject`, { reason: rejectReason || undefined });
+      await api.post(`/admin/lawyers/${review._id}/reject`, { reason: reason || undefined });
       setSnack({ open: true, msg: `${name}'s profile rejected.`, severity: 'info' });
+      setReview(null);
       fetchLawyers();
     } catch (err) {
       setSnack({ open: true, msg: err.response?.data?.message || 'Rejection failed.', severity: 'error' });
     } finally {
       setActionId(null);
-      setRejectReason('');
     }
   };
 
@@ -181,13 +212,14 @@ export default function AdminLawyers() {
                       const u      = lp.user || {};
                       const vstatus = lp.verificationStatus || (lp.isVerified ? 'approved' : 'pending');
                       const colors  = STATUS_COLORS[vstatus] || STATUS_COLORS.pending;
-                      const busy    = actionId === lp._id;
-                      const canVerify = vstatus !== 'approved';
-                      const canReject = vstatus !== 'rejected';
-                      const canReset  = vstatus === 'approved' || vstatus === 'rejected';
 
                       return (
-                        <TableRow key={lp._id} sx={{ '& td': { borderBottom: '1px solid var(--color-border)', py: 1 } }}>
+                        <TableRow
+                          key={lp._id}
+                          hover
+                          onClick={() => setReview(lp)}
+                          sx={{ cursor: 'pointer', '& td': { borderBottom: '1px solid var(--color-border)', py: 1 } }}
+                        >
                           <TableCell>
                             <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--color-text)' }}>{u.name || '—'}</Typography>
                           </TableCell>
@@ -214,44 +246,13 @@ export default function AdminLawyers() {
                             />
                           </TableCell>
                           <TableCell align="right">
-                            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                              {canVerify && (
-                                <Button
-                                  size="small" variant="contained"
-                                  disabled={busy}
-                                  onClick={() => handleVerify(lp._id, u.name)}
-                                  sx={{
-                                    fontSize: '0.7rem', py: 0.4, px: 1.5,
-                                    borderRadius: `${RADIUS.md}px`,
-                                    background: 'var(--color-primary)',
-                                    minWidth: 72,
-                                    '&:hover': { background: 'var(--color-primary-dark, var(--color-primary))' },
-                                  }}
-                                >
-                                  {busy ? <CircularProgress size={12} sx={{ color: '#fff' }} /> : 'Approve'}
-                                </Button>
-                              )}
-                              {canReject && (
-                                <Button
-                                  size="small" variant="outlined" color="error"
-                                  disabled={busy}
-                                  onClick={() => openRejectDialog(lp._id, u.name)}
-                                  sx={{ fontSize: '0.7rem', py: 0.4, px: 1.5, borderRadius: `${RADIUS.md}px`, minWidth: 72 }}
-                                >
-                                  Reject
-                                </Button>
-                              )}
-                              {canReset && (
-                                <Button
-                                  size="small" variant="outlined"
-                                  disabled={busy}
-                                  onClick={() => handleReset(lp._id, u.name)}
-                                  sx={{ fontSize: '0.7rem', py: 0.4, px: 1.5, borderRadius: `${RADIUS.md}px`, minWidth: 60, borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
-                                >
-                                  Reset
-                                </Button>
-                              )}
-                            </Box>
+                            <Button
+                              size="small" variant="outlined"
+                              onClick={(event) => { event.stopPropagation(); setReview(lp); }}
+                              sx={{ fontSize: '0.7rem', py: 0.4, px: 1.5, borderRadius: `${RADIUS.md}px`, minWidth: 72 }}
+                            >
+                              Review
+                            </Button>
                           </TableCell>
                         </TableRow>
                       );
@@ -279,23 +280,61 @@ export default function AdminLawyers() {
         </GlassCard>
       </Box>
 
-      {/* Reject reason dialog */}
-      <Dialog open={rejectDialog.open} onClose={() => setRejectDialog((d) => ({ ...d, open: false }))} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Reject {rejectDialog.name}</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus fullWidth multiline rows={3}
-            label="Reason (optional)"
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-            sx={{ mt: 1 }}
-          />
-        </DialogContent>
-        <DialogActions sx={{ pb: 2, px: 3 }}>
-          <Button onClick={() => setRejectDialog((d) => ({ ...d, open: false }))}>Cancel</Button>
-          <Button variant="contained" color="error" onClick={handleReject}>Reject</Button>
-        </DialogActions>
-      </Dialog>
+      {review && (
+        <ApplicationReviewDialog
+          open
+          onClose={() => setReview(null)}
+          name={review.user?.name}
+          status={STATUS_COLORS[review.verificationStatus || (review.isVerified ? 'approved' : 'pending')] || STATUS_COLORS.pending}
+          submittedAt={formatWhen(review.createdAt)}
+          priorRejection={review.rejectionReason}
+          documents={lawyerDocuments(review)}
+          canVerify={(review.verificationStatus || (review.isVerified ? 'approved' : 'pending')) !== 'approved'}
+          canReject={['pending', 'under_review'].includes(review.verificationStatus || (review.isVerified ? 'approved' : 'pending'))}
+          canReset={['approved', 'rejected'].includes(review.verificationStatus || (review.isVerified ? 'approved' : 'pending'))}
+          busy={actionId === review._id}
+          onApprove={handleVerify}
+          onReject={handleReject}
+          onReset={handleReset}
+          sections={[
+            {
+              title: 'Contact',
+              items: [
+                { label: 'Phone', value: review.user?.phone },
+                { label: 'Email', value: review.user?.email },
+                { label: 'State', value: review.user?.state },
+                { label: 'District', value: review.district || review.user?.district },
+                { label: 'Pincode', value: review.user?.pincode },
+                { label: 'Language', value: review.user?.preferredLanguage },
+              ],
+            },
+            {
+              title: 'Bar Council',
+              items: [
+                { label: 'Enrollment number', value: review.barCouncilNumber },
+                { label: 'State Bar Council', value: review.barCouncilState },
+                { label: 'Enrollment year', value: review.enrollmentYear },
+                { label: 'Experience', value: review.experience != null ? `${review.experience} years` : '' },
+                { label: 'Specialisations', value: listText(review.specialisations), full: true },
+                { label: 'Practising states', value: listText(review.practicingStates), full: true },
+                { label: 'Courts', value: listText(review.practicingCourts), full: true },
+                { label: 'Languages', value: listText(review.languages) },
+                { label: 'Bio', value: review.bio, full: true },
+              ],
+            },
+            {
+              title: 'Practice',
+              items: [
+                { label: 'Consultation fee', value: rupees(review.consultationFee) },
+                { label: 'Modes', value: listText(review.consultationModes) },
+                { label: 'Accepting clients', value: review.isAcceptingClients ? 'Yes' : 'No' },
+                { label: 'Plan', value: review.lawyerPlan || 'free' },
+                { label: 'Weekly hours', value: availabilityText(review.availability), full: true },
+              ],
+            },
+          ]}
+        />
+      )}
 
       <Snackbar
         open={snack.open} autoHideDuration={4000}

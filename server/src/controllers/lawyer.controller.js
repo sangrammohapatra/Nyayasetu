@@ -278,7 +278,14 @@ const applyAsLawyer = asyncHandler(async (req, res) => {
             isVerified: false,
             verificationStatus: 'pending',
           } : {}),
-          ...(certificateUrl ? { barCouncilCertificateUrl: certificateUrl } : {}),
+          ...(certificateUrl ? {
+            barCouncilCertificateUrl: certificateUrl,
+            verificationDocs: [{
+              type: 'bar_certificate',
+              url: certificateUrl,
+              uploadedAt: new Date(),
+            }],
+          } : {}),
           ...(availabilityRaw ? (() => {
             try {
               const parsed = typeof availabilityRaw === 'string' ? JSON.parse(availabilityRaw) : availabilityRaw;

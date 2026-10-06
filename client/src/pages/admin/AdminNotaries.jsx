@@ -15,20 +15,48 @@ import TableRow from '@mui/material/TableRow';
 import TablePagination from '@mui/material/TablePagination';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import Skeleton from '@mui/material/Skeleton';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
 
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GlassCard from '../../components/ui/GlassCard';
 import GradientHeading from '../../components/ui/GradientHeading';
+import ApplicationReviewDialog from '../../components/admin/ApplicationReviewDialog';
 import api from '../../services/api';
 import { RADIUS, TYPOGRAPHY } from '../../theme/tokens';
+
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function listText(values) {
+  return Array.isArray(values) && values.length ? values.map((v) => String(v).replace(/_/g, ' ')).join(', ') : '';
+}
+
+function formatWhen(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function availabilityText(slots) {
+  if (!Array.isArray(slots) || slots.length === 0) return '';
+  return slots
+    .filter((slot) => slot.isActive !== false)
+    .map((slot) => `${DAYS[slot.dayOfWeek] || 'Day'} ${slot.startTime || ''}${slot.endTime ? `–${slot.endTime}` : ''}`)
+    .join('\n');
+}
+
+function notaryDocuments(np) {
+  const docs = (np.verificationDocs || [])
+    .filter((doc) => doc?.url)
+    .map((doc, index) => ({
+      label: (doc.type || `Document ${index + 1}`).replace(/_/g, ' '),
+      url: doc.url,
+    }));
+  if (docs.length === 0) docs.push({ label: 'Notary certificate', url: '' });
+  return docs;
+}
 
 const STATUS_COLORS = {
   approved:     { bg: 'rgba(46,125,50,0.12)',  color: '#2e7d32', label: 'Approved' },
@@ -48,9 +76,7 @@ export default function AdminNotaries() {
   const [statusFilter, setStatusFilter] = useState('');
   const [actionId, setActionId]     = useState(null);
   const [snack, setSnack]           = useState({ open: false, msg: '', severity: 'success' });
-
-  const [rejectDialog, setRejectDialog] = useState({ open: false, notaryId: null, name: '' });
-  const [rejectReason, setRejectReason] = useState('');
+  const [review, setReview]         = useState(null);
 
   const fetchNotaries = useCallback(() => {
     setLoading(true);
@@ -71,11 +97,14 @@ export default function AdminNotaries() {
 
   useEffect(() => { fetchNotaries(); }, [fetchNotaries]);
 
-  const handleVerify = async (notaryProfileId, name) => {
-    setActionId(notaryProfileId);
+  const handleVerify = async () => {
+    if (!review) return;
+    const name = review.user?.name || 'Notary';
+    setActionId(review._id);
     try {
-      await api.post(`/admin/notaries/${notaryProfileId}/verify`);
+      await api.post(`/admin/notaries/${review._id}/verify`);
       setSnack({ open: true, msg: `${name} verified successfully.`, severity: 'success' });
+      setReview(null);
       fetchNotaries();
     } catch (err) {
       setSnack({ open: true, msg: err.response?.data?.message || 'Verification failed.', severity: 'error' });
@@ -84,11 +113,14 @@ export default function AdminNotaries() {
     }
   };
 
-  const handleReset = async (notaryProfileId, name) => {
-    setActionId(notaryProfileId);
+  const handleReset = async () => {
+    if (!review) return;
+    const name = review.user?.name || 'Notary';
+    setActionId(review._id);
     try {
-      await api.post(`/admin/notaries/${notaryProfileId}/reset-verification`);
+      await api.post(`/admin/notaries/${review._id}/reset-verification`);
       setSnack({ open: true, msg: `${name} reset to pending.`, severity: 'info' });
+      setReview(null);
       fetchNotaries();
     } catch (err) {
       setSnack({ open: true, msg: err.response?.data?.message || 'Reset failed.', severity: 'error' });
@@ -97,24 +129,19 @@ export default function AdminNotaries() {
     }
   };
 
-  const openRejectDialog = (notaryProfileId, name) => {
-    setRejectDialog({ open: true, notaryId: notaryProfileId, name });
-    setRejectReason('');
-  };
-
-  const handleReject = async () => {
-    const { notaryId, name } = rejectDialog;
-    setRejectDialog((d) => ({ ...d, open: false }));
-    setActionId(notaryId);
+  const handleReject = async (reason) => {
+    if (!review) return;
+    const name = review.user?.name || 'Notary';
+    setActionId(review._id);
     try {
-      await api.post(`/admin/notaries/${notaryId}/reject`, { reason: rejectReason || undefined });
+      await api.post(`/admin/notaries/${review._id}/reject`, { reason: reason || undefined });
       setSnack({ open: true, msg: `${name}'s profile rejected.`, severity: 'info' });
+      setReview(null);
       fetchNotaries();
     } catch (err) {
       setSnack({ open: true, msg: err.response?.data?.message || 'Rejection failed.', severity: 'error' });
     } finally {
       setActionId(null);
-      setRejectReason('');
     }
   };
 
@@ -179,13 +206,14 @@ export default function AdminNotaries() {
                       const u       = np.user || {};
                       const vstatus = np.verificationStatus || (np.isVerified ? 'approved' : 'pending');
                       const colors  = STATUS_COLORS[vstatus] || STATUS_COLORS.pending;
-                      const busy    = actionId === np._id;
-                      const canVerify = vstatus !== 'approved';
-                      const canReject = vstatus !== 'rejected';
-                      const canReset  = vstatus === 'approved' || vstatus === 'rejected';
 
                       return (
-                        <TableRow key={np._id} sx={{ '& td': { borderBottom: '1px solid var(--color-border)', py: 1 } }}>
+                        <TableRow
+                          key={np._id}
+                          hover
+                          onClick={() => setReview(np)}
+                          sx={{ cursor: 'pointer', '& td': { borderBottom: '1px solid var(--color-border)', py: 1 } }}
+                        >
                           <TableCell>
                             <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--color-text)' }}>{u.name || '—'}</Typography>
                           </TableCell>
@@ -212,44 +240,13 @@ export default function AdminNotaries() {
                             />
                           </TableCell>
                           <TableCell align="right">
-                            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                              {canVerify && (
-                                <Button
-                                  size="small" variant="contained"
-                                  disabled={busy}
-                                  onClick={() => handleVerify(np._id, u.name)}
-                                  sx={{
-                                    fontSize: '0.7rem', py: 0.4, px: 1.5,
-                                    borderRadius: `${RADIUS.md}px`,
-                                    background: 'var(--color-primary)',
-                                    minWidth: 72,
-                                    '&:hover': { background: 'var(--color-primary-dark, var(--color-primary))' },
-                                  }}
-                                >
-                                  {busy ? <CircularProgress size={12} sx={{ color: '#fff' }} /> : 'Approve'}
-                                </Button>
-                              )}
-                              {canReject && (
-                                <Button
-                                  size="small" variant="outlined" color="error"
-                                  disabled={busy}
-                                  onClick={() => openRejectDialog(np._id, u.name)}
-                                  sx={{ fontSize: '0.7rem', py: 0.4, px: 1.5, borderRadius: `${RADIUS.md}px`, minWidth: 72 }}
-                                >
-                                  Reject
-                                </Button>
-                              )}
-                              {canReset && (
-                                <Button
-                                  size="small" variant="outlined"
-                                  disabled={busy}
-                                  onClick={() => handleReset(np._id, u.name)}
-                                  sx={{ fontSize: '0.7rem', py: 0.4, px: 1.5, borderRadius: `${RADIUS.md}px`, minWidth: 60, borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
-                                >
-                                  Reset
-                                </Button>
-                              )}
-                            </Box>
+                            <Button
+                              size="small" variant="outlined"
+                              onClick={(event) => { event.stopPropagation(); setReview(np); }}
+                              sx={{ fontSize: '0.7rem', py: 0.4, px: 1.5, borderRadius: `${RADIUS.md}px`, minWidth: 72 }}
+                            >
+                              Review
+                            </Button>
                           </TableCell>
                         </TableRow>
                       );
@@ -277,22 +274,52 @@ export default function AdminNotaries() {
         </GlassCard>
       </Box>
 
-      <Dialog open={rejectDialog.open} onClose={() => setRejectDialog((d) => ({ ...d, open: false }))} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Reject {rejectDialog.name}</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus fullWidth multiline rows={3}
-            label="Reason (optional)"
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-            sx={{ mt: 1 }}
-          />
-        </DialogContent>
-        <DialogActions sx={{ pb: 2, px: 3 }}>
-          <Button onClick={() => setRejectDialog((d) => ({ ...d, open: false }))}>Cancel</Button>
-          <Button variant="contained" color="error" onClick={handleReject}>Reject</Button>
-        </DialogActions>
-      </Dialog>
+      {review && (
+        <ApplicationReviewDialog
+          open
+          onClose={() => setReview(null)}
+          name={review.user?.name}
+          status={STATUS_COLORS[review.verificationStatus || (review.isVerified ? 'approved' : 'pending')] || STATUS_COLORS.pending}
+          submittedAt={formatWhen(review.createdAt)}
+          priorRejection={review.rejectionReason}
+          documents={notaryDocuments(review)}
+          canVerify={(review.verificationStatus || (review.isVerified ? 'approved' : 'pending')) !== 'approved'}
+          canReject={['pending', 'under_review'].includes(review.verificationStatus || (review.isVerified ? 'approved' : 'pending'))}
+          canReset={['approved', 'rejected'].includes(review.verificationStatus || (review.isVerified ? 'approved' : 'pending'))}
+          busy={actionId === review._id}
+          onApprove={handleVerify}
+          onReject={handleReject}
+          onReset={handleReset}
+          sections={[
+            {
+              title: 'Contact',
+              items: [
+                { label: 'Phone', value: review.user?.phone },
+                { label: 'Email', value: review.user?.email },
+                { label: 'State', value: review.user?.state },
+                { label: 'District', value: review.user?.district },
+                { label: 'Pincode', value: review.user?.pincode },
+                { label: 'Language', value: review.user?.preferredLanguage },
+              ],
+            },
+            {
+              title: 'Registration',
+              items: [
+                { label: 'Registration number', value: review.notaryRegistrationNumber },
+                { label: 'Registration state', value: review.registrationState },
+                { label: 'Appointing authority', value: review.appointingAuthority },
+                { label: 'Appointment year', value: review.appointmentYear },
+                { label: 'Experience', value: review.experience != null ? `${review.experience} years` : '' },
+                { label: 'Languages', value: listText(review.languages) },
+                { label: 'Practising states', value: listText(review.practicingStates), full: true },
+                { label: 'Bio', value: review.bio, full: true },
+                { label: 'Accepting requests', value: review.isAcceptingRequests ? 'Yes' : 'No' },
+                { label: 'Weekly hours', value: availabilityText(review.availability), full: true },
+              ],
+            },
+          ]}
+        />
+      )}
 
       <Snackbar
         open={snack.open} autoHideDuration={4000}

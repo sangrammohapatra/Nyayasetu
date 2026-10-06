@@ -414,7 +414,7 @@ const listLawyers = asyncHandler(async (req, res) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum)
-        .populate('user', 'name email phone isActive')
+        .populate('user', 'name email phone state district pincode preferredLanguage isActive createdAt')
         .lean(),
       LawyerProfile.countDocuments(filter),
     ]);
@@ -564,7 +564,7 @@ const listNotaries = asyncHandler(async (req, res) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum)
-        .populate('user', 'name email phone isActive')
+        .populate('user', 'name email phone state district pincode preferredLanguage isActive createdAt')
         .lean(),
       NotaryProfile.countDocuments(filter),
     ]);

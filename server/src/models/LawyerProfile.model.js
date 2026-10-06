@@ -95,6 +95,7 @@ const lawyerProfileSchema = new Schema(
       type: [String],
       default: [],
     },
+    district: { type: String, trim: true },
     practicingCourts: {
       type: [String],
       enum: [
@@ -172,6 +173,7 @@ const lawyerProfileSchema = new Schema(
     verifiedAt: { type: Date },
     verifiedBy: { type: Schema.Types.ObjectId, ref: 'User' },  // Admin who verified
     verificationDocs: { type: [verificationDocSchema], default: [] },
+    barCouncilCertificateUrl: { type: String, trim: true },
     verificationStatus: {
       type: String,
       enum: ['pending', 'under_review', 'approved', 'rejected'],
