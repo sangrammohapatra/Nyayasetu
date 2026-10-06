@@ -164,12 +164,27 @@ const initialState = {
   user: null,
   lawyerProfile: null,
   notaryProfile: null,
+  // False until getMe has returned profiles for the current session.
+  // Login responses do not include them, so gates must not treat null as unverified.
+  profilesHydrated: false,
+  profilesRequestId: null,
   token: localStorage.getItem('nyayasetu_token') || null,
   refreshToken: localStorage.getItem('nyayasetu_refresh_token') || null,
   loading: false,
   error: null,
   otpSent: false,
 };
+
+function applySession(state, payload) {
+  state.loading = false;
+  state.token = payload.accessToken;
+  state.refreshToken = payload.refreshToken || state.refreshToken;
+  state.user = payload.user || null;
+  state.lawyerProfile = null;
+  state.notaryProfile = null;
+  state.profilesHydrated = false;
+  state.profilesRequestId = null;
+}
 
 // ─── Slice ───────────────────────────────────────────────────────────────────
 
@@ -196,6 +211,9 @@ const authSlice = createSlice({
       state.refreshToken = null;
       state.lawyerProfile = null;
       state.notaryProfile = null;
+      state.profilesHydrated = false;
+      state.profilesRequestId = null;
+      state.loading = false;
       state.error = null;
       state.otpSent = false;
     },
@@ -227,10 +245,7 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(verifyOTP.fulfilled, (state, action) => {
-        state.loading = false;
-        state.token = action.payload.accessToken;
-        state.refreshToken = action.payload.refreshToken || state.refreshToken;
-        state.user = action.payload.user || null;
+        applySession(state, action.payload);
         state.otpSent = false;
       })
       .addCase(verifyOTP.rejected, (state, action) => {
@@ -245,10 +260,7 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(loginWithPassword.fulfilled, (state, action) => {
-        state.loading = false;
-        state.token = action.payload.accessToken;
-        state.refreshToken = action.payload.refreshToken || state.refreshToken;
-        state.user = action.payload.user || null;
+        applySession(state, action.payload);
       })
       .addCase(loginWithPassword.rejected, (state, action) => {
         state.loading = false;
@@ -262,10 +274,7 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(register.fulfilled, (state, action) => {
-        state.loading = false;
-        state.token = action.payload.accessToken;
-        state.refreshToken = action.payload.refreshToken || state.refreshToken;
-        state.user = action.payload.user || null;
+        applySession(state, action.payload);
       })
       .addCase(register.rejected, (state, action) => {
         state.loading = false;
@@ -274,19 +283,24 @@ const authSlice = createSlice({
 
     // getMe
     builder
-      .addCase(getMe.pending, (state) => {
+      .addCase(getMe.pending, (state, action) => {
         state.loading = true;
         state.error = null;
+        state.profilesRequestId = action.meta.requestId;
       })
       .addCase(getMe.fulfilled, (state, action) => {
+        if (state.profilesRequestId !== action.meta.requestId) return;
         state.loading = false;
         state.user = action.payload.user || action.payload;
-        state.lawyerProfile = action.payload.lawyerProfile ?? state.lawyerProfile;
-        state.notaryProfile = action.payload.notaryProfile ?? state.notaryProfile;
+        state.lawyerProfile = action.payload.lawyerProfile ?? null;
+        state.notaryProfile = action.payload.notaryProfile ?? null;
+        state.profilesHydrated = true;
       })
       .addCase(getMe.rejected, (state, action) => {
+        if (state.profilesRequestId !== action.meta.requestId) return;
         state.loading = false;
         state.error = action.payload;
+        state.profilesHydrated = true;
       });
 
     // updateMe
@@ -312,6 +326,9 @@ const authSlice = createSlice({
         state.refreshToken = null;
         state.lawyerProfile = null;
         state.notaryProfile = null;
+        state.profilesHydrated = false;
+        state.profilesRequestId = null;
+        state.loading = false;
         state.error = null;
         state.otpSent = false;
       });
@@ -322,6 +339,11 @@ const authSlice = createSlice({
         state.user = null;
         state.token = null;
         state.refreshToken = null;
+        state.lawyerProfile = null;
+        state.notaryProfile = null;
+        state.profilesHydrated = false;
+        state.profilesRequestId = null;
+        state.loading = false;
         state.error = null;
         state.otpSent = false;
       })
@@ -338,6 +360,8 @@ export const { clearError, setUser, setToken, forceLogout, resetOtpState } = aut
 export const selectUser = (state) => state.auth.user;
 export const selectLawyerProfile = (state) => state.auth.lawyerProfile;
 export const selectNotaryProfile = (state) => state.auth.notaryProfile;
+export const selectProfilesHydrated = (state) => state.auth.profilesHydrated === true;
+export const selectAccessToken = (state) => state.auth.token;
 export const selectIsAuthenticated = (state) => !!state.auth.token && !!state.auth.user;
 export const selectUserPlan = (state) =>
   state.auth.user?.subscription?.plan || 'free';

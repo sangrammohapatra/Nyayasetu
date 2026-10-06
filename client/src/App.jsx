@@ -11,7 +11,7 @@
  * - Service Worker registration
  */
 
-import React, { useEffect, Suspense, lazy } from "react";
+import React, { useEffect, useRef, Suspense, lazy } from "react";
 import { Provider, useDispatch, useSelector } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
 import {
@@ -55,6 +55,8 @@ import {
   selectAuthLoading,
   selectLawyerProfile,
   selectNotaryProfile,
+  selectProfilesHydrated,
+  selectAccessToken,
   getMe,
   forceLogout,
 } from "./store/slices/authSlice";
@@ -79,7 +81,9 @@ const LawyerProfile = lazy(() => import("./pages/citizen/LawyerProfile"));
 const MyConsultations = lazy(() => import("./pages/citizen/MyConsultations"));
 
 // Lawyer
-const LawyerVerificationPending = lazy(() => import("./pages/lawyer/LawyerVerificationPending"));
+const LawyerVerificationPending = lazy(
+  () => import("./pages/lawyer/LawyerVerificationPending"),
+);
 const LawyerHome = lazy(() => import("./pages/lawyer/LawyerHome"));
 const LawyerDashboard = lazy(() => import("./pages/lawyer/LawyerDashboard"));
 const ClientList = lazy(() => import("./pages/lawyer/ClientList"));
@@ -90,40 +94,54 @@ const EarningsPanel = lazy(() => import("./pages/lawyer/EarningsPanel"));
 // Shared
 const Pricing = lazy(() => import("./pages/shared/Pricing"));
 const Settings = lazy(() => import("./pages/shared/Settings"));
-const SharedDocumentView = lazy(() => import("./pages/shared/SharedDocumentView"));
+const SharedDocumentView = lazy(
+  () => import("./pages/shared/SharedDocumentView"),
+);
 const CalendarPage = lazy(() => import("./pages/shared/CalendarPage"));
 
-// Layout 
+// Layout
 const ThemeSwitcher = lazy(() => import("./components/layout/ThemeSwitcher"));
 const LawyerSearch = lazy(() => import("./components/lawyer/LawyerSearch"));
-const ConsultationsPage = lazy(() => import("./pages/lawyer/ConsultationsPage"));
-const AdminDashboard     = lazy(() => import('./pages/admin/AdminDashboard'));
-const AdminUsers         = lazy(() => import('./pages/admin/AdminUsers'));
-const AdminLawyers       = lazy(() => import('./pages/admin/AdminLawyers'));
-const AdminNotaries      = lazy(() => import('./pages/admin/AdminNotaries'));
-const AdminTemplates     = lazy(() => import('./pages/admin/AdminTemplates'));
-const AdminAuditLog      = lazy(() => import('./pages/admin/AdminAuditLog'));
-const AdminPayments      = lazy(() => import('./pages/admin/AdminPayments'));
-const AdminConsultations = lazy(() => import('./pages/admin/AdminConsultations'));
-const AdminWithdrawals = lazy(() => import('./pages/admin/AdminWithdrawals'));
-const AdminDocuments     = lazy(() => import('./pages/admin/AdminDocuments'));
-const AdminRTI           = lazy(() => import('./pages/admin/AdminRTI'));
-const AdminNotarizations = lazy(() => import('./pages/admin/AdminNotarizations'));
-const LawSearch           = lazy(() => import('./pages/shared/LawSearch'));
-const EmergencyHelpline   = lazy(() => import('./pages/citizen/EmergencyHelpline'));
-const LandingPage         = lazy(() => import('./pages/public/LandingPage'));
+const ConsultationsPage = lazy(
+  () => import("./pages/lawyer/ConsultationsPage"),
+);
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
+const AdminLawyers = lazy(() => import("./pages/admin/AdminLawyers"));
+const AdminNotaries = lazy(() => import("./pages/admin/AdminNotaries"));
+const AdminTemplates = lazy(() => import("./pages/admin/AdminTemplates"));
+const AdminAuditLog = lazy(() => import("./pages/admin/AdminAuditLog"));
+const AdminPayments = lazy(() => import("./pages/admin/AdminPayments"));
+const AdminConsultations = lazy(
+  () => import("./pages/admin/AdminConsultations"),
+);
+const AdminWithdrawals = lazy(() => import("./pages/admin/AdminWithdrawals"));
+const AdminDocuments = lazy(() => import("./pages/admin/AdminDocuments"));
+const AdminRTI = lazy(() => import("./pages/admin/AdminRTI"));
+const AdminNotarizations = lazy(
+  () => import("./pages/admin/AdminNotarizations"),
+);
+const LawSearch = lazy(() => import("./pages/shared/LawSearch"));
+const EmergencyHelpline = lazy(
+  () => import("./pages/citizen/EmergencyHelpline"),
+);
+const LandingPage = lazy(() => import("./pages/public/LandingPage"));
 
 // Notary
-const NotaryVerificationPending = lazy(() => import('./pages/notary/NotaryVerificationPending'));
-const NotaryHome            = lazy(() => import('./pages/notary/NotaryHome'));
-const NotaryDashboard       = lazy(() => import('./pages/notary/NotaryDashboard'));
-const NotarizationRequests  = lazy(() => import('./pages/notary/NotarizationRequests'));
-const NotaryEarnings        = lazy(() => import('./pages/notary/NotaryEarnings'));
+const NotaryVerificationPending = lazy(
+  () => import("./pages/notary/NotaryVerificationPending"),
+);
+const NotaryHome = lazy(() => import("./pages/notary/NotaryHome"));
+const NotaryDashboard = lazy(() => import("./pages/notary/NotaryDashboard"));
+const NotarizationRequests = lazy(
+  () => import("./pages/notary/NotarizationRequests"),
+);
+const NotaryEarnings = lazy(() => import("./pages/notary/NotaryEarnings"));
 
 // RTI Tracker
-const RTITracker = lazy(() => import('./pages/citizen/RTITracker'));
-const NewRTI     = lazy(() => import('./pages/citizen/NewRTI'));
-const RTIDetail  = lazy(() => import('./pages/citizen/RTIDetail'));
+const RTITracker = lazy(() => import("./pages/citizen/RTITracker"));
+const NewRTI = lazy(() => import("./pages/citizen/NewRTI"));
+const RTIDetail = lazy(() => import("./pages/citizen/RTIDetail"));
 
 // ─── Page loading fallback ────────────────────────────────────────────────────
 
@@ -151,8 +169,9 @@ function RootRedirect() {
   const hasLiveToken = !!tokenStore.get();
 
   if (loading && hasLiveToken) return <PageLoader />;
-  if (!isAuthenticated || !hasLiveToken) return <Navigate to="/login" replace />;
-  const home = persona === 'admin' ? '/admin/dashboard' : `/${persona}/home`;
+  if (!isAuthenticated || !hasLiveToken)
+    return <Navigate to="/login" replace />;
+  const home = persona === "admin" ? "/admin/dashboard" : `/${persona}/home`;
   return <Navigate to={home} replace />;
 }
 
@@ -166,7 +185,7 @@ function SettingsRedirect() {
 
   if (loading && hasLiveToken) return <PageLoader />;
   if (!isAuthenticated || !hasLiveToken) {
-    const returnUrl = encodeURIComponent('/settings');
+    const returnUrl = encodeURIComponent("/settings");
     return <Navigate to={`/login?returnUrl=${returnUrl}`} replace />;
   }
   return <Navigate to={`/${persona}/settings`} replace />;
@@ -206,7 +225,10 @@ function AppLayout() {
           }}
         >
           <AnimatePresence mode="wait" initial={false}>
-            <motion.div key={location.pathname} style={{ width: '100%', minWidth: 0 }}>
+            <motion.div
+              key={location.pathname}
+              style={{ width: "100%", minWidth: 0 }}
+            >
               <Suspense fallback={<PageLoader />}>
                 <Outlet />
               </Suspense>
@@ -216,7 +238,7 @@ function AppLayout() {
       </Box>
 
       <BottomNav />
-      <NyayaBotWidget /> 
+      <NyayaBotWidget />
       {/* <Suspense fallback={null}>
         <ThemeSwitcher />
       </Suspense> */}
@@ -260,9 +282,9 @@ function NotFound() {
 
 function LawyerVerifiedGate() {
   const lawyerProfile = useSelector(selectLawyerProfile);
-  const loading = useSelector(selectAuthLoading);
+  const profilesHydrated = useSelector(selectProfilesHydrated);
 
-  if (loading && !lawyerProfile) return <PageLoader />;
+  if (!profilesHydrated) return <PageLoader />;
 
   if (!lawyerProfile?.isVerified) {
     return (
@@ -279,9 +301,9 @@ function LawyerVerifiedGate() {
 
 function NotaryVerifiedGate() {
   const notaryProfile = useSelector(selectNotaryProfile);
-  const loading = useSelector(selectAuthLoading);
+  const profilesHydrated = useSelector(selectProfilesHydrated);
 
-  if (loading && !notaryProfile) return <PageLoader />;
+  if (!profilesHydrated) return <PageLoader />;
 
   if (!notaryProfile?.isVerified) {
     return (
@@ -376,9 +398,9 @@ const router = createBrowserRouter([
       { path: "settings", element: <Settings /> },
       { path: "helpline", element: <EmergencyHelpline /> },
       { path: "calendar", element: <CalendarPage /> },
-      { path: "rti",      element: <RTITracker /> },
-      { path: "rti/new",  element: <NewRTI /> },
-      { path: "rti/:id",  element: <RTIDetail /> },
+      { path: "rti", element: <RTITracker /> },
+      { path: "rti/new", element: <NewRTI /> },
+      { path: "rti/:id", element: <RTIDetail /> },
     ],
   },
 
@@ -588,7 +610,7 @@ const router = createBrowserRouter([
 
   // Law search — shared across all personas
   {
-    path: '/laws/search',
+    path: "/laws/search",
     element: (
       <ProtectedRoute>
         <AppLayout />
@@ -631,15 +653,17 @@ function GlobalSnackbars() {
           severity={active.severity || "info"}
           onClose={() => dispatch(dismissSnackbar(active.id))}
           sx={{
-            borderRadius: '14px',
+            borderRadius: "14px",
             background: "var(--color-surface)",
             color: "var(--color-text)",
             border: "1px solid var(--color-border)",
-            borderLeft: `4px solid ${{
-              error: 'var(--color-error)',
-              success: 'var(--color-success)',
-              warning: 'var(--color-secondary)',
-            }[active.severity] || 'var(--color-primary)'}`,
+            borderLeft: `4px solid ${
+              {
+                error: "var(--color-error)",
+                success: "var(--color-success)",
+                warning: "var(--color-secondary)",
+              }[active.severity] || "var(--color-primary)"
+            }`,
             boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
           }}
         >
@@ -658,18 +682,28 @@ function AppBootstrap() {
   const dispatch = useDispatch();
   const language = useSelector(selectLanguage);
   const isAuthenticated = useSelector(selectIsAuthenticated);
+  const token = useSelector(selectAccessToken);
+  const sessionToken = useRef(undefined);
 
-  // Fetch user profile on load if token exists; otherwise purge any stale
-  // redux-persist rehydration so protected routes immediately redirect to login.
+  // Load lawyer/notary profiles when a session already exists, and again when
+  // login, OTP, or registration creates one. Password login does not return
+  // those profiles. A refreshed access token is not a new session.
   useEffect(() => {
-    const token = tokenStore.get();
-    if (token) {
+    const liveToken = tokenStore.get();
+    const previous = sessionToken.current;
+    sessionToken.current = token;
+
+    const establishing =
+      previous === undefined ? Boolean(liveToken) : !previous && Boolean(token);
+    if (establishing && liveToken) {
       dispatch(getMe());
-    } else {
+      return;
+    }
+    if (previous === undefined && !liveToken) {
       dispatch(forceLogout());
       tokenStore.clear();
     }
-  }, [dispatch]);
+  }, [dispatch, token]);
 
   // Cross-tab logout sync: the `storage` event fires in every OTHER tab (never
   // the tab that made the change) whenever localStorage is modified, so a
@@ -680,8 +714,8 @@ function AppBootstrap() {
         dispatch(forceLogout());
       }
     };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
   }, [dispatch]);
 
   // Connect / disconnect socket based on auth state
@@ -693,7 +727,9 @@ function AppBootstrap() {
       // Forward consultation messages to Redux
       const handleMessage = (msg) => {
         if (msg?.consultation) {
-          dispatch(receiveMessage({ consultationId: msg.consultation, message: msg }));
+          dispatch(
+            receiveMessage({ consultationId: msg.consultation, message: msg }),
+          );
         }
       };
       const handleNewMessage = ({ consultationId }) => {

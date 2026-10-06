@@ -28,7 +28,7 @@ import Switch from '@mui/material/Switch';
 import Slider from '@mui/material/Slider';
 
 import { applyAsLawyer, updateLawyerProfile } from '../../store/slices/lawyerSlice';
-import { selectLawyerProfile } from '../../store/slices/authSlice';
+import { selectLawyerProfile, selectProfilesHydrated } from '../../store/slices/authSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GradientHeading from '../../components/ui/GradientHeading';
 import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
@@ -420,11 +420,9 @@ function LawyerDashboard() {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  // authSlice.lawyerProfile is hydrated by getMe() before this route can render
-  // (ProtectedRoute blocks on the initial getMe call) — lawyerSlice.myProfile, by
-  // contrast, stays null until an apply/update action runs in this session, which
-  // let a stale/absent value fall through to rendering the blank apply form even
-  // when a rejected/under_review profile already existed server-side.
+  // This route sits outside LawyerVerifiedGate, so it waits for getMe itself.
+  // Mounting the form before that would treat a missing profile as "not applied"
+  // and lock empty defaultValues in.
   const existingProfile = useSelector(selectLawyerProfile);
   const muiTheme = useTheme();
   const prefersReducedMotion = useReducedMotion();
@@ -583,4 +581,14 @@ function LawyerDashboard() {
   );
 }
 
-export default LawyerDashboard;
+export default function LawyerDashboardEntry() {
+  const profilesHydrated = useSelector(selectProfilesHydrated);
+  if (!profilesHydrated) {
+    return (
+      <Box sx={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <CircularProgress sx={{ color: 'var(--color-primary)' }} />
+      </Box>
+    );
+  }
+  return <LawyerDashboard />;
+}
