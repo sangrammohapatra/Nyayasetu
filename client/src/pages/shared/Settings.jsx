@@ -797,7 +797,7 @@ function NotificationsSection({ user, showSnack }) {
           fontWeight: 700,
         }}
       >
-        {t("settings.notificationSec", "Notifications")}
+        {t("settings.notifications.title", "Notifications")}
       </GradientHeading>
 
       {/* Alert channels */}
@@ -908,7 +908,7 @@ function NotificationsSection({ user, showSnack }) {
           variant="body2"
           sx={{ fontWeight: 600, color: "var(--color-text)", mb: 1.5 }}
         >
-          {t("settings.notifTypes", "What to notify me about")}
+          {t("settings.notifications.types", "What to notify me about")}
         </Typography>
         {notifItems.map((item) => (
           <FormControlLabel
@@ -1458,7 +1458,7 @@ function SecuritySection({ showSnack }) {
   const handleLogoutAll = async () => {
     if (
       window.confirm(
-        t("settings.confirmLogoutAll", "Log out from all devices?"),
+        t("settings.confirm_logout_all", "Log out from all devices?"),
       )
     ) {
       await dispatch(logout(true));
@@ -1601,14 +1601,14 @@ function SecuritySection({ showSnack }) {
           variant="body2"
           sx={{ fontWeight: 600, color: "var(--color-text)", mb: 1 }}
         >
-          {t("settings.activeSessions", "Active Sessions")}
+          {t("settings.active_sessions", "Active Sessions")}
         </Typography>
         <Typography
           variant="caption"
           sx={{ color: "var(--color-text-secondary)", display: "block", mb: 2 }}
         >
           {t(
-            "settings.sessionsDesc",
+            "settings.sessions_desc",
             "NyayaSetu keeps you logged in on up to 5 devices.",
           )}
         </Typography>
@@ -1623,7 +1623,7 @@ function SecuritySection({ showSnack }) {
             fontWeight: 600,
           }}
         >
-          🔒 {t("settings.logoutAll", "Logout from All Devices")}
+          🔒 {t("settings.logout_all", "Logout from All Devices")}
         </Button>
       </Box>
 

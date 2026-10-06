@@ -103,7 +103,8 @@
     "dashboard": "ડૅશબોર્ડ",
     "upgrade": "પ્લાન અપગ્રેડ કરો",
     "search": "કાયદા, દસ્તાવેજ શોધો…",
-    "anonymous": "અનામી"
+    "anonymous": "અનામી",
+    "rti": "RTI"
   },
   "sidebar": {
     "home": "હોમ",
@@ -118,7 +119,25 @@
     "earnings": "આવક",
     "profile": "મારી પ્રોફાઇલ",
     "freePlan": "મફત પ્લાન",
-    "upgrade": "અપગ્રેડ → ₹99/મહિનો"
+    "upgrade": "અપગ્રેડ → ₹99/મહિનો",
+    "section_main": "મુખ્ય",
+    "section_legal": "કાનૂની",
+    "section_account": "ખાતું",
+    "section_business": "વ્યવસાય",
+    "section_admin": "વહીવટ",
+    "section_moderation": "મોડરેશન",
+    "section_notary": "નોટરી",
+    "calendar": "કૅલેન્ડર",
+    "rtiTracker": "RTI ટ્રેકર",
+    "myConsultations": "મારી સલાહ",
+    "rtiDashboard": "RTI ડેશબોર્ડ",
+    "payments": "ચુકવણી",
+    "withdrawals": "ઉપાડ",
+    "documents": "દસ્તાવેજો",
+    "notarizations": "નોટરીકરણ",
+    "auditLog": "ઑડિટ લોગ",
+    "notaries": "નોટરી",
+    "requests": "વિનંતીઓ"
   },
   "common": {
     "loading": "લોડ થઈ રહ્યું છે…",

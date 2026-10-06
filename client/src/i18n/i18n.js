@@ -34,9 +34,8 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 // Only English is bundled — it's the fallbackLng, so it must be available
 // immediately with no network round-trip. Every other language is fetched
 // lazily by HttpBackend from /locales/{{lng}}/translation.json on demand.
-// Statically importing all 12 here (as this file used to) defeats the
-// backend entirely: i18next only calls it for languages missing from
-// `resources`, so every user downloaded all 12 languages' strings up front.
+// `partialBundledLanguages` below is required for that: if `resources` is
+// set and the flag is false, i18next never calls the backend at all.
 import enLang from '../../public/locales/en/translation.json';
 // ─── Supported language codes ─────────────────────────────────────────────────
 
@@ -91,6 +90,11 @@ i18n
         translation: enLang,
       },
     },
+
+    // English is the only bundled language. Without this flag i18next treats
+    // `resources` as complete and never calls HttpBackend, so switching
+    // language in the header changes the code but every string stays English.
+    partialBundledLanguages: true,
 
     // Fetch every non-bundled language's JSON on demand instead of shipping
     // all 12 languages' strings to every user on first load.

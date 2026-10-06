@@ -192,7 +192,7 @@ function HearingTimeline({ hearings = [], onRemind }) {
       <Box sx={{ textAlign: 'center', py: 3 }}>
         <Typography sx={{ fontSize: 36, mb: 1 }}>📅</Typography>
         <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
-          {t('hearing.noHearings', 'No hearing dates recorded yet.')}
+          {t('hearing.no_hearings', 'No hearing dates recorded yet.')}
         </Typography>
       </Box>
     );

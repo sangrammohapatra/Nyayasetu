@@ -102,7 +102,8 @@
     "dashboard": "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್",
     "upgrade": "ಯೋಜನೆ ಅಪ್‌ಗ್ರೇಡ್ ಮಾಡಿ",
     "search": "ಕಾನೂನುಗಳು, ದಾಖಲೆಗಳು ಹುಡುಕಿ…",
-    "anonymous": "ಅನಾಮಧೇಯ"
+    "anonymous": "ಅನಾಮಧೇಯ",
+    "rti": "RTI"
   },
   "sidebar": {
     "home": "ಹೋಮ್",
@@ -116,7 +117,25 @@
     "earnings": "ಆದಾಯ",
     "profile": "ನನ್ನ ಪ್ರೊಫೈಲ್",
     "freePlan": "ಉಚಿತ ಯೋಜನೆ",
-    "upgrade": "ಅಪ್‌ಗ್ರೇಡ್ → ₹99/ತಿಂಗಳು"
+    "upgrade": "ಅಪ್‌ಗ್ರೇಡ್ → ₹99/ತಿಂಗಳು",
+    "section_main": "ಮುಖ್ಯ",
+    "section_legal": "ಕಾನೂನು",
+    "section_account": "ಖಾತೆ",
+    "section_business": "ವ್ಯವಹಾರ",
+    "section_admin": "ಆಡಳಿತ",
+    "section_moderation": "ಮಾಡರೇಶನ್",
+    "section_notary": "ನೋಟರಿ",
+    "calendar": "ಕ್ಯಾಲೆಂಡರ್",
+    "rtiTracker": "RTI ಟ್ರ್ಯಾಕರ್",
+    "myConsultations": "ನನ್ನ ಸಮಾಲೋಚನೆಗಳು",
+    "rtiDashboard": "RTI ಡ್ಯಾಶ್‌ಬೋರ್ಡ್",
+    "payments": "ಪಾವತಿಗಳು",
+    "withdrawals": "ಹಿಂಪಡೆಯುವಿಕೆ",
+    "documents": "ದಾಖಲೆಗಳು",
+    "notarizations": "ನೋಟರೀಕರಣ",
+    "auditLog": "ಆಡಿಟ್ ಲಾಗ್",
+    "notaries": "ನೋಟರಿಗಳು",
+    "requests": "ವಿನಂತಿಗಳು"
   },
   "common": {
     "loading": "ಲೋಡ್ ಆಗುತ್ತಿದೆ…",

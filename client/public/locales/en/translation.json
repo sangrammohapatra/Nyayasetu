@@ -15,7 +15,11 @@
     "change": "Change",
     "register_title": "Create Your Account",
     "register_subtitle": "Set up your NyayaSetu profile in 3 quick steps",
-    "steps": ["Personal Info", "Your Role", "Preferences"],
+    "steps": [
+      "Personal Info",
+      "Your Role",
+      "Preferences"
+    ],
     "step_labels": {
       "0": "Personal Info",
       "1": "Your Role",
@@ -59,7 +63,12 @@
     "identifier_label": "Phone Number or Email",
     "identifier_hint": "Enter your phone number or email to receive an OTP",
     "no_account": "Don't have an account?",
-    "register_link": "Register"
+    "register_link": "Register",
+    "role_citizen": "Citizen Portal",
+    "role_lawyer": "Lawyer Dashboard",
+    "feature_secure": "Secure & Private",
+    "whatsapp_alerts": "WhatsApp Alerts",
+    "custom_themes": "5 Themes"
   },
   "register": {
     "step1_title": "Personal Information",
@@ -127,7 +136,8 @@
     "upgrade": "Upgrade Plan",
     "theme": "Theme",
     "search": "Search laws, documents…",
-    "anonymous": "Anonymous"
+    "anonymous": "Anonymous",
+    "rti": "RTI"
   },
   "sidebar": {
     "home": "Home",
@@ -150,7 +160,25 @@
     "docs": "docs",
     "upgrade": "Upgrade → ₹99/mo",
     "expand": "Expand",
-    "collapse": "Collapse"
+    "collapse": "Collapse",
+    "section_main": "Main",
+    "section_legal": "Legal",
+    "section_account": "Account",
+    "section_business": "Business",
+    "section_admin": "Administration",
+    "section_moderation": "Moderation",
+    "section_notary": "Notary",
+    "calendar": "Calendar",
+    "rtiTracker": "RTI Tracker",
+    "myConsultations": "My Consultations",
+    "rtiDashboard": "RTI Dashboard",
+    "payments": "Payments",
+    "withdrawals": "Withdrawals",
+    "documents": "Documents",
+    "notarizations": "Notarizations",
+    "auditLog": "Audit Log",
+    "notaries": "Notaries",
+    "requests": "Requests"
   },
   "myDocs": {
     "create": "Create Document",
@@ -233,7 +261,19 @@
     "resume_last_activity": "Last activity: {{date}}",
     "resume_generate_btn": "Generate Document",
     "resume_continue_btn": "Continue Session",
-    "resume_start_fresh_btn": "Start Over"
+    "resume_start_fresh_btn": "Start Over",
+    "template": "Template",
+    "chat_collecting": "Collecting your information",
+    "tips_title": "Tips",
+    "tip1": "Answer as clearly as possible — the AI uses your words.",
+    "tip2": "Use voice input for longer answers.",
+    "tip3": "You can switch language at any time.",
+    "generating_timeout_title": "This is taking longer than expected",
+    "go_to_documents": "My Documents",
+    "regenerate": "Regenerate Document",
+    "version_history": "Version History",
+    "ask_followup": "Ask a follow-up question",
+    "tab_more": "🧰 More"
   },
   "newDoc": {
     "title": "Create a Legal Document",
@@ -268,7 +308,6 @@
     "starting": "NyayaBot is starting…",
     "headerSubtitle": "AI Legal Assistant · NyayaSetu",
     "thinking": "Thinking…",
-
     "newChat": "New Chat",
     "recentChats": "Recent Chats",
     "noSessions": "No conversations yet. Start by asking a legal question!",
@@ -282,7 +321,6 @@
     "delete": "Delete conversation",
     "shareLinkCopied": "Share link copied to clipboard!",
     "shareError": "Could not generate share link. Try again.",
-
     "inputPlaceholder": "Ask about your legal rights, documents, or court procedures…",
     "inputDisabledQuota": "Daily limit reached. Upgrade to continue.",
     "send": "Send message",
@@ -291,25 +329,20 @@
     "stopSend": "Stop & Send",
     "recording": "Recording",
     "voiceMessage": "Voice message",
-
     "quotaRemaining": "{{remaining}} of {{limit}} messages remaining today",
     "quotaLow": "Almost at daily limit",
     "quotaExhausted": "Daily limit reached",
     "quotaExhaustedMessage": "You've used all your daily NyayaBot messages on the {{plan}} plan. Upgrade for more.",
     "upgrade": "Upgrade plan",
-
     "helpful": "This was helpful",
     "notHelpful": "This was not helpful",
     "legalCitations": "Legal References",
     "viewOnKanoon": "Read on Indian Kanoon",
     "suggestedDocuments": "Related documents you can create:",
     "followUpQuestions": "You might also ask:",
-
     "greetingCitizen": "Namaskar! 🙏 I'm NyayaBot, your AI legal assistant on NyayaSetu. I can help you understand your rights, find the right document to file, or guide you through court procedures. What legal question can I help with today?",
     "greetingLawyer": "Welcome! I'm NyayaBot, your AI legal research assistant. How can I assist with your legal work today?",
-
     "disclaimer": "NyayaBot provides legal information, not legal advice. Consult a qualified advocate for your specific situation.",
-
     "pageTitle": "NyayaBot — AI Legal Assistant"
   },
   "case": {
@@ -352,7 +385,13 @@
     "no_match": "No cases match",
     "empty": "No cases yet",
     "cases_mgmt_empty_desc": "Cases will appear here once clients share them with you.",
-    "management_title": "Case Management"
+    "management_title": "Case Management",
+    "archived": "archived cases",
+    "delete": "Remove",
+    "view_active": "Active",
+    "view_archived": "Archived",
+    "empty_archived": "No archived cases",
+    "empty_archived_desc": "Cases move here automatically once the court marks them disposed."
   },
   "pricing": {
     "title": "Legal help that fits your pocket",
@@ -429,7 +468,12 @@
     "chat_whatsapp": "Chat on WhatsApp",
     "not_found": "Lawyer not found",
     "consult_fee": "Consultation Fee",
-    "booking_steps": ["Mode", "Date & Time", "Notes", "Payment"],
+    "booking_steps": [
+      "Mode",
+      "Date & Time",
+      "Notes",
+      "Payment"
+    ],
     "booking_title": "Book Consultation",
     "select_mode": "How would you like to consult?",
     "select_date_time": "Choose a date and time",
@@ -458,7 +502,10 @@
     "consultations": "Consultations",
     "earnings": "Earnings",
     "profile": "My Profile",
-    "pending_title": "Consultations Awaiting Your Response"
+    "pending_title": "Consultations Awaiting Your Response",
+    "mode_unavailable": "Not offered by this lawyer",
+    "search_subtitle": "Compare advocates by practice area, state, and fee.",
+    "confirmed_desc_video": "Your video consultation with {{lawyerName}} is booked. Once the lawyer accepts, you'll receive a secure video link via WhatsApp and in-app notification."
   },
   "common": {
     "loading": "Loading…",
@@ -526,16 +573,16 @@
     "go_home": "Go Home",
     "save_changes": "Save Changes",
     "saved": "Saved!",
-    "save_failed": "Failed to save. Please try again."
+    "save_failed": "Failed to save. Please try again.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "rate_limited": "Too many requests. Please wait a moment."
   },
   "settings": {
     "title": "Settings",
     "account": "Account",
     "appearance": "Appearance",
     "language": "Language",
-    "notificationSec": "Notifications",
-    "notifTypes": "What to notify me about",
-    "savePreferences":"Save Preferences",
     "subscription": "Subscription",
     "security": "Security",
     "name": "Full Name",
@@ -552,7 +599,8 @@
       "saffron": "Saffron India",
       "dark": "Dark Mode",
       "highContrast": "High Contrast",
-      "emerald": "Emerald Calm"
+      "emerald": "Emerald Calm",
+      "click_to_change": "Click to change theme"
     },
     "language_section": {
       "title": "Language",
@@ -592,7 +640,7 @@
     "sessions_desc": "NyayaSetu keeps you logged in on up to 5 devices.",
     "logout_all": "Logout from All Devices",
     "confirm_logout_all": "Log out from all devices?",
-    "lawyerProfile":"Lawyer Profile"
+    "lawyerProfile": "Lawyer Profile"
   },
   "home": {
     "hero": "आपका कानूनी अधिकार, हमारी ज़िम्मेदारी",
@@ -620,7 +668,10 @@
     "there": "there...",
     "good_morning": "Good Morning",
     "good_afternoon": "Good Afternoon",
-    "good_evening": "Good Evening"
+    "good_evening": "Good Evening",
+    "view_case": "View",
+    "rti_tracker": "RTI Tracker",
+    "rti_tracker_desc": "File & track RTI applications with auto-deadline alerts"
   },
   "hearing": {
     "judge": "Before",
@@ -628,7 +679,9 @@
     "no_hearings": "No hearing dates recorded yet.",
     "past": "Past",
     "next": "Next",
-    "soon": "⚠️ Soon"
+    "soon": "⚠️ Soon",
+    "remind_set": "Reminder enabled — you'll be alerted before the hearing.",
+    "remind_error": "Failed to set reminder. Please try again."
   },
   "cnr": {
     "label": "CNR Number",
@@ -687,7 +740,10 @@
     "no_speech": "No speech detected. Please try again.",
     "release": "Release to send",
     "hold": "Hold to speak",
-    "aria": "Voice input"
+    "aria": "Voice input",
+    "transcribing": "Transcribing…",
+    "mic_error": "Could not access microphone.",
+    "transcription_failed": "Transcription failed. Please try typing instead."
   },
   "lawyer_setup": {
     "title": "Set Up Your Lawyer Profile",
@@ -719,7 +775,8 @@
     "r3": "Bar Council verification",
     "r4": "Profile approved & live",
     "go_home": "Go to Dashboard",
-    "district": "Primary District / City"
+    "district": "Primary District / City",
+    "weekly_schedule": "Weekly Schedule"
   },
   "earnings": {
     "title": "Earnings",
@@ -730,7 +787,8 @@
     "chart": "Monthly Earnings (Last 6 Months)",
     "no_data": "No earnings data yet.",
     "history": "Payment History",
-    "no_payments": "No payments yet."
+    "no_payments": "No payments yet.",
+    "payouts": "Payouts"
   },
   "clients": {
     "title": "My Clients",
@@ -765,15 +823,38 @@
       "accepted": "Accepted",
       "completed": "Completed",
       "cancelled": "Cancelled"
-    }
+    },
+    "myTitle": "My Consultations",
+    "unknownLawyer": "Lawyer",
+    "emptyMine": "You haven't booked any consultations yet",
+    "emptyMineDesc": "Book a consultation with a verified lawyer to get started.",
+    "cancelTitle": "Cancel Consultation",
+    "cancelRefundYes": "You're cancelling more than 24 hours before the scheduled time — you'll get a full refund.",
+    "cancelRefundNo": "Cancellations within 24 hours of the session are not refunded.",
+    "cancelPlaceholder": "Reason (optional)…",
+    "confirmCancel": "Cancel consultation"
   },
-  "lawSearch":{
+  "lawSearch": {
     "title": "Legal Search",
-    "subtitle":"Search across Indian laws, cases, and legal documents.",
+    "subtitle": "Search across Indian laws, cases, and legal documents.",
     "placeholder": "Search laws, cases, documents…",
     "searching": "Searching…",
     "no_results": "No results found",
     "try_broader": "Try broader keywords or check spelling.",
-    "results_for": "Search results for \"{{query}}\""
+    "results_for": "Search results for \"{{query}}\"",
+    "hint": "Try a section, act, or case name",
+    "results": "{{count}} results for"
+  },
+  "error": {
+    "api": {
+      "network_error": "Network error. Please check your connection.",
+      "unauthorized": "Please sign in again.",
+      "forbidden": "You don't have permission to do that.",
+      "not_found": "We couldn't find that.",
+      "server_error": "Something went wrong on our side. Please try again."
+    },
+    "form": {
+      "validation_failed": "Please check the form and try again."
+    }
   }
 }

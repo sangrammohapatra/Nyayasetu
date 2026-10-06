@@ -74,7 +74,8 @@ const IC = {
 
 // ─── Nav definitions per persona — grouped by section ────────────────────────
 
-function useNavItems(persona, t) {
+function useNavItems(persona) {
+  const { t, i18n } = useTranslation();
   return useMemo(() => {
     const citizen = [
       { section: t('sidebar.section_main', 'Main') },
@@ -123,16 +124,16 @@ function useNavItems(persona, t) {
     ];
 
     const notary = [
-      { section: 'Notary' },
-      { icon: IC.home,          label: 'Home',           path: '/notary/home' },
-      { icon: IC.consultations, label: 'Requests',       path: '/notary/requests' },
-      { icon: IC.earnings,      label: 'Earnings',       path: '/notary/earnings' },
-      { icon: IC.calendar,      label: 'Calendar',       path: '/notary/calendar' },
-      { icon: IC.dashboard,     label: 'My Profile',     path: '/notary/profile' },
+      { section: t('sidebar.section_notary', 'Notary') },
+      { icon: IC.home,          label: t('sidebar.home',     'Home'),       path: '/notary/home' },
+      { icon: IC.consultations, label: t('sidebar.requests', 'Requests'),    path: '/notary/requests' },
+      { icon: IC.earnings,      label: t('sidebar.earnings', 'Earnings'),    path: '/notary/earnings' },
+      { icon: IC.calendar,      label: t('sidebar.calendar', 'Calendar'),    path: '/notary/calendar' },
+      { icon: IC.dashboard,     label: t('sidebar.profile',  'My Profile'),  path: '/notary/profile' },
     ];
 
     return { citizen, lawyer, admin, notary }[persona] || citizen;
-  }, [persona, t]);
+  }, [persona, t, i18n.language]);
 }
 
 // ─── Single nav item ──────────────────────────────────────────────────────────
@@ -256,12 +257,11 @@ function SubscriptionCard({ collapsed, plan, freeUsage }) {
 // ─── Sidebar content ──────────────────────────────────────────────────────────
 
 function SidebarContent() {
-  const { t } = useTranslation();
   const location = useLocation();
   const persona = useSelector(selectUserPersona);
   const plan = useSelector(selectUserPlan);
   const freeUsage = useSelector(selectFreeUsage);
-  const navItems = useNavItems(persona || 'citizen', t);
+  const navItems = useNavItems(persona || 'citizen');
 
   return (
     <Box sx={{

@@ -121,7 +121,8 @@
     "upgrade": "প্ল্যান আপগ্রেড করুন",
     "theme": "থিম",
     "search": "আইন, দস্তাবেজ খুঁজুন…",
-    "anonymous": "বেনামী"
+    "anonymous": "বেনামী",
+    "rti": "RTI"
   },
   "sidebar": {
     "home": "হোম",
@@ -144,7 +145,25 @@
     "docs": "দস্তাবেজ",
     "upgrade": "আপগ্রেড → ₹৯৯/মাস",
     "expand": "প্রসারিত করুন",
-    "collapse": "সংকুচিত করুন"
+    "collapse": "সংকুচিত করুন",
+    "section_main": "মূল",
+    "section_legal": "আইনি",
+    "section_account": "অ্যাকাউন্ট",
+    "section_business": "ব্যবসা",
+    "section_admin": "প্রশাসন",
+    "section_moderation": "মডারেশন",
+    "section_notary": "নোটারি",
+    "calendar": "ক্যালেন্ডার",
+    "rtiTracker": "RTI ট্র্যাকার",
+    "myConsultations": "আমার পরামর্শ",
+    "rtiDashboard": "RTI ড্যাশবোর্ড",
+    "payments": "পেমেন্ট",
+    "withdrawals": "উত্তোলন",
+    "documents": "দস্তাবেজ",
+    "notarizations": "নোটারাইজেশন",
+    "auditLog": "অডিট লগ",
+    "notaries": "নোটারি",
+    "requests": "অনুরোধ"
   },
   "common": {
     "loading": "লোড হচ্ছে…",

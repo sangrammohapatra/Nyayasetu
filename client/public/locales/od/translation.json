@@ -53,7 +53,6 @@
     "no_account": "ଖାତା ନାହିଁ କି?",
     "register_link": "ନିବନ୍ଧନ କରନ୍ତୁ"
   },
-
   "register": {
     "step1_title": "ବ୍ୟକ୍ତିଗତ ସୂଚନା",
     "step1_subtitle": "ଏହା ଆପଣଙ୍କ ଅଧିକାରକ୍ଷେତ୍ର ପାଇଁ ଦଲିଲ କଷ୍ଟମାଇଜ୍ କରିବାରେ ସହାୟତା କରେ।",
@@ -83,7 +82,6 @@
     "verify_email_subtitle": "କୋଡ୍ ପଠାଯାଇଛି",
     "verify_continue": "ଯାଞ୍ଚ କରନ୍ତୁ ଏବଂ ଜାରି ରଖନ୍ତୁ"
   },
-
   "nav": {
     "home": "ମୁଖ୍ୟ ପୃଷ୍ଠା",
     "new_document": "ନୂତନ ଦଲିଲ",
@@ -104,9 +102,9 @@
     "dashboard": "ଡ୍ୟାଶବୋର୍ଡ",
     "upgrade": "ପ୍ଲାନ୍ ଅପଗ୍ରେଡ୍ କରନ୍ତୁ",
     "search": "ଆଇନ, ଦଲିଲ ଖୋଜନ୍ତୁ…",
-    "anonymous": "ଅଜଣା"
+    "anonymous": "ଅଜଣା",
+    "rti": "RTI"
   },
-
   "common": {
     "loading": "ଲୋଡ୍ ହେଉଛି…",
     "error": "କିଛି ଭୁଲ୍ ହୋଇଛି",
@@ -138,7 +136,6 @@
     "saved": "ସଞ୍ଚୟ ହୋଇଗଲା!",
     "save_failed": "ସଞ୍ଚୟ ବିଫଳ। ପୁନଃ ଚେଷ୍ଟା କରନ୍ତୁ।"
   },
-
   "home": {
     "hero": "ଆପଣଙ୍କ ଆଇନଗତ ଅଧିକାର, ଆମର ଦାୟିତ୍ୱ",
     "hero_sub": "ପେଶାଦାର ଆଇନଗତ ଦଲିଲ ସୃଷ୍ଟି କରନ୍ତୁ, ଅଦାଲତ କେସ୍ ଟ୍ରାକ୍ କରନ୍ତୁ ଏବଂ ଆପଣଙ୍କ ଭାଷାରେ ଯାଞ୍ଚିତ ଆଇନଜୀବୀଙ୍କ ସହ ସଂଯୋଗ କରନ୍ତୁ।",
@@ -154,7 +151,6 @@
     "no_docs_yet": "ଆପଣ ଏପର୍ଯ୍ୟନ୍ତ କୌଣସି ଦଲିଲ ସୃଷ୍ଟି କରିନାହାନ୍ତି।",
     "create_first": "ଆପଣଙ୍କ ପ୍ରଥମ ଦଲିଲ ସୃଷ୍ଟି କରନ୍ତୁ"
   },
-
   "case": {
     "title": "ମୋର ଅଦାଲତ କେସ୍",
     "add_case": "କେସ୍ ଯୋଡନ୍ତୁ",
@@ -168,7 +164,6 @@
     "status_disposed": "ନିଷ୍ପତ୍ତି ହୋଇଛି",
     "view_case": "ଦେଖନ୍ତୁ"
   },
-
   "nyayabot": {
     "fabLabel": "NyayaBot କୁ ପଚାରନ୍ତୁ",
     "openBot": "NyayaBot ଖୋଲନ୍ତୁ",
@@ -184,7 +179,6 @@
     "disclaimer": "NyayaBot ଆଇନଗତ ସୂଚନା ଦେଇଥାଏ, ଆଇନଗତ ପରାମର୍ଶ ନୁହେଁ।",
     "pageTitle": "NyayaBot — AI ଆଇନଗତ ସହାୟକ"
   },
-
   "lawyer": {
     "search_title": "ଆଇନଜୀବୀ ଖୋଜନ୍ତୁ",
     "search_placeholder": "ଆଇନଜୀବୀ ଖୋଜନ୍ତୁ…",
@@ -192,11 +186,51 @@
     "book_now": "ଏବେ ବୁକ୍ କରନ୍ତୁ",
     "book_consultation": "ପରାମର୍ଶ ବୁକ୍ କରନ୍ତୁ"
   },
-
   "cnr": {
     "label": "CNR ନମ୍ବର",
     "hint": "ଆପଣଙ୍କ ୧୬-ଅକ୍ଷରୀୟ CNR ନମ୍ବର ପ୍ରବେଶ କରନ୍ତୁ",
     "help_title": "CNR ନମ୍ବର କ'ଣ?",
     "help_desc": "Case Number Record (CNR) ହେଉଛି ଭାରତୀୟ ଅଦାଲତର ପ୍ରତ୍ୟେକ ମାମଲା ପାଇଁ ଏକ ବିଶିଷ୍ଟ ୧୬-ଅକ୍ଷରୀୟ ପରିଚୟ ସଂଖ୍ୟା।"
+  },
+  "sidebar": {
+    "home": "ହୋମ",
+    "newDoc": "ନୂଆ ଦଲିଲ",
+    "myDocs": "ମୋ ଦଲିଲ",
+    "caseTracker": "ମାମଲା ଟ୍ରାକର",
+    "rtiTracker": "RTI ଟ୍ରାକର",
+    "findLawyer": "ଓକିଲ ଖୋଜନ୍ତୁ",
+    "myConsultations": "ମୋ ପରାମର୍ଶ",
+    "calendar": "କ୍ୟାଲେଣ୍ଡର",
+    "pricing": "ମୂଲ୍ୟ",
+    "settings": "ସେଟିଂସ",
+    "clients": "ମୋ କ୍ଲାଏଣ୍ଟ",
+    "cases": "ମାମଲା",
+    "consultations": "ପରାମର୍ଶ",
+    "earnings": "ଆୟ",
+    "dashboard": "ଡ୍ୟାସବୋର୍ଡ",
+    "users": "ଉପଭୋକ୍ତା",
+    "templates": "ଟେମ୍ପଲେଟ",
+    "lawyers": "ଓକିଲ",
+    "notaries": "ନୋଟାରି",
+    "profile": "ମୋ ପ୍ରୋଫାଇଲ",
+    "freePlan": "ମାଗଣା ପ୍ଲାନ",
+    "docs": "ଦଲିଲ",
+    "upgrade": "ଅପଗ୍ରେଡ → ₹99/ମାସ",
+    "expand": "ବଢ଼ାନ୍ତୁ",
+    "collapse": "ସଙ୍କୁଚିତ କରନ୍ତୁ",
+    "section_main": "ମୁଖ୍ୟ",
+    "section_legal": "ଆଇନଗତ",
+    "section_account": "ଖାତା",
+    "section_business": "ବ୍ୟବସାୟ",
+    "section_admin": "ପ୍ରଶାସନ",
+    "section_moderation": "ମଡରେସନ",
+    "section_notary": "ନୋଟାରି",
+    "rtiDashboard": "RTI ଡ୍ୟାସବୋର୍ଡ",
+    "payments": "ପେମେଣ୍ଟ",
+    "withdrawals": "ଉଠାଣ",
+    "documents": "ଦଲିଲ",
+    "notarizations": "ନୋଟାରିକରଣ",
+    "auditLog": "ଅଡିଟ ଲଗ",
+    "requests": "ଅନୁରୋଧ"
   }
 }

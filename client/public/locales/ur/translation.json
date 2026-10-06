@@ -110,7 +110,8 @@
     "dashboard": "ڈیش بورڈ",
     "upgrade": "پلان اپ گریڈ کریں",
     "search": "قوانین، دستاویزات تلاش کریں…",
-    "anonymous": "گمنام"
+    "anonymous": "گمنام",
+    "rti": "RTI"
   },
   "sidebar": {
     "home": "ہوم",
@@ -124,7 +125,25 @@
     "earnings": "آمدنی",
     "profile": "میری پروفائل",
     "freePlan": "مفت پلان",
-    "upgrade": "اپ گریڈ → ₹99/ماہ"
+    "upgrade": "اپ گریڈ → ₹99/ماہ",
+    "section_main": "اہم",
+    "section_legal": "قانونی",
+    "section_account": "اکاؤنٹ",
+    "section_business": "کاروبار",
+    "section_admin": "انتظامیہ",
+    "section_moderation": "نگرانی",
+    "section_notary": "نوٹری",
+    "calendar": "کیلنڈر",
+    "rtiTracker": "RTI ٹریکر",
+    "myConsultations": "میرے مشورے",
+    "rtiDashboard": "RTI ڈیش بورڈ",
+    "payments": "ادائیگیاں",
+    "withdrawals": "نکاسی",
+    "documents": "دستاویزات",
+    "notarizations": "نوٹرائزیشن",
+    "auditLog": "آڈٹ لاگ",
+    "notaries": "نوٹری",
+    "requests": "درخواستیں"
   },
   "common": {
     "loading": "لوڈ ہو رہا ہے…",

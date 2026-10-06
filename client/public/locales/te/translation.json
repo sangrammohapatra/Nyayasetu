@@ -115,7 +115,8 @@
     "dashboard": "డాష్‌బోర్డ్",
     "upgrade": "ప్లాన్ అప్‌గ్రేడ్ చేయండి",
     "search": "చట్టాలు, పత్రాలు వెతకండి…",
-    "anonymous": "అనామక"
+    "anonymous": "అనామక",
+    "rti": "RTI"
   },
   "sidebar": {
     "home": "హోమ్",
@@ -131,7 +132,25 @@
     "dashboard": "డాష్‌బోర్డ్",
     "profile": "నా ప్రొఫైల్",
     "freePlan": "ఉచిత ప్లాన్",
-    "upgrade": "అప్‌గ్రేడ్ → ₹99/నెల"
+    "upgrade": "అప్‌గ్రేడ్ → ₹99/నెల",
+    "section_main": "ప్రధాన",
+    "section_legal": "న్యాయ",
+    "section_account": "ఖాతా",
+    "section_business": "వ్యాపారం",
+    "section_admin": "పరిపాలన",
+    "section_moderation": "మోడరేషన్",
+    "section_notary": "నోటరీ",
+    "calendar": "క్యాలెండర్",
+    "rtiTracker": "RTI ట్రాకర్",
+    "myConsultations": "నా సంప్రదింపులు",
+    "rtiDashboard": "RTI డాష్‌బోర్డ్",
+    "payments": "చెల్లింపులు",
+    "withdrawals": "ఉపసంహరణలు",
+    "documents": "పత్రాలు",
+    "notarizations": "నోటరీకరణ",
+    "auditLog": "ఆడిట్ లాగ్",
+    "notaries": "నోటరీలు",
+    "requests": "అభ్యర్థనలు"
   },
   "common": {
     "loading": "లోడ్ అవుతోంది…",

@@ -77,9 +77,9 @@ function useBottomNavItems(persona, t, unread) {
   ];
 
   const notary = [
-    { icon: IC.home,          label: 'Home',     path: '/notary/home' },
-    { icon: IC.consultations, label: 'Requests', path: '/notary/requests' },
-    { icon: IC.dashboard,     label: 'Profile',  path: '/notary/profile' },
+    { icon: IC.home,          label: t('nav.home', 'Home'),           path: '/notary/home' },
+    { icon: IC.consultations, label: t('sidebar.requests', 'Requests'), path: '/notary/requests' },
+    { icon: IC.dashboard,     label: t('nav.profile', 'Profile'),      path: '/notary/profile' },
   ];
 
   return ({ citizen, lawyer, admin, notary }[persona] || citizen);

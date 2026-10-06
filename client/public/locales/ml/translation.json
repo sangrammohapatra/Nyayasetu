@@ -102,7 +102,8 @@
     "dashboard": "ഡാഷ്‌ബോർഡ്",
     "upgrade": "പ്ലാൻ അപ്‌ഗ്രേഡ് ചെയ്യുക",
     "search": "നിയമങ്ങൾ, രേഖകൾ തിരയുക…",
-    "anonymous": "അജ്ഞാതൻ"
+    "anonymous": "അജ്ഞാതൻ",
+    "rti": "RTI"
   },
   "sidebar": {
     "home": "ഹോം",
@@ -116,7 +117,25 @@
     "earnings": "വരുമാനം",
     "profile": "എന്റെ പ്രൊഫൈൽ",
     "freePlan": "സൗജന്യ പ്ലാൻ",
-    "upgrade": "അപ്‌ഗ്രേഡ് → ₹99/മാസം"
+    "upgrade": "അപ്‌ഗ്രേഡ് → ₹99/മാസം",
+    "section_main": "പ്രധാനം",
+    "section_legal": "നിയമം",
+    "section_account": "അക്കൗണ്ട്",
+    "section_business": "ബിസിനസ്",
+    "section_admin": "ഭരണം",
+    "section_moderation": "മോഡറേഷൻ",
+    "section_notary": "നോട്ടറി",
+    "calendar": "കലണ്ടർ",
+    "rtiTracker": "RTI ട്രാക്കർ",
+    "myConsultations": "എന്റെ കൂടിയാലോചനകൾ",
+    "rtiDashboard": "RTI ഡാഷ്‌ബോർഡ്",
+    "payments": "പേയ്‌മെന്റുകൾ",
+    "withdrawals": "പിൻവലിക്കൽ",
+    "documents": "രേഖകൾ",
+    "notarizations": "നോട്ടറൈസേഷൻ",
+    "auditLog": "ഓഡിറ്റ് ലോഗ്",
+    "notaries": "നോട്ടറിമാർ",
+    "requests": "അഭ്യർത്ഥനകൾ"
   },
   "common": {
     "loading": "ലോഡ് ചെയ്യുന്നു…",

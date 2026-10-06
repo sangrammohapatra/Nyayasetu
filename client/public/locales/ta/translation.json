@@ -115,7 +115,8 @@
     "dashboard": "டாஷ்போர்டு",
     "upgrade": "திட்டத்தை மேம்படுத்து",
     "search": "சட்டங்கள், ஆவணங்கள் தேடு…",
-    "anonymous": "பெயரிலி"
+    "anonymous": "பெயரிலி",
+    "rti": "RTI"
   },
   "sidebar": {
     "home": "முகப்பு",
@@ -131,7 +132,25 @@
     "dashboard": "டாஷ்போர்டு",
     "profile": "என் சுயவிவரம்",
     "freePlan": "இலவச திட்டம்",
-    "upgrade": "மேம்படுத்து → ₹99/மாதம்"
+    "upgrade": "மேம்படுத்து → ₹99/மாதம்",
+    "section_main": "முதன்மை",
+    "section_legal": "சட்டம்",
+    "section_account": "கணக்கு",
+    "section_business": "வணிகம்",
+    "section_admin": "நிர்வாகம்",
+    "section_moderation": "மதிப்பாய்வு",
+    "section_notary": "நோட்டரி",
+    "calendar": "நாட்காட்டி",
+    "rtiTracker": "RTI கண்காணிப்பு",
+    "myConsultations": "என் ஆலோசனைகள்",
+    "rtiDashboard": "RTI டாஷ்போர்டு",
+    "payments": "கட்டணங்கள்",
+    "withdrawals": "பணம் எடுத்தல்",
+    "documents": "ஆவணங்கள்",
+    "notarizations": "நோட்டரி சான்று",
+    "auditLog": "தணிக்கை பதிவு",
+    "notaries": "நோட்டரிகள்",
+    "requests": "கோரிக்கைகள்"
   },
   "common": {
     "loading": "ஏற்றுகிறது…",

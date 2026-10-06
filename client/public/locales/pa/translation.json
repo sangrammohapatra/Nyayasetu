@@ -102,7 +102,8 @@
     "dashboard": "ਡੈਸ਼ਬੋਰਡ",
     "upgrade": "ਪਲਾਨ ਅੱਪਗ੍ਰੇਡ ਕਰੋ",
     "search": "ਕਾਨੂੰਨ, ਦਸਤਾਵੇਜ਼ ਲੱਭੋ…",
-    "anonymous": "ਅਗਿਆਤ"
+    "anonymous": "ਅਗਿਆਤ",
+    "rti": "RTI"
   },
   "sidebar": {
     "home": "ਹੋਮ",
@@ -116,7 +117,25 @@
     "earnings": "ਕਮਾਈ",
     "profile": "ਮੇਰੀ ਪ੍ਰੋਫਾਈਲ",
     "freePlan": "ਮੁਫ਼ਤ ਪਲਾਨ",
-    "upgrade": "ਅੱਪਗ੍ਰੇਡ → ₹99/ਮਹੀਨਾ"
+    "upgrade": "ਅੱਪਗ੍ਰੇਡ → ₹99/ਮਹੀਨਾ",
+    "section_main": "ਮੁੱਖ",
+    "section_legal": "ਕਾਨੂੰਨੀ",
+    "section_account": "ਖਾਤਾ",
+    "section_business": "ਕਾਰੋਬਾਰ",
+    "section_admin": "ਪ੍ਰਸ਼ਾਸਨ",
+    "section_moderation": "ਮਾਡਰੇਸ਼ਨ",
+    "section_notary": "ਨੋਟਰੀ",
+    "calendar": "ਕੈਲੰਡਰ",
+    "rtiTracker": "RTI ਟਰੈਕਰ",
+    "myConsultations": "ਮੇਰੀਆਂ ਸਲਾਹਾਂ",
+    "rtiDashboard": "RTI ਡੈਸ਼ਬੋਰਡ",
+    "payments": "ਭੁਗਤਾਨ",
+    "withdrawals": "ਨਿਕਾਸੀ",
+    "documents": "ਦਸਤਾਵੇਜ਼",
+    "notarizations": "ਨੋਟਰੀਕਰਨ",
+    "auditLog": "ਆਡਿਟ ਲਾਗ",
+    "notaries": "ਨੋਟਰੀ",
+    "requests": "ਬੇਨਤੀਆਂ"
   },
   "common": {
     "loading": "ਲੋਡ ਹੋ ਰਿਹਾ ਹੈ…",
