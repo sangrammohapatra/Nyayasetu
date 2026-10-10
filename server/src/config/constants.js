@@ -62,7 +62,7 @@ const FREE_TIER_LIMITS = {
   lawyer: {
     free: {
       docsLimit: 0,
-      casesLimit: 0,
+      casesLimit: 5,
       aiChatsLimit: 5,
     },
     professional: {

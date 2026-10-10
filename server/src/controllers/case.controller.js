@@ -8,6 +8,7 @@ const asyncHandler  = require('../utils/asyncHandler');
 const { createError } = require('../middleware/error.middleware');
 const logger        = require('../utils/logger');
 const { CNR_REGEX } = require('../config/constants');
+const { ensureCasesLimit } = require('../utils/caseQuota');
 
 // ─── Data freshness helper ────────────────────────────────────────────────────
 
@@ -60,7 +61,7 @@ const addCase = asyncHandler(async (req, res) => {
   }
 
   // ── Load user for quota check ──────────────────────────────────────────────
-  const user = await User.findById(userId).select('freeUsage subscription state district email phone whatsappNumber whatsappOptIn');
+  const user = await User.findById(userId).select('persona freeUsage subscription state district email phone whatsappNumber whatsappOptIn');
   if (!user) throw createError(404, 'USER_NOT_FOUND', 'User not found');
 
   const now = new Date();
@@ -86,7 +87,7 @@ const addCase = asyncHandler(async (req, res) => {
   // could both read used < limit before either incremented, letting a
   // free-tier user exceed casesLimit.
   if (!isSubscribed) {
-    const quotaLimit = user.freeUsage?.casesLimit ?? 1;
+    const quotaLimit = await ensureCasesLimit(user);
     const quotaClaimed = await User.findOneAndUpdate(
       { _id: userId, 'freeUsage.casesTracked': { $lt: quotaLimit } },
       { $inc: { 'freeUsage.casesTracked': 1 } },
@@ -95,7 +96,7 @@ const addCase = asyncHandler(async (req, res) => {
     if (!quotaClaimed) {
       return res.status(403).json({
         error:      'QUOTA_EXCEEDED',
-        message:    `Free plan allows tracking ${quotaLimit} case. Upgrade to track more cases.`,
+        message:    `Free plan allows tracking ${quotaLimit} case${quotaLimit === 1 ? '' : 's'}. Upgrade to track more cases.`,
         used:       user.freeUsage?.casesTracked ?? 0,
         limit:      quotaLimit,
         upgradeUrl: '/pricing',
@@ -158,11 +159,16 @@ const addCase = asyncHandler(async (req, res) => {
 
   await AuditLog.log(req, 'case.added', 'CaseTracker', caseDoc._id, { cnrNumber: cnr });
 
+  const isMock = Boolean(ecourtsData?._isMock);
+
   res.status(201).json({
-    message:  'Case added successfully',
+    message:  isMock
+      ? `No case data was found for CNR ${cnr}. Showing mock data.`
+      : 'Case added successfully',
     case:     sanitizeCase(caseDoc),
-    fetched:  !!ecourtsData,
-    _isMock:  ecourtsData?._isMock || false,
+    fetched:  !!ecourtsData && !isMock,
+    _isMock:  isMock,
+    ...(isMock && { notices: mockDataNotices(cnr) }),
   });
 });
 
@@ -295,15 +301,19 @@ const refreshCase = asyncHandler(async (req, res) => {
   });
 
   const freshness = computeDataFreshness(caseDoc.lastSyncedAt);
+  const isMock = Boolean(ecourtsData?._isMock);
 
   res.json({
-    message:       refreshed ? 'Case refreshed successfully' : 'Showing last known data',
+    message:       isMock
+      ? `No case data was found for CNR ${caseDoc.cnrNumber}. Showing mock data.`
+      : (refreshed ? 'Case refreshed successfully' : 'Showing last known data'),
     case:          sanitizeCase(caseDoc),
     refreshed,
     dataFreshness: freshness.label,
     isDataStale:   freshness.isStale,
     ...(refreshError && { refreshError }),
-    _isMock:       ecourtsData?._isMock || false,
+    _isMock:       isMock,
+    ...(isMock && { notices: mockDataNotices(caseDoc.cnrNumber) }),
   });
 });
 
@@ -447,6 +457,27 @@ const removeCase = asyncHandler(async (req, res) => {
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Shown when development mode has no eCourts record and returns sample data.
+ * Error first (CNR not found), then info that the payload is mock data.
+ */
+function mockDataNotices(cnr) {
+  return [
+    {
+      type:    'error',
+      code:    'CNR_NOT_FOUND',
+      cnr,
+      message: `No case data was found for CNR ${cnr}.`,
+    },
+    {
+      type:    'info',
+      code:    'MOCK_DATA',
+      cnr,
+      message: 'Showing mock data. This is sample data for development, not a real court record.',
+    },
+  ];
+}
 
 function sanitizeCase(caseDoc) {
   const obj = caseDoc.toObject ? caseDoc.toObject() : { ...caseDoc };

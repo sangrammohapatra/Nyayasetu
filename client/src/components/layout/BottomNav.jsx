@@ -20,7 +20,6 @@ import NoteAddRoundedIcon from '@mui/icons-material/NoteAddRounded';
 import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
 import PersonSearchRoundedIcon from '@mui/icons-material/PersonSearchRounded';
-import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneRounded';
 import PeopleAltRoundedIcon from '@mui/icons-material/PeopleAltRounded';
 import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded';
 import AccountBalanceWalletRoundedIcon from '@mui/icons-material/AccountBalanceWalletRounded';
@@ -29,7 +28,6 @@ import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
 
 import { selectUserPersona, selectLawyerProfile, selectNotaryProfile, selectProfilesHydrated } from '../../store/slices/authSlice';
-import { selectUnreadTotal } from '../../store/slices/notificationSlice';
 import { TYPOGRAPHY } from '../../theme/tokens';
 
 // ─── Lordicon CDN icon URLs ───────────────────────────────────────────────────
@@ -40,7 +38,6 @@ const IC = {
   caseTracker:   AccountBalanceRoundedIcon,
   rti:           AssignmentRoundedIcon,
   findLawyer:    PersonSearchRoundedIcon,
-  notifications: NotificationsNoneRoundedIcon,
   clients:       PeopleAltRoundedIcon,
   consultations: EventNoteRoundedIcon,
   earnings:      AccountBalanceWalletRoundedIcon,
@@ -52,7 +49,7 @@ const IC = {
 
 // ─── Nav items per persona ────────────────────────────────────────────────────
 
-function useBottomNavItems(persona, t, unread) {
+function useBottomNavItems(persona, t) {
   const profilesHydrated = useSelector(selectProfilesHydrated);
   const lawyerProfile = useSelector(selectLawyerProfile);
   const notaryProfile = useSelector(selectNotaryProfile);
@@ -70,9 +67,9 @@ function useBottomNavItems(persona, t, unread) {
   const lawyer = lawyerApproved ? [
     { icon: IC.home,          label: t('nav.home',          'Home'),        path: '/lawyer/home' },
     { icon: IC.clients,       label: t('nav.clients',       'Clients'),     path: '/lawyer/clients' },
+    { icon: IC.caseTracker,   label: t('nav.cases',         'Cases'),       path: '/lawyer/cases' },
     { icon: IC.consultations, label: t('nav.consultations', 'Sessions'),    path: '/lawyer/consultations' },
     { icon: IC.earnings,      label: t('nav.earnings',      'Earnings'),    path: '/lawyer/earnings' },
-    { icon: IC.notifications, label: t('nav.alerts',        'Alerts'),      path: '/notifications', badge: unread },
   ] : [
     { icon: IC.home, label: t('nav.application', 'Application'), path: '/lawyer/profile' },
   ];
@@ -127,8 +124,7 @@ function BottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
   const persona = useSelector(selectUserPersona);
-  const unread = useSelector(selectUnreadTotal);
-  const navItems = useBottomNavItems(persona || 'citizen', t, unread);
+  const navItems = useBottomNavItems(persona || 'citizen', t);
 
   const activeIndex = navItems.findIndex(
     (item) => location.pathname === item.path || location.pathname.startsWith(item.path + '/')

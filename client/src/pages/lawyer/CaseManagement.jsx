@@ -22,6 +22,7 @@ import { fetchMyClients, selectClients, selectClientsLoading } from '../../store
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import HearingTimeline from '../../components/case/HearingTimeline';
 import GradientHeading from '../../components/ui/GradientHeading';
+import CaseDashboard from '../citizen/CaseDashboard';
 import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
 import api from '../../services/api';
 
@@ -147,10 +148,9 @@ function CaseCard({ caseData, clientName, delay }) {
   );
 }
 
-function CaseManagement() {
+function SharedCases() {
   const { t } = useTranslation();
   const dispatch = useDispatch();
-  const prefersReducedMotion = useReducedMotion();
   const clients = useSelector(selectClients);
   const loading = useSelector(selectClientsLoading);
   const [search, setSearch] = useState('');
@@ -170,16 +170,10 @@ function CaseManagement() {
   });
 
   return (
-    <AnimatedPage>
-      <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 900, mx: 'auto', pb: { xs: 10, md: 4 } }}>
-        <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
-          <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 0.5 }}>
-            {t('case.management_title', 'Case Management')}
-          </GradientHeading>
-          <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3 }}>
-            {filtered.length} {t('case.cases', 'cases shared with you')}
-          </Typography>
-        </motion.div>
+    <Box>
+        <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 2 }}>
+          {filtered.length} {t('case.cases', 'cases shared with you')}
+        </Typography>
 
         <TextField
           fullWidth placeholder={t('case.search_placeholder', 'Search by case title, CNR or client…')}
@@ -212,6 +206,55 @@ function CaseManagement() {
             ))}
           </AnimatePresence>
         )}
+    </Box>
+  );
+}
+
+function CaseManagement() {
+  const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
+  const [tab, setTab] = useState('tracked');
+
+  return (
+    <AnimatedPage>
+      <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 1000, mx: 'auto', pb: { xs: 10, md: 4 } }}>
+        <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
+          <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, mb: 0.5 }}>
+            {t('case.management_title', 'Case Management')}
+          </GradientHeading>
+          <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 2 }}>
+            {t('case.management_subtitle', 'Track your own matters by CNR, and review cases clients share with you.')}
+          </Typography>
+        </motion.div>
+
+        <Box sx={{ display: 'flex', gap: 1, mb: 2.5 }}>
+          <Chip
+            label={t('case.tab_tracked', 'My cases')}
+            onClick={() => setTab('tracked')}
+            sx={{
+              fontWeight: 700,
+              borderRadius: `${RADIUS.md}px`,
+              background: tab === 'tracked' ? 'var(--color-primary)' : 'transparent',
+              color: tab === 'tracked' ? '#fff' : 'var(--color-text-secondary)',
+              border: '1px solid',
+              borderColor: tab === 'tracked' ? 'var(--color-primary)' : 'var(--color-border)',
+            }}
+          />
+          <Chip
+            label={t('case.tab_shared', 'Shared by clients')}
+            onClick={() => setTab('shared')}
+            sx={{
+              fontWeight: 700,
+              borderRadius: `${RADIUS.md}px`,
+              background: tab === 'shared' ? 'var(--color-primary)' : 'transparent',
+              color: tab === 'shared' ? '#fff' : 'var(--color-text-secondary)',
+              border: '1px solid',
+              borderColor: tab === 'shared' ? 'var(--color-primary)' : 'var(--color-border)',
+            }}
+          />
+        </Box>
+
+        {tab === 'tracked' ? <CaseDashboard embedded /> : <SharedCases />}
       </Box>
     </AnimatedPage>
   );

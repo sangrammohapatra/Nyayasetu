@@ -347,6 +347,7 @@ function LawyerHome() {
                 </GradientHeading>
                 {[
                   { icon: '👥', label: t('lawyer.view_clients', 'View Clients'), path: '/lawyer/clients', color: 'var(--color-primary-alpha)' },
+                  { icon: '⚖️', label: t('lawyer.track_cases', 'Track Cases'), path: '/lawyer/cases', color: 'rgba(46,125,50,0.1)' },
                   { icon: '📅', label: t('lawyer.consultations', 'Consultations'), path: '/lawyer/consultations', color: 'rgba(230,81,0,0.1)' },
                   { icon: '💰', label: t('lawyer.earnings', 'Earnings'), path: '/lawyer/earnings', color: 'rgba(46,125,50,0.1)' },
                   { icon: '👤', label: t('lawyer.profile', 'My Profile'), path: '/lawyer/profile', color: 'rgba(2,119,189,0.1)' },

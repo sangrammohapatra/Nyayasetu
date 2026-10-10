@@ -43,6 +43,7 @@
       "free": [
         "apply_profile",
         "view_public_cases",
+        "track_5_cases",
         "lawyer_profile_view",
         "book_consultation"
       ],
@@ -61,6 +62,7 @@
         "revenue_90pct",
         "hearing_alerts_whatsapp",
         "hearing_alerts_email",
+        "unlimited_cases",
         "premium_templates"
       ],
       "firm": [

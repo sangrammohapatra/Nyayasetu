@@ -23,7 +23,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Chip from '@mui/material/Chip';
 
 import { useCaseTracker } from '../../hooks/useCaseTracker';
-import { selectUser } from '../../store/slices/authSlice';
+import { selectUser, selectUserPersona } from '../../store/slices/authSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GradientHeading from '../../components/ui/GradientHeading';
 import CNRInput, { CNR_REGEX } from '../../components/case/CNRInput';
@@ -32,6 +32,36 @@ import { RADIUS, TYPOGRAPHY } from '../../theme/tokens';
 
 // ─── Add Case Modal ──────────────────────────────────────────────────────────
 
+function noticeText(t, notice) {
+  if (notice?.code === 'CNR_NOT_FOUND') {
+    return t('case.cnr_not_found', 'No case data was found for CNR {{cnr}}.', { cnr: notice.cnr });
+  }
+  if (notice?.code === 'MOCK_DATA') {
+    return t('case.mock_data_info', 'Showing mock data. This is sample data for development, not a real court record.');
+  }
+  return notice?.message || '';
+}
+
+function MockDataNotices({ notices, onClose }) {
+  const { t } = useTranslation();
+  if (!notices?.length) return null;
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+      {notices.map((notice, index) => (
+        <Alert
+          key={notice.code || notice.type}
+          severity={notice.type === 'error' ? 'error' : 'info'}
+          onClose={onClose && index === notices.length - 1 ? onClose : undefined}
+          sx={{ borderRadius: `${RADIUS.md}px` }}
+        >
+          {noticeText(t, notice)}
+        </Alert>
+      ))}
+    </Box>
+  );
+}
+
 function AddCaseModal({ open, onClose, onAdd, whatsappOptIn }) {
   const { t } = useTranslation();
   const [cnr, setCnr] = useState('');
@@ -39,11 +69,16 @@ function AddCaseModal({ open, onClose, onAdd, whatsappOptIn }) {
   const [alertEmail, setAlertEmail] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [mockNotices, setMockNotices] = useState(null);
 
   // Re-sync the default to the user's actual opt-in each time the modal
   // opens, rather than always pre-checking WhatsApp regardless of consent.
   useEffect(() => {
-    if (open) setAlertWhatsapp(!!whatsappOptIn);
+    if (open) {
+      setAlertWhatsapp(!!whatsappOptIn);
+      setMockNotices(null);
+      setError('');
+    }
   }, [open, whatsappOptIn]);
 
   const handleSubmit = async () => {
@@ -52,6 +87,7 @@ function AddCaseModal({ open, onClose, onAdd, whatsappOptIn }) {
       return;
     }
     setError('');
+    setMockNotices(null);
     setLoading(true);
     try {
       const result = await onAdd({
@@ -59,6 +95,11 @@ function AddCaseModal({ open, onClose, onAdd, whatsappOptIn }) {
         alertChannels: { whatsapp: alertWhatsapp, email: alertEmail },
       });
       if (result.meta.requestStatus === 'fulfilled') {
+        const notices = result.payload?.notices;
+        if (result.payload?._isMock && notices?.length) {
+          setMockNotices(notices);
+          return;
+        }
         onClose(true);
         setCnr('');
       } else {
@@ -69,8 +110,15 @@ function AddCaseModal({ open, onClose, onAdd, whatsappOptIn }) {
     }
   };
 
+  const handleMockContinue = () => {
+    const notices = mockNotices;
+    setMockNotices(null);
+    setCnr('');
+    onClose(true, notices);
+  };
+
   return (
-    <Dialog open={open} onClose={() => onClose(false)} maxWidth="sm" fullWidth
+    <Dialog open={open} onClose={() => (mockNotices ? handleMockContinue() : onClose(false))} maxWidth="sm" fullWidth
       PaperProps={{
         sx: {
           borderRadius: `${RADIUS.xl}px`,
@@ -87,7 +135,7 @@ function AddCaseModal({ open, onClose, onAdd, whatsappOptIn }) {
           {t('case.add_case_desc', 'Enter the CNR number from your court notice to start tracking hearings.')}
         </Typography>
 
-        <CNRInput value={cnr} onChange={setCnr} disabled={loading} autoFocus />
+        <CNRInput value={cnr} onChange={setCnr} disabled={loading || !!mockNotices} autoFocus />
 
         <Box sx={{ mt: 2.5 }}>
           <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--color-text)', mb: 1 }}>
@@ -116,16 +164,24 @@ function AddCaseModal({ open, onClose, onAdd, whatsappOptIn }) {
             {error}
           </Alert>
         )}
+
+        {mockNotices && (
+          <Box sx={{ mt: 2 }}>
+            <MockDataNotices notices={mockNotices} />
+          </Box>
+        )}
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 3, gap: 1.5 }}>
-        <Button onClick={() => onClose(false)} disabled={loading}
-          sx={{ borderRadius: `${RADIUS.md}px`, color: 'var(--color-text-secondary)' }}>
-          {t('common.cancel', 'Cancel')}
-        </Button>
+        {!mockNotices && (
+          <Button onClick={() => onClose(false)} disabled={loading}
+            sx={{ borderRadius: `${RADIUS.md}px`, color: 'var(--color-text-secondary)' }}>
+            {t('common.cancel', 'Cancel')}
+          </Button>
+        )}
         <Button
           variant="contained"
-          onClick={handleSubmit}
-          disabled={loading || cnr.length < 16}
+          onClick={mockNotices ? handleMockContinue : handleSubmit}
+          disabled={!mockNotices && (loading || cnr.length < 16)}
           sx={{
             borderRadius: `${RADIUS.md}px`, fontWeight: 700,
             background: 'var(--color-primary)', minWidth: 140,
@@ -137,7 +193,9 @@ function AddCaseModal({ open, onClose, onAdd, whatsappOptIn }) {
                 <CircularProgress size={16} sx={{ color: '#fff' }} />
                 {t('case.fetching', 'Fetching…')}
               </Box>
-            : t('case.track_case', 'Track Case')}
+            : mockNotices
+              ? t('case.mock_continue', 'Continue with mock data')
+              : t('case.track_case', 'Track Case')}
         </Button>
       </DialogActions>
     </Dialog>
@@ -146,46 +204,63 @@ function AddCaseModal({ open, onClose, onAdd, whatsappOptIn }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-function CaseDashboard() {
+function CaseDashboard({ embedded = false }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const prefersReducedMotion = useReducedMotion();
   const user = useSelector(selectUser);
+  const isLawyer = useSelector(selectUserPersona) === 'lawyer';
 
   const {
     cases, loading,
-    caseLimit, casesTracked, atLimit, slotsRemaining, disposedCount,
+    atLimit, slotsRemaining, disposedCount,
     load, add, refresh, remove, updateAlerts, upgradeOrAdd,
   } = useCaseTracker();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [view, setView] = useState('active'); // 'active' | 'disposed'
+  const [mockNotices, setMockNotices] = useState(null);
 
   useEffect(() => {
     load({ caseStatus: view === 'disposed' ? 'disposed' : undefined });
   }, [load, view]);
 
-  const handleModalClose = useCallback((added) => {
+  const handleModalClose = useCallback((added, notices) => {
     setModalOpen(false);
+    if (notices?.length) setMockNotices(notices);
     if (added) load({ caseStatus: view === 'disposed' ? 'disposed' : undefined });
   }, [load, view]);
+
+  const handleRefresh = useCallback(async (caseId) => {
+    const result = await refresh(caseId);
+    const notices = result?.payload?.notices;
+    if (result?.meta?.requestStatus === 'fulfilled' && result.payload?._isMock && notices?.length) {
+      setMockNotices(notices);
+    }
+    return result;
+  }, [refresh]);
 
   const handleDelete = useCallback(
     (id) => remove(id, t('case.confirm_delete', 'Remove this case from tracking?')),
     [remove, t],
   );
 
-  return (
-    <AnimatedPage>
-      <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 1000, mx: 'auto', pb: { xs: 10, md: 4 } }}>
+  const page = (
+      <Box sx={embedded
+        ? { pb: 1 }
+        : { p: { xs: 2, sm: 3, md: 4 }, maxWidth: 1000, mx: 'auto', pb: { xs: 10, md: 4 } }}>
         {/* Header */}
         <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: embedded ? 2 : 3 }}>
             <Box>
-              <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
-                {t('case.title', 'My Court Cases')}
-              </GradientHeading>
-              <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mt: 0.25 }}>
+              {!embedded && (
+                <GradientHeading variant="h4" sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>
+                  {isLawyer
+                    ? t('case.lawyer_title', 'Cases I Track')
+                    : t('case.title', 'My Court Cases')}
+                </GradientHeading>
+              )}
+              <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mt: embedded ? 0 : 0.25 }}>
                 {cases.length} {view === 'disposed' ? t('case.archived', 'archived cases') : t('case.tracked', 'cases tracked')}
                 {view === 'active' && slotsRemaining !== null && ` · ${slotsRemaining} ${t('case.remaining', 'slots remaining')}`}
               </Typography>
@@ -232,6 +307,12 @@ function CaseDashboard() {
           />
         </Box>
 
+        {mockNotices && (
+          <Box sx={{ mb: 2.5 }}>
+            <MockDataNotices notices={mockNotices} onClose={() => setMockNotices(null)} />
+          </Box>
+        )}
+
         {/* Upgrade banner */}
         <AnimatePresence>
           {atLimit && (
@@ -251,7 +332,9 @@ function CaseDashboard() {
                 }
                 sx={{ mb: 2.5, borderRadius: `${RADIUS.lg}px`, border: '1px solid var(--color-warning)' }}
               >
-                {t('case.limit_reached', 'You\'ve reached your case tracking limit. Upgrade to Basic (₹99/mo) to track up to 5 cases.')}
+                {isLawyer
+                  ? t('case.limit_reached_lawyer', 'You\'ve reached the free limit of 5 tracked cases. Upgrade to Professional for unlimited tracking.')
+                  : t('case.limit_reached', 'You\'ve reached your case tracking limit. Upgrade to Basic (₹99/mo) to track up to 5 cases.')}
               </Alert>
             </motion.div>
           )}
@@ -281,7 +364,9 @@ function CaseDashboard() {
               <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', mb: 3, maxWidth: 300, mx: 'auto' }}>
                 {view === 'disposed'
                   ? t('case.empty_archived_desc', 'Cases move here automatically once the court marks them disposed.')
-                  : t('case.empty_desc', 'Add your CNR number to start tracking your court hearings and get timely reminders.')}
+                  : (isLawyer
+                    ? t('case.empty_desc_lawyer', 'Add a CNR number to track hearings for matters you are handling.')
+                    : t('case.empty_desc', 'Add your CNR number to start tracking your court hearings and get timely reminders.'))}
               </Typography>
               {view === 'active' && (
                 <Button variant="contained" onClick={() => setModalOpen(true)}
@@ -296,7 +381,7 @@ function CaseDashboard() {
             <AnimatePresence>
               {cases.map((c) => (
                 <Grid item xs={12} sm={6} key={c._id}>
-                  <CaseCard caseData={c} onRefresh={refresh} onDelete={handleDelete} onUpdateAlerts={updateAlerts} />
+                  <CaseCard caseData={c} onRefresh={handleRefresh} onDelete={handleDelete} onUpdateAlerts={updateAlerts} />
                 </Grid>
               ))}
             </AnimatePresence>
@@ -305,8 +390,9 @@ function CaseDashboard() {
 
         <AddCaseModal open={modalOpen} onClose={handleModalClose} onAdd={add} whatsappOptIn={user?.whatsappOptIn} />
       </Box>
-    </AnimatedPage>
   );
+
+  return embedded ? page : <AnimatedPage>{page}</AnimatedPage>;
 }
 
 export default CaseDashboard;

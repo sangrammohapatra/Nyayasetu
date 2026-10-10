@@ -102,7 +102,7 @@ function useNavItems(persona) {
       { section: t('sidebar.section_main', 'Main') },
       { icon: IC.home,          label: t('sidebar.home',          'Home'),          path: '/lawyer/home' },
       { icon: IC.clients,       label: t('sidebar.clients',       'My Clients'),    path: '/lawyer/clients' },
-      { icon: IC.cases,         label: t('sidebar.cases',         'Cases'),         path: '/lawyer/cases' },
+      { icon: IC.caseTracker,   label: t('sidebar.caseTracker',   'Case Tracker'),  path: '/lawyer/cases' },
       { icon: IC.calendar,      label: t('sidebar.calendar',      'Calendar'),      path: '/lawyer/calendar' },
       { section: t('sidebar.section_business', 'Business') },
       { icon: IC.consultations, label: t('sidebar.consultations', 'Consultations'), path: '/lawyer/consultations' },

@@ -34,7 +34,7 @@ function consultationToEvent(c, perspective) {
   };
 }
 
-function hearingToEvent(caseDoc, hearing) {
+function hearingToEvent(caseDoc, hearing, link) {
   if (!hearing.date) return null;
   return {
     id:              `hearing-${caseDoc._id}-${hearing.date}`,
@@ -45,7 +45,7 @@ function hearingToEvent(caseDoc, hearing) {
     subtitle:        `${caseDoc.court || 'Court'} · ${hearing.status || 'scheduled'}`,
     color:           'var(--color-warning, #e65100)',
     icon:            '🏛️',
-    link:            '/citizen/cases',
+    link,
     raw:             { case: caseDoc, hearing },
   };
 }
@@ -80,10 +80,12 @@ export function useCalendarEvents() {
     if (['citizen', 'lawyer'].includes(persona)) {
       dispatch(fetchConsultations({}));
     }
-    if (persona === 'citizen') {
+    if (persona === 'citizen' || persona === 'lawyer') {
       // Calendar needs every tracked case's hearings, not just the first
       // paginated page — request the server's max page size.
       dispatch(listCases({ limit: 100 }));
+    }
+    if (persona === 'citizen') {
       dispatch(fetchNotarizationRequests({}));
     }
     if (persona === 'notary') {
@@ -102,14 +104,17 @@ export function useCalendarEvents() {
       });
     }
 
-    if (persona === 'citizen') {
+    if (persona === 'citizen' || persona === 'lawyer') {
+      const caseLink = persona === 'lawyer' ? '/lawyer/cases' : '/citizen/cases';
       cases.forEach((c) => {
         (c.hearings || []).forEach((h) => {
-          const ev = hearingToEvent(c, h);
+          const ev = hearingToEvent(c, h, caseLink);
           if (ev) out.push(ev);
         });
       });
+    }
 
+    if (persona === 'citizen') {
       notarizations
         .filter((r) => r.status === 'kyc_scheduled')
         .forEach((r) => {

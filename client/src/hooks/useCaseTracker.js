@@ -21,10 +21,11 @@ import {
   selectCurrentCase,
   selectDisposedCaseCount,
 } from '../store/slices/caseSlice';
-import { selectUserPlan } from '../store/slices/authSlice';
+import { selectUserPersona, selectUserPlan } from '../store/slices/authSlice';
 import { selectFreeUsage } from '../store/slices/subscriptionSlice';
 
-const PLAN_LIMITS = { free: 1, basic: 5, pro: Infinity };
+const CITIZEN_CASE_LIMITS = { free: 1, basic: 5, pro: Infinity };
+const LAWYER_CASE_LIMITS = { free: 5, professional: Infinity, firm: Infinity };
 
 /**
  * @param {object}  [opts]
@@ -59,10 +60,12 @@ export function useCaseTracker({ autoLoad = false } = {}) {
   const error         = useSelector(selectCaseError);
   const currentCase   = useSelector(selectCurrentCase);
   const plan          = useSelector(selectUserPlan);
+  const persona       = useSelector(selectUserPersona);
   const freeUsage     = useSelector(selectFreeUsage);
   const disposedCount = useSelector(selectDisposedCaseCount);
 
-  const caseLimit      = PLAN_LIMITS[plan] ?? Infinity;
+  const planLimits     = persona === 'lawyer' ? LAWYER_CASE_LIMITS : CITIZEN_CASE_LIMITS;
+  const caseLimit      = planLimits[plan] ?? (persona === 'lawyer' ? LAWYER_CASE_LIMITS.free : Infinity);
   const casesTracked   = freeUsage?.casesTracked ?? cases.length;
   const atLimit        = caseLimit !== Infinity && casesTracked >= caseLimit;
   const slotsRemaining = caseLimit === Infinity ? null : Math.max(0, caseLimit - casesTracked);

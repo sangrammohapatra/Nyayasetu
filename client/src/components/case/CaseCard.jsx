@@ -17,8 +17,10 @@ import { RADIUS, SHADOWS } from '../../theme/tokens';
 
 const STATUS_MAP = {
   active:      { label: 'Active',      bg: 'rgba(46,125,50,0.1)',   color: 'var(--color-success)' },
+  pending:     { label: 'Active',      bg: 'rgba(46,125,50,0.1)',   color: 'var(--color-success)' },
   disposed:    { label: 'Disposed',    bg: 'var(--color-border)',    color: 'var(--color-text-secondary)' },
   transferred: { label: 'Transferred', bg: 'rgba(2,119,189,0.1)',   color: 'var(--color-info)' },
+  unknown:     { label: 'Unknown',     bg: 'var(--color-border)',    color: 'var(--color-text-secondary)' },
 };
 
 function daysUntil(date) {
@@ -64,7 +66,8 @@ export default function CaseCard({ caseData, onRefresh, onDelete, onUpdateAlerts
     }
   }, [caseData._id, onUpdateAlerts]);
 
-  const statusStyle = STATUS_MAP[caseData.status?.toLowerCase()] || STATUS_MAP.active;
+  const statusKey = (caseData.caseStatus || caseData.status || 'pending').toLowerCase();
+  const statusStyle = STATUS_MAP[statusKey] || STATUS_MAP.active;
   const nextDate = caseData.nextHearingDate;
   const daysLeft = daysUntil(nextDate);
   const isUrgent = isWithinDays(nextDate, 7);

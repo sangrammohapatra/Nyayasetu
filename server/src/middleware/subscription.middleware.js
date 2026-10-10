@@ -2,6 +2,7 @@ const User = require('../models/User.model');
 const { createError } = require('./error.middleware');
 const asyncHandler = require('../utils/asyncHandler');
 const { getRedisClient } = require('../config/redis');
+const { ensureCasesLimit } = require('../utils/caseQuota');
 
 // ─── Feature Map ───────────────────────────────────────────────────────────────
 
@@ -209,7 +210,7 @@ function checkFreeQuota(quotaType) {
     }
 
     const user = await User.findById(userId)
-      .select(`freeUsage.${quotaDef.used} freeUsage.${quotaDef.limit} freeUsage.resetDate`)
+      .select(`persona subscription.plan subscription.validUntil freeUsage.${quotaDef.used} freeUsage.${quotaDef.limit} freeUsage.resetDate`)
       .lean();
 
     if (!user) {
@@ -217,7 +218,12 @@ function checkFreeQuota(quotaType) {
     }
 
     const used  = user.freeUsage?.[quotaDef.used]  ?? 0;
-    const limit = user.freeUsage?.[quotaDef.limit] ?? 0;
+    // Lawyers who signed up before case tracking was opened still have a
+    // stored casesLimit of 0 or the citizen default of 1. Raise it to the
+    // plan allowance before comparing, so the first track isn't rejected.
+    const limit = quotaType === 'case'
+      ? await ensureCasesLimit(user)
+      : (user.freeUsage?.[quotaDef.limit] ?? 0);
 
     if (used >= limit) {
       return res.status(403).json({

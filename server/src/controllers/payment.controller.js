@@ -30,6 +30,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
 const AuditLog = require('../models/AuditLog.model');
 const { signTokenPair } = require('../utils/token');
+const { FREE_TIER_LIMITS } = require('../config/constants');
 
 /* ---------------------------------------------------------------------------
  * Constants
@@ -1007,14 +1008,16 @@ async function handleSubscriptionCancelled(payload) {
       subscription.autoRenew = false;
       await subscription.save({ session });
 
-      // Revert user to free plan
+      // Revert user to the free allowance for their persona (lawyer free
+      // includes case tracking; citizen free does not use the lawyer table).
+      const freeLimits = FREE_TIER_LIMITS[subscription.persona]?.free || PLAN_LIMITS.free;
       await User.findByIdAndUpdate(subscription.user, {
         $set: {
           'subscription.plan': 'free',
           'subscription.autoRenew': false,
-          'freeUsage.docsLimit': PLAN_LIMITS.free.docsLimit,
-          'freeUsage.casesLimit': PLAN_LIMITS.free.casesLimit,
-          'freeUsage.aiChatsLimit': PLAN_LIMITS.free.aiChatsLimit,
+          'freeUsage.docsLimit': freeLimits.docsLimit,
+          'freeUsage.casesLimit': freeLimits.casesLimit,
+          'freeUsage.aiChatsLimit': freeLimits.aiChatsLimit,
         },
       }, { session });
 

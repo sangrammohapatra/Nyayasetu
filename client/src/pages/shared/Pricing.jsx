@@ -109,6 +109,7 @@ const LAWYER_PLANS = [
     color: 'var(--color-text-secondary)',
     features: [
       { label: 'Apply for profile', included: true },
+      { label: 'Track 5 court cases', included: true },
       { label: 'Client portal', included: false },
       { label: 'Verified badge', included: false },
       { label: 'Consultation bookings', included: false },
@@ -130,6 +131,7 @@ const LAWYER_PLANS = [
       { label: 'Verified badge', included: true },
       { label: 'Consultation bookings', included: true },
       { label: 'Review 20 docs/month', included: true },
+      { label: 'Unlimited case tracking', included: true },
       { label: 'Basic analytics', included: true },
       { label: 'Team members', included: false },
       { label: 'Custom branding', included: false },
@@ -353,7 +355,11 @@ function Pricing() {
   const subLoading = useSelector(selectSubscriptionLoading);
 
   const [annual, setAnnual] = useState(false);
-  const [persona, setPersona] = useState('citizen');
+  const [persona, setPersona] = useState(user?.persona?.toLowerCase() === 'lawyer' ? 'lawyer' : 'citizen');
+
+  useEffect(() => {
+    if (user?.persona?.toLowerCase() === 'lawyer') setPersona('lawyer');
+  }, [user?.persona]);
   const [checkoutLoading, setCheckoutLoading] = useState('');
   const [showComparison, setShowComparison] = useState(false);
   const confettiRef = useRef(null);
