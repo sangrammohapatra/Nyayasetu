@@ -679,6 +679,7 @@ function GlobalSnackbars() {
 
   return (
     <Snackbar
+      key={active?.id || 'snackbar'}
       open={!!active}
       autoHideDuration={active?.duration || 4000}
       onClose={() => active && dispatch(dismissSnackbar(active.id))}

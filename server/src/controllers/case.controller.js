@@ -72,13 +72,57 @@ const addCase = asyncHandler(async (req, res) => {
     now < new Date(user.subscription.validUntil);
 
   // ── Duplicate check ────────────────────────────────────────────────────────
-  // Runs before the quota claim so a duplicate CNR never wastes a free slot.
+  // A removed or archived record still occupies the unique CNR index, so it
+  // is invisible on the active list but would otherwise block tracking again.
   const existing = await CaseTracker.findOne({ user: userId, cnrNumber: cnr });
   if (existing) {
-    return res.status(409).json({
-      error:   'DUPLICATE_CASE',
-      message: 'You are already tracking this case.',
-      caseId:  existing._id,
+    const onActiveList = existing.isActive && !existing.archived && existing.caseStatus !== 'disposed';
+    if (onActiveList) {
+      return res.status(409).json({
+        error:   'DUPLICATE_CASE',
+        message: `You are already tracking CNR ${cnr}.`,
+        caseId:  existing._id,
+      });
+    }
+
+    const wasInactive = !existing.isActive;
+    if (wasInactive && existing.countedTowardFreeQuota && !isSubscribed) {
+      const quotaLimit = await ensureCasesLimit(user);
+      const quotaClaimed = await User.findOneAndUpdate(
+        { _id: userId, 'freeUsage.casesTracked': { $lt: quotaLimit } },
+        { $inc: { 'freeUsage.casesTracked': 1 } },
+        { new: true }
+      );
+      if (!quotaClaimed) {
+        return res.status(403).json({
+          error:      'QUOTA_EXCEEDED',
+          message:    `Free plan allows tracking ${quotaLimit} case${quotaLimit === 1 ? '' : 's'}. Upgrade to track more cases.`,
+          used:       user.freeUsage?.casesTracked ?? 0,
+          limit:      quotaLimit,
+          upgradeUrl: '/pricing',
+        });
+      }
+    } else if (wasInactive && existing.countedTowardFreeQuota) {
+      await User.findByIdAndUpdate(userId, { $inc: { 'freeUsage.casesTracked': 1 } });
+    }
+
+    existing.isActive = true;
+    existing.archived = false;
+    existing.alertsEnabled = true;
+    await existing.save();
+
+    const inArchive = existing.caseStatus === 'disposed';
+    await AuditLog.log(req, 'case.restored', 'CaseTracker', existing._id, { cnrNumber: cnr, inArchive });
+
+    return res.status(200).json({
+      message: inArchive
+        ? `CNR ${cnr} is in your archive.`
+        : 'Case restored to your tracker.',
+      case:      sanitizeCase(existing),
+      restored:  true,
+      inArchive,
+      fetched:   false,
+      _isMock:   false,
     });
   }
 
@@ -186,19 +230,35 @@ const listCases = asyncHandler(async (req, res) => {
   const limit = Math.min(100, parseInt(req.query.limit) || 20);
   const { caseStatus } = req.query;
   const filter = { user: userId, isActive: true };
+  const wantsArchive = req.query.archived === 'true' || req.query.archived === '1' || caseStatus === 'disposed';
 
-  // Default view hides disposed (concluded) cases so a case that ended years
-  // ago doesn't clutter the active dashboard. ?caseStatus=disposed views the
-  // archive; ?caseStatus=all (or any other valid status) opts out of the default.
-  if (caseStatus === 'all') {
-    // no additional filter
+  // Active list hides cases the user archived and cases the court disposed.
+  // ?archived=true (or the legacy ?caseStatus=disposed) opens that archive.
+  if (wantsArchive) {
+    filter.$or = [{ archived: true }, { caseStatus: 'disposed' }];
+  } else if (caseStatus === 'all') {
+    // every active case
   } else if (caseStatus && VALID_CASE_STATUSES.includes(caseStatus)) {
     filter.caseStatus = caseStatus;
+    filter.archived = { $ne: true };
   } else {
+    filter.archived = { $ne: true };
     filter.caseStatus = { $ne: 'disposed' };
   }
 
-  const [cases, total, disposedCount] = await Promise.all([
+  const archiveFilter = {
+    user: userId,
+    isActive: true,
+    $or: [{ archived: true }, { caseStatus: 'disposed' }],
+  };
+  const activeFilter = {
+    user: userId,
+    isActive: true,
+    archived: { $ne: true },
+    caseStatus: { $ne: 'disposed' },
+  };
+
+  const [cases, total, disposedCount, activeCount] = await Promise.all([
     CaseTracker.find(filter)
       .select('-rawEcourtsData')
       .sort({ nextHearingDate: 1, createdAt: -1 })
@@ -206,8 +266,8 @@ const listCases = asyncHandler(async (req, res) => {
       .limit(limit)
       .lean(),
     CaseTracker.countDocuments(filter),
-    // Lets the UI show an "Archived (n)" tab count without a second round trip.
-    CaseTracker.countDocuments({ user: userId, isActive: true, caseStatus: 'disposed' }),
+    CaseTracker.countDocuments(archiveFilter),
+    CaseTracker.countDocuments(activeFilter),
   ]);
 
   const enriched = cases.map((c) => {
@@ -232,6 +292,7 @@ const listCases = asyncHandler(async (req, res) => {
     totalPages: Math.ceil(total / limit),
     hasMore:    page * limit < total,
     disposedCount,
+    activeCount,
   });
 });
 
@@ -424,6 +485,47 @@ const shareWithLawyer = asyncHandler(async (req, res) => {
   });
 });
 
+// ─── setCaseArchived ──────────────────────────────────────────────────────────
+
+/**
+ * PATCH /v1/cases/:id/archive
+ * Move a case to or from the user's archive. Court-disposed cases stay in
+ * the archive until the court status itself changes.
+ */
+const setCaseArchived = asyncHandler(async (req, res) => {
+  const { id: caseId } = req.params;
+  const { userId } = req.user;
+  const archived = req.body.archived !== false;
+
+  const caseDoc = await CaseTracker.findById(caseId);
+  if (!caseDoc)                     throw createError(404, 'CASE_NOT_FOUND', 'Case not found');
+  if (!caseDoc.user.equals(userId)) throw createError(403, 'FORBIDDEN', 'Access denied');
+  if (!caseDoc.isActive)            throw createError(400, 'CASE_REMOVED', 'This case is no longer tracked.');
+
+  caseDoc.archived = archived;
+  if (archived) caseDoc.alertsEnabled = false;
+  else if (caseDoc.caseStatus !== 'disposed') caseDoc.alertsEnabled = true;
+  await caseDoc.save();
+
+  await AuditLog.log(req, archived ? 'case.archived' : 'case.unarchived', 'CaseTracker', caseDoc._id, {
+    cnrNumber: caseDoc.cnrNumber,
+  });
+
+  const stillArchived = archived || caseDoc.caseStatus === 'disposed';
+
+  let message = 'Case restored to your tracker.';
+  if (archived) message = 'Case moved to your archive.';
+  else if (caseDoc.caseStatus === 'disposed') {
+    message = 'This case stays in your archive because the court has disposed it.';
+  }
+
+  res.json({
+    message,
+    case:     sanitizeCase(caseDoc),
+    archived: stillArchived,
+  });
+});
+
 // ─── removeCase ───────────────────────────────────────────────────────────────
 
 /**
@@ -492,5 +594,6 @@ module.exports = {
   refreshCase,
   updateAlerts,
   shareWithLawyer,
+  setCaseArchived,
   removeCase,
 };

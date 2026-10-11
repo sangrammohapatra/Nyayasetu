@@ -15,10 +15,9 @@ import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Collapse from '@mui/material/Collapse';
 import Skeleton from '@mui/material/Skeleton';
-import Snackbar from '@mui/material/Snackbar';
-import Alert from '@mui/material/Alert';
 
 import { fetchMyClients, selectClients, selectClientsLoading } from '../../store/slices/lawyerSlice';
+import { pushSnackbar } from '../../store/slices/uiSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import HearingTimeline from '../../components/case/HearingTimeline';
 import GradientHeading from '../../components/ui/GradientHeading';
@@ -28,12 +27,12 @@ import api from '../../services/api';
 
 function CaseCard({ caseData, clientName, delay }) {
   const { t } = useTranslation();
+  const dispatch = useDispatch();
   const prefersReducedMotion = useReducedMotion();
   const [expanded, setExpanded] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
-  const [snack, setSnack] = useState(false);
 
   const isUrgent = caseData.nextHearingDate && (() => {
     const days = Math.ceil((new Date(caseData.nextHearingDate) - new Date()) / 86400000);
@@ -45,9 +44,17 @@ function CaseCard({ caseData, clientName, delay }) {
     setSaving(true);
     try {
       await api.patch(`/cases/${caseData._id}/alerts`, { notes: note });
-      setSnack(true);
+      dispatch(pushSnackbar({
+        message: t('case.note_saved', 'Note saved.'),
+        severity: 'success',
+      }));
       setNote('');
       setNotesOpen(false);
+    } catch {
+      dispatch(pushSnackbar({
+        message: t('case.note_error', 'Could not save the note. Please try again.'),
+        severity: 'error',
+      }));
     } finally { setSaving(false); }
   };
 
@@ -141,9 +148,6 @@ function CaseCard({ caseData, clientName, delay }) {
         </Collapse>
       </Box>
 
-      <Snackbar open={snack} autoHideDuration={2500} onClose={() => setSnack(false)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-        <Alert severity="success" sx={{ borderRadius: 2 }}>Note saved!</Alert>
-      </Snackbar>
     </motion.div>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { useDispatch } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { motion, useReducedMotion } from 'framer-motion';
 
@@ -8,11 +9,10 @@ import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Collapse from '@mui/material/Collapse';
-import Alert from '@mui/material/Alert';
 import Skeleton from '@mui/material/Skeleton';
-import Snackbar from '@mui/material/Snackbar';
 
 import HearingTimeline from './HearingTimeline';
+import { pushSnackbar } from '../../store/slices/uiSlice';
 import { RADIUS, SHADOWS } from '../../theme/tokens';
 
 const STATUS_MAP = {
@@ -21,6 +21,7 @@ const STATUS_MAP = {
   disposed:    { label: 'Disposed',    bg: 'var(--color-border)',    color: 'var(--color-text-secondary)' },
   transferred: { label: 'Transferred', bg: 'rgba(2,119,189,0.1)',   color: 'var(--color-info)' },
   unknown:     { label: 'Unknown',     bg: 'var(--color-border)',    color: 'var(--color-text-secondary)' },
+  archived:    { label: 'Archived',    bg: 'var(--color-border)',    color: 'var(--color-text-secondary)' },
 };
 
 function daysUntil(date) {
@@ -50,24 +51,36 @@ export function CaseCardSkeleton() {
   );
 }
 
-export default function CaseCard({ caseData, onRefresh, onDelete, onUpdateAlerts }) {
+export default function CaseCard({ caseData, onRefresh, onDelete, onArchive, onUpdateAlerts, archived = false }) {
   const { t } = useTranslation();
+  const dispatch = useDispatch();
   const prefersReducedMotion = useReducedMotion();
   const [expanded, setExpanded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [remindSnack, setRemindSnack] = useState(null);
 
   const handleRemind = useCallback(async () => {
     try {
-      await onUpdateAlerts(caseData._id, { alertsEnabled: true });
-      setRemindSnack('success');
+      await onUpdateAlerts(caseData._id, { alertsEnabled: true }).unwrap();
+      dispatch(pushSnackbar({
+        message: t('hearing.remind_set', 'Reminder enabled — you\'ll be alerted before the hearing.'),
+        severity: 'success',
+      }));
     } catch {
-      setRemindSnack('error');
+      dispatch(pushSnackbar({
+        message: t('hearing.remind_error', 'Failed to set reminder. Please try again.'),
+        severity: 'error',
+      }));
     }
-  }, [caseData._id, onUpdateAlerts]);
+  }, [caseData._id, onUpdateAlerts, dispatch, t]);
 
   const statusKey = (caseData.caseStatus || caseData.status || 'pending').toLowerCase();
-  const statusStyle = STATUS_MAP[statusKey] || STATUS_MAP.active;
+  const isUserArchived = archived || caseData.archived === true;
+  const statusStyle = (isUserArchived && statusKey !== 'disposed')
+    ? STATUS_MAP.archived
+    : (STATUS_MAP[statusKey] || STATUS_MAP.active);
+  const statusLabel = (isUserArchived && statusKey !== 'disposed')
+    ? t('case.status_archived', 'Archived')
+    : statusStyle.label;
   const nextDate = caseData.nextHearingDate;
   const daysLeft = daysUntil(nextDate);
   const isUrgent = isWithinDays(nextDate, 7);
@@ -115,7 +128,7 @@ export default function CaseCard({ caseData, onRefresh, onDelete, onUpdateAlerts
                 </Typography>
               )}
             </Box>
-            <Chip size="small" label={statusStyle.label}
+            <Chip size="small" label={statusLabel}
               sx={{
                 height: 20, fontSize: '0.67rem', fontWeight: 700,
                 background: statusStyle.bg, color: statusStyle.color,
@@ -181,6 +194,17 @@ export default function CaseCard({ caseData, onRefresh, onDelete, onUpdateAlerts
                   </motion.span>
                 </IconButton>
               </Tooltip>
+              {onArchive && (
+                <Tooltip title={archived ? t('case.restore', 'Restore') : t('case.archive', 'Archive')}>
+                  <IconButton
+                    size="small"
+                    onClick={(e) => { e.stopPropagation(); onArchive(caseData._id); }}
+                    sx={{ color: 'var(--color-text-secondary)', '&:hover': { color: 'var(--color-primary)' } }}
+                  >
+                    {archived ? '📤' : '📥'}
+                  </IconButton>
+                </Tooltip>
+              )}
               <Tooltip title={t('case.delete', 'Remove')}>
                 <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete(caseData._id); }}
                   sx={{ color: 'var(--color-error)', '&:hover': { background: 'var(--color-error-light, #FFEBEE)' } }}>
@@ -204,22 +228,6 @@ export default function CaseCard({ caseData, onRefresh, onDelete, onUpdateAlerts
         </Collapse>
       </Box>
 
-      <Snackbar
-        open={remindSnack !== null}
-        autoHideDuration={3500}
-        onClose={() => setRemindSnack(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          severity={remindSnack === 'success' ? 'success' : 'error'}
-          onClose={() => setRemindSnack(null)}
-          sx={{ borderRadius: `${RADIUS.md}px` }}
-        >
-          {remindSnack === 'success'
-            ? t('hearing.remind_set', '🔔 Reminder enabled — you\'ll be alerted before the hearing.')
-            : t('hearing.remind_error', 'Failed to set reminder. Please try again.')}
-        </Alert>
-      </Snackbar>
     </motion.div>
   );
 }

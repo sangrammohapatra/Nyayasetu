@@ -2,9 +2,8 @@
  * client/src/pages/citizen/CaseDashboard.jsx
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
@@ -16,7 +15,6 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
-import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -24,6 +22,7 @@ import Chip from '@mui/material/Chip';
 
 import { useCaseTracker } from '../../hooks/useCaseTracker';
 import { selectUser, selectUserPersona } from '../../store/slices/authSlice';
+import { pushSnackbar } from '../../store/slices/uiSlice';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GradientHeading from '../../components/ui/GradientHeading';
 import CNRInput, { CNR_REGEX } from '../../components/case/CNRInput';
@@ -42,52 +41,38 @@ function noticeText(t, notice) {
   return notice?.message || '';
 }
 
-function MockDataNotices({ notices, onClose }) {
-  const { t } = useTranslation();
-  if (!notices?.length) return null;
-
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-      {notices.map((notice, index) => (
-        <Alert
-          key={notice.code || notice.type}
-          severity={notice.type === 'error' ? 'error' : 'info'}
-          onClose={onClose && index === notices.length - 1 ? onClose : undefined}
-          sx={{ borderRadius: `${RADIUS.md}px` }}
-        >
-          {noticeText(t, notice)}
-        </Alert>
-      ))}
-    </Box>
-  );
+function toastNotices(dispatch, t, notices) {
+  (notices || []).forEach((notice) => {
+    dispatch(pushSnackbar({
+      message: noticeText(t, notice),
+      severity: notice.type === 'error' ? 'error' : 'info',
+      duration: 5500,
+    }));
+  });
 }
 
 function AddCaseModal({ open, onClose, onAdd, whatsappOptIn }) {
   const { t } = useTranslation();
+  const dispatch = useDispatch();
   const [cnr, setCnr] = useState('');
   const [alertWhatsapp, setAlertWhatsapp] = useState(!!whatsappOptIn);
   const [alertEmail, setAlertEmail] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [mockNotices, setMockNotices] = useState(null);
 
   // Re-sync the default to the user's actual opt-in each time the modal
   // opens, rather than always pre-checking WhatsApp regardless of consent.
   useEffect(() => {
-    if (open) {
-      setAlertWhatsapp(!!whatsappOptIn);
-      setMockNotices(null);
-      setError('');
-    }
+    if (open) setAlertWhatsapp(!!whatsappOptIn);
   }, [open, whatsappOptIn]);
 
   const handleSubmit = async () => {
     if (!CNR_REGEX.test(cnr)) {
-      setError(t('case.invalid_cnr', 'Please enter a valid 16-character CNR number.'));
+      dispatch(pushSnackbar({
+        message: t('case.invalid_cnr', 'Please enter a valid 16-character CNR number.'),
+        severity: 'error',
+      }));
       return;
     }
-    setError('');
-    setMockNotices(null);
     setLoading(true);
     try {
       const result = await onAdd({
@@ -95,30 +80,29 @@ function AddCaseModal({ open, onClose, onAdd, whatsappOptIn }) {
         alertChannels: { whatsapp: alertWhatsapp, email: alertEmail },
       });
       if (result.meta.requestStatus === 'fulfilled') {
-        const notices = result.payload?.notices;
-        if (result.payload?._isMock && notices?.length) {
-          setMockNotices(notices);
-          return;
+        if (result.payload?._isMock && result.payload.notices?.length) {
+          toastNotices(dispatch, t, result.payload.notices);
+        } else if (result.payload?.restored || result.payload?.inArchive) {
+          dispatch(pushSnackbar({
+            message: result.payload.message,
+            severity: result.payload.inArchive ? 'info' : 'success',
+          }));
         }
-        onClose(true);
+        onClose(true, { switchToArchive: !!result.payload?.inArchive });
         setCnr('');
       } else {
-        setError(result.payload || t('case.fetch_error', 'Could not fetch case from eCourts. Please check the CNR.'));
+        dispatch(pushSnackbar({
+          message: result.payload || t('case.fetch_error', 'Could not fetch case from eCourts. Please check the CNR.'),
+          severity: 'error',
+        }));
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleMockContinue = () => {
-    const notices = mockNotices;
-    setMockNotices(null);
-    setCnr('');
-    onClose(true, notices);
-  };
-
   return (
-    <Dialog open={open} onClose={() => (mockNotices ? handleMockContinue() : onClose(false))} maxWidth="sm" fullWidth
+    <Dialog open={open} onClose={() => onClose(false)} maxWidth="sm" fullWidth
       PaperProps={{
         sx: {
           borderRadius: `${RADIUS.xl}px`,
@@ -135,7 +119,7 @@ function AddCaseModal({ open, onClose, onAdd, whatsappOptIn }) {
           {t('case.add_case_desc', 'Enter the CNR number from your court notice to start tracking hearings.')}
         </Typography>
 
-        <CNRInput value={cnr} onChange={setCnr} disabled={loading || !!mockNotices} autoFocus />
+        <CNRInput value={cnr} onChange={setCnr} disabled={loading} autoFocus />
 
         <Box sx={{ mt: 2.5 }}>
           <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--color-text)', mb: 1 }}>
@@ -159,29 +143,16 @@ function AddCaseModal({ open, onClose, onAdd, whatsappOptIn }) {
           </Box>
         </Box>
 
-        {error && (
-          <Alert severity="error" sx={{ mt: 2, borderRadius: `${RADIUS.md}px` }}>
-            {error}
-          </Alert>
-        )}
-
-        {mockNotices && (
-          <Box sx={{ mt: 2 }}>
-            <MockDataNotices notices={mockNotices} />
-          </Box>
-        )}
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 3, gap: 1.5 }}>
-        {!mockNotices && (
-          <Button onClick={() => onClose(false)} disabled={loading}
-            sx={{ borderRadius: `${RADIUS.md}px`, color: 'var(--color-text-secondary)' }}>
-            {t('common.cancel', 'Cancel')}
-          </Button>
-        )}
+        <Button onClick={() => onClose(false)} disabled={loading}
+          sx={{ borderRadius: `${RADIUS.md}px`, color: 'var(--color-text-secondary)' }}>
+          {t('common.cancel', 'Cancel')}
+        </Button>
         <Button
           variant="contained"
-          onClick={mockNotices ? handleMockContinue : handleSubmit}
-          disabled={!mockNotices && (loading || cnr.length < 16)}
+          onClick={handleSubmit}
+          disabled={loading || cnr.length < 16}
           sx={{
             borderRadius: `${RADIUS.md}px`, fontWeight: 700,
             background: 'var(--color-primary)', minWidth: 140,
@@ -193,9 +164,7 @@ function AddCaseModal({ open, onClose, onAdd, whatsappOptIn }) {
                 <CircularProgress size={16} sx={{ color: '#fff' }} />
                 {t('case.fetching', 'Fetching…')}
               </Box>
-            : mockNotices
-              ? t('case.mock_continue', 'Continue with mock data')
-              : t('case.track_case', 'Track Case')}
+            : t('case.track_case', 'Track Case')}
         </Button>
       </DialogActions>
     </Dialog>
@@ -206,44 +175,108 @@ function AddCaseModal({ open, onClose, onAdd, whatsappOptIn }) {
 
 function CaseDashboard({ embedded = false }) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
+  const dispatch = useDispatch();
   const prefersReducedMotion = useReducedMotion();
   const user = useSelector(selectUser);
   const isLawyer = useSelector(selectUserPersona) === 'lawyer';
 
   const {
     cases, loading,
-    atLimit, slotsRemaining, disposedCount,
-    load, add, refresh, remove, updateAlerts, upgradeOrAdd,
+    atLimit, slotsRemaining, disposedCount, activeCount,
+    load, add, refresh, remove, archive, updateAlerts, upgradeOrAdd,
   } = useCaseTracker();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [view, setView] = useState('active'); // 'active' | 'disposed'
-  const [mockNotices, setMockNotices] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const toastedLimit = useRef(false);
 
   useEffect(() => {
-    load({ caseStatus: view === 'disposed' ? 'disposed' : undefined });
+    load(view === 'disposed' ? { archived: true } : undefined);
   }, [load, view]);
 
-  const handleModalClose = useCallback((added, notices) => {
+  useEffect(() => {
+    if (!atLimit) {
+      toastedLimit.current = false;
+      return;
+    }
+    if (toastedLimit.current) return;
+    toastedLimit.current = true;
+    dispatch(pushSnackbar({
+      message: isLawyer
+        ? t('case.limit_reached_lawyer', 'You\'ve reached the free limit of 5 tracked cases. Upgrade to Professional for unlimited tracking.')
+        : t('case.limit_reached', 'You\'ve reached your case tracking limit. Upgrade to Basic (₹99/mo) to track up to 5 cases.'),
+      severity: 'warning',
+      duration: 6000,
+    }));
+  }, [atLimit, isLawyer, dispatch, t]);
+
+  const handleModalClose = useCallback((added, opts) => {
     setModalOpen(false);
-    if (notices?.length) setMockNotices(notices);
-    if (added) load({ caseStatus: view === 'disposed' ? 'disposed' : undefined });
+    if (opts?.switchToArchive) {
+      setView('disposed');
+      return;
+    }
+    if (added) load(view === 'disposed' ? { archived: true } : undefined);
   }, [load, view]);
 
   const handleRefresh = useCallback(async (caseId) => {
     const result = await refresh(caseId);
     const notices = result?.payload?.notices;
     if (result?.meta?.requestStatus === 'fulfilled' && result.payload?._isMock && notices?.length) {
-      setMockNotices(notices);
+      toastNotices(dispatch, t, notices);
+    } else if (result?.meta?.requestStatus === 'rejected') {
+      dispatch(pushSnackbar({
+        message: result.payload || t('case.fetch_error', 'Could not fetch case from eCourts. Please check the CNR.'),
+        severity: 'error',
+      }));
     }
     return result;
-  }, [refresh]);
+  }, [refresh, dispatch, t]);
 
-  const handleDelete = useCallback(
-    (id) => remove(id, t('case.confirm_delete', 'Remove this case from tracking?')),
-    [remove, t],
-  );
+  const requestDelete = useCallback((id) => setPendingDelete(id), []);
+
+  const handleArchive = useCallback(async (id) => {
+    const shouldArchive = view !== 'disposed';
+    const result = await archive(id, shouldArchive);
+    if (result?.meta?.requestStatus === 'rejected') {
+      dispatch(pushSnackbar({
+        message: result.payload || t('case.fetch_error', 'Could not update this case.'),
+        severity: 'error',
+      }));
+      return;
+    }
+    dispatch(pushSnackbar({
+      message: result.payload?.message || (shouldArchive
+        ? t('case.archived_toast', 'Case moved to your archive.')
+        : t('case.restored_toast', 'Case restored to your tracker.')),
+      severity: 'success',
+    }));
+    load(view === 'disposed' ? { archived: true } : undefined);
+  }, [archive, view, dispatch, t, load]);
+
+  const confirmDelete = useCallback(async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    try {
+      const result = await remove(pendingDelete);
+      if (result?.meta?.requestStatus === 'rejected') {
+        dispatch(pushSnackbar({
+          message: result.payload || t('case.remove_error', 'Could not remove this case. Please try again.'),
+          severity: 'error',
+        }));
+      } else {
+        dispatch(pushSnackbar({
+          message: t('case.removed', 'Case removed from tracking.'),
+          severity: 'success',
+        }));
+      }
+    } finally {
+      setDeleting(false);
+      setPendingDelete(null);
+    }
+  }, [pendingDelete, remove, dispatch, t]);
 
   const page = (
       <Box sx={embedded
@@ -282,7 +315,7 @@ function CaseDashboard({ embedded = false }) {
         {/* Active / Archived toggle */}
         <Box sx={{ display: 'flex', gap: 1, mb: 2.5 }}>
           <Chip
-            label={t('case.view_active', 'Active')}
+            label={`${t('case.view_active', 'Active')} (${activeCount})`}
             onClick={() => setView('active')}
             variant={view === 'active' ? 'filled' : 'outlined'}
             sx={{
@@ -294,7 +327,7 @@ function CaseDashboard({ embedded = false }) {
             }}
           />
           <Chip
-            label={`${t('case.view_archived', 'Archived')}${disposedCount ? ` (${disposedCount})` : ''}`}
+            label={`${t('case.view_archived', 'Archived')} (${disposedCount})`}
             onClick={() => setView('disposed')}
             variant={view === 'disposed' ? 'filled' : 'outlined'}
             sx={{
@@ -306,39 +339,6 @@ function CaseDashboard({ embedded = false }) {
             }}
           />
         </Box>
-
-        {mockNotices && (
-          <Box sx={{ mb: 2.5 }}>
-            <MockDataNotices notices={mockNotices} onClose={() => setMockNotices(null)} />
-          </Box>
-        )}
-
-        {/* Upgrade banner */}
-        <AnimatePresence>
-          {atLimit && (
-            <motion.div
-              initial={prefersReducedMotion ? false : { opacity: 0, y: -8, height: 0 }}
-              animate={{ opacity: 1, y: 0, height: 'auto' }}
-              exit={prefersReducedMotion ? undefined : { opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Alert
-                severity="warning"
-                action={
-                  <Button size="small" onClick={() => navigate('/pricing')}
-                    sx={{ fontWeight: 700, color: 'var(--color-warning)' }}>
-                    {t('case.upgrade', 'Upgrade')}
-                  </Button>
-                }
-                sx={{ mb: 2.5, borderRadius: `${RADIUS.lg}px`, border: '1px solid var(--color-warning)' }}
-              >
-                {isLawyer
-                  ? t('case.limit_reached_lawyer', 'You\'ve reached the free limit of 5 tracked cases. Upgrade to Professional for unlimited tracking.')
-                  : t('case.limit_reached', 'You\'ve reached your case tracking limit. Upgrade to Basic (₹99/mo) to track up to 5 cases.')}
-              </Alert>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Case grid */}
         {loading && cases.length === 0 ? (
@@ -381,7 +381,14 @@ function CaseDashboard({ embedded = false }) {
             <AnimatePresence>
               {cases.map((c) => (
                 <Grid item xs={12} sm={6} key={c._id}>
-                  <CaseCard caseData={c} onRefresh={handleRefresh} onDelete={handleDelete} onUpdateAlerts={updateAlerts} />
+                  <CaseCard
+                    caseData={c}
+                    onRefresh={handleRefresh}
+                    onDelete={requestDelete}
+                    onArchive={handleArchive}
+                    archived={view === 'disposed'}
+                    onUpdateAlerts={updateAlerts}
+                  />
                 </Grid>
               ))}
             </AnimatePresence>
@@ -389,6 +396,51 @@ function CaseDashboard({ embedded = false }) {
         )}
 
         <AddCaseModal open={modalOpen} onClose={handleModalClose} onAdd={add} whatsappOptIn={user?.whatsappOptIn} />
+
+        <Dialog
+          open={!!pendingDelete}
+          onClose={() => { if (!deleting) setPendingDelete(null); }}
+          maxWidth="xs"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: `${RADIUS.xl}px`,
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-surface)',
+            },
+          }}
+        >
+          <DialogTitle sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700, color: 'var(--color-text)' }}>
+            {t('case.confirm_delete_title', 'Remove this case?')}
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
+              {t('case.confirm_delete_desc', 'It will disappear from your tracker. You can add the same CNR again later.')}
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+            <Button
+              onClick={() => setPendingDelete(null)}
+              disabled={deleting}
+              sx={{ borderRadius: `${RADIUS.md}px`, color: 'var(--color-text-secondary)' }}
+            >
+              {t('common.cancel', 'Cancel')}
+            </Button>
+            <Button
+              variant="contained"
+              onClick={confirmDelete}
+              disabled={deleting}
+              sx={{
+                borderRadius: `${RADIUS.md}px`,
+                fontWeight: 700,
+                background: 'var(--color-error)',
+                '&:hover': { background: 'var(--color-error)' },
+              }}
+            >
+              {deleting ? t('case.fetching', '…') : t('case.delete', 'Remove')}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
   );
 

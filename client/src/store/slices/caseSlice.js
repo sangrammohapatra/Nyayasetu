@@ -5,6 +5,11 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../services/api';
 
+function apiErrorMessage(err, fallback) {
+  const body = err.response?.data;
+  return body?.message || body?.error || fallback;
+}
+
 export const addCase = createAsyncThunk(
   'case/add',
   async ({ cnrNumber, alertDaysBefore = 2, alertChannels }, { rejectWithValue }) => {
@@ -12,7 +17,7 @@ export const addCase = createAsyncThunk(
       const { data } = await api.post('/cases', { cnrNumber, alertDaysBefore, alertChannels });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to add case');
+      return rejectWithValue(apiErrorMessage(err, 'Failed to add case'));
     }
   }
 );
@@ -24,12 +29,12 @@ export const listCases = createAsyncThunk(
   // caseStatus is forwarded as-is; omitting it gets the server's default
   // (excludes disposed cases) — pass 'disposed' for the archive view or
   // 'all' to see everything.
-  async ({ page = 1, limit = 100, caseStatus } = {}, { rejectWithValue }) => {
+  async ({ page = 1, limit = 100, caseStatus, archived } = {}, { rejectWithValue }) => {
     try {
-      const { data } = await api.get('/cases', { params: { page, limit, caseStatus } });
+      const { data } = await api.get('/cases', { params: { page, limit, caseStatus, archived } });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to load cases');
+      return rejectWithValue(apiErrorMessage(err, 'Failed to load cases'));
     }
   }
 );
@@ -41,7 +46,7 @@ export const getCaseDetail = createAsyncThunk(
       const { data } = await api.get(`/cases/${caseId}`);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to load case');
+      return rejectWithValue(apiErrorMessage(err, 'Failed to load case'));
     }
   }
 );
@@ -53,7 +58,7 @@ export const refreshCase = createAsyncThunk(
       const { data } = await api.post(`/cases/${caseId}/refresh`);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to refresh case');
+      return rejectWithValue(apiErrorMessage(err, 'Failed to refresh case'));
     }
   }
 );
@@ -65,7 +70,19 @@ export const updateCaseAlerts = createAsyncThunk(
       const { data } = await api.patch(`/cases/${caseId}/alerts`, alertOpts);
       return { caseId, ...data };
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to update alerts');
+      return rejectWithValue(apiErrorMessage(err, 'Failed to update alerts'));
+    }
+  }
+);
+
+export const setCaseArchived = createAsyncThunk(
+  'case/archive',
+  async ({ caseId, archived }, { rejectWithValue }) => {
+    try {
+      const { data } = await api.patch(`/cases/${caseId}/archive`, { archived });
+      return data;
+    } catch (err) {
+      return rejectWithValue(apiErrorMessage(err, 'Failed to update this case'));
     }
   }
 );
@@ -77,7 +94,7 @@ export const removeCase = createAsyncThunk(
       await api.delete(`/cases/${caseId}`);
       return caseId;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to remove case');
+      return rejectWithValue(apiErrorMessage(err, 'Failed to remove case'));
     }
   }
 );
@@ -92,6 +109,7 @@ const caseSlice = createSlice({
     error: null,
     total: 0,
     disposedCount: 0,
+    activeCount: 0,
   },
   reducers: {
     clearCaseError(state) { state.error = null; },
@@ -106,7 +124,7 @@ const caseSlice = createSlice({
       .addCase(addCase.fulfilled, (state, action) => {
         state.loading = false;
         const c = action.payload.case || action.payload;
-        state.cases.unshift(c);
+        if (!action.payload?.inArchive && c?._id) state.cases.unshift(c);
         state.currentCase = c;
       })
       .addCase(addCase.rejected, rejected)
@@ -117,6 +135,7 @@ const caseSlice = createSlice({
         state.cases = action.payload.cases || action.payload.items || action.payload;
         state.total = action.payload.total || state.cases.length;
         state.disposedCount = action.payload.disposedCount ?? state.disposedCount;
+        state.activeCount = action.payload.activeCount ?? state.activeCount;
       })
       .addCase(listCases.rejected, rejected)
 
@@ -151,6 +170,15 @@ const caseSlice = createSlice({
         }
       })
 
+      .addCase(setCaseArchived.fulfilled, (state, action) => {
+        const updated = action.payload.case;
+        if (!updated?._id) return;
+        const idx = state.cases.findIndex((c) => c._id === updated._id);
+        if (idx >= 0) {
+          state.cases[idx] = { ...state.cases[idx], ...updated, archived: !!action.payload.archived };
+        }
+      })
+
       .addCase(removeCase.fulfilled, (state, action) => {
         state.cases = state.cases.filter((c) => c._id !== action.payload);
         if (state.currentCase?._id === action.payload) state.currentCase = null;
@@ -165,5 +193,6 @@ export const selectCurrentCase = (state) => state.case.currentCase;
 export const selectCaseLoading = (state) => state.case.loading;
 export const selectCaseError = (state) => state.case.error;
 export const selectDisposedCaseCount = (state) => state.case.disposedCount;
+export const selectActiveCaseCount = (state) => state.case.activeCount ?? 0;
 
 export default caseSlice.reducer;

@@ -13,6 +13,7 @@ import {
   addCase,
   refreshCase,
   removeCase,
+  setCaseArchived,
   updateCaseAlerts,
   clearCaseError,
   selectCases,
@@ -20,6 +21,7 @@ import {
   selectCaseError,
   selectCurrentCase,
   selectDisposedCaseCount,
+  selectActiveCaseCount,
 } from '../store/slices/caseSlice';
 import { selectUserPersona, selectUserPlan } from '../store/slices/authSlice';
 import { selectFreeUsage } from '../store/slices/subscriptionSlice';
@@ -45,7 +47,7 @@ const LAWYER_CASE_LIMITS = { free: 5, professional: Infinity, firm: Infinity };
  *   load:           (params?) => Promise,
  *   add:            ({ cnrNumber, alertChannels?, alertDaysBefore? }) => Promise,
  *   refresh:        (caseId) => Promise,
- *   remove:         (caseId, confirmMsg?) => Promise<boolean>,
+ *   remove:         (caseId) => Promise,
  *   updateAlerts:   (caseId, { alertDaysBefore?, alertChannels?, alertsEnabled?, notes? }) => Promise,
  *   clearError:     () => void,
  *   upgradeOrAdd:   (onAdd: () => void) => void,
@@ -63,6 +65,7 @@ export function useCaseTracker({ autoLoad = false } = {}) {
   const persona       = useSelector(selectUserPersona);
   const freeUsage     = useSelector(selectFreeUsage);
   const disposedCount = useSelector(selectDisposedCaseCount);
+  const activeCount   = useSelector(selectActiveCaseCount);
 
   const planLimits     = persona === 'lawyer' ? LAWYER_CASE_LIMITS : CITIZEN_CASE_LIMITS;
   const caseLimit      = planLimits[plan] ?? (persona === 'lawyer' ? LAWYER_CASE_LIMITS.free : Infinity);
@@ -91,16 +94,16 @@ export function useCaseTracker({ autoLoad = false } = {}) {
   );
 
   /**
-   * @param {string}  caseId
-   * @param {string}  [confirmMsg]  window.confirm text — skipped if omitted.
-   * @returns {Promise<boolean>}    false if user cancelled.
+   * @param {string} caseId
+   * @returns {Promise} thunk result — the caller confirms before calling this.
    */
   const remove = useCallback(
-    async (caseId, confirmMsg) => {
-      if (confirmMsg && !window.confirm(confirmMsg)) return false;
-      await dispatch(removeCase(caseId));
-      return true;
-    },
+    (caseId) => dispatch(removeCase(caseId)),
+    [dispatch],
+  );
+
+  const archive = useCallback(
+    (caseId, archived) => dispatch(setCaseArchived({ caseId, archived })),
     [dispatch],
   );
 
@@ -139,10 +142,12 @@ export function useCaseTracker({ autoLoad = false } = {}) {
     atLimit,
     slotsRemaining,
     disposedCount,
+    activeCount,
     load,
     add,
     refresh,
     remove,
+    archive,
     updateAlerts,
     clearError,
     upgradeOrAdd,

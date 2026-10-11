@@ -172,6 +172,10 @@ const caseTrackerSchema = new Schema(
     },
     isActive: { type: Boolean, default: true },
 
+    // User moved this case off the active list. Court-disposed cases also
+    // appear in the archive even when this flag is false.
+    archived: { type: Boolean, default: false },
+
     // Whether adding this case consumed a free-tier quota slot. Removal only
     // decrements the user's freeUsage.casesTracked counter when this is true,
     // so a case added while subscribed never drives the counter negative.
@@ -287,6 +291,7 @@ caseTrackerSchema.statics.findCasesNeedingAlerts = function () {
 
   return this.find({
     isActive: true,
+    archived: { $ne: true },
     alertsEnabled: true,
     nextHearingDate: { $gte: now, $lte: sevenDaysOut },
     caseStatus: 'pending',

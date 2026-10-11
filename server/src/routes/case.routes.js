@@ -8,6 +8,7 @@ const {
   refreshCase,
   updateAlerts,
   shareWithLawyer,
+  setCaseArchived,
   removeCase,
 } = require('../controllers/case.controller');
 
@@ -128,6 +129,19 @@ router.post(
     body('lawyerId').notEmpty().isMongoId().withMessage('Valid lawyerId is required'),
   ]),
   shareWithLawyer
+);
+
+/**
+ * PATCH /v1/cases/:id/archive
+ * Archive or restore a tracked case.
+ */
+router.patch(
+  '/:id/archive',
+  validate([
+    param('id').isMongoId().withMessage('Invalid case ID'),
+    body('archived').optional().isBoolean().withMessage('archived must be boolean'),
+  ]),
+  setCaseArchived
 );
 
 /**
