@@ -7,6 +7,7 @@ const {
   getCaseDetail,
   refreshCase,
   updateAlerts,
+  updateCaseNotes,
   shareWithLawyer,
   setCaseArchived,
   removeCase,
@@ -115,6 +116,23 @@ router.patch(
       .isBoolean().withMessage('alertsEnabled must be boolean'),
   ]),
   updateAlerts
+);
+
+/**
+ * PATCH /v1/cases/:id/notes
+ * Append a note. Allowed for the case owner and the lawyer it was shared with.
+ */
+router.patch(
+  '/:id/notes',
+  validate([
+    param('id').isMongoId().withMessage('Invalid case ID'),
+    body('notes')
+      .isString().withMessage('notes must be a string')
+      .trim()
+      .notEmpty().withMessage('Write a note before saving.')
+      .isLength({ max: 2000 }).withMessage('notes must be 2000 characters or fewer'),
+  ]),
+  updateCaseNotes
 );
 
 /**

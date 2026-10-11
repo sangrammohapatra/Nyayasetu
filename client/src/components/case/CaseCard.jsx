@@ -51,7 +51,7 @@ export function CaseCardSkeleton() {
   );
 }
 
-export default function CaseCard({ caseData, onRefresh, onDelete, onArchive, onUpdateAlerts, archived = false }) {
+export default function CaseCard({ caseData, onRefresh, onDelete, onArchive, onUpdateAlerts, onShare, archived = false }) {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const prefersReducedMotion = useReducedMotion();
@@ -84,6 +84,9 @@ export default function CaseCard({ caseData, onRefresh, onDelete, onArchive, onU
   const nextDate = caseData.nextHearingDate;
   const daysLeft = daysUntil(nextDate);
   const isUrgent = isWithinDays(nextDate, 7);
+  const sharedLawyer = caseData.sharedWithLawyer;
+  const sharedLawyerName = sharedLawyer && typeof sharedLawyer === 'object' ? sharedLawyer.name : '';
+  const isShared = Boolean(sharedLawyer);
 
   const handleRefresh = async (e) => {
     e.stopPropagation();
@@ -170,7 +173,20 @@ export default function CaseCard({ caseData, onRefresh, onDelete, onArchive, onU
           )}
 
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', gap: 0.75 }}>
+            <Box sx={{ display: 'flex', gap: 0.75, minWidth: 0, flexWrap: 'wrap' }}>
+              {isShared && (
+                <Chip
+                  size="small"
+                  label={sharedLawyerName
+                    ? t('case.shared_with', 'Shared with {{name}}', { name: sharedLawyerName })
+                    : t('case.shared', 'Shared')}
+                  sx={{
+                    height: 20, fontSize: '0.65rem', fontWeight: 700, maxWidth: 150,
+                    background: 'rgba(237,108,2,0.12)', color: '#ed6c02',
+                    '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' },
+                  }}
+                />
+              )}
               {caseData.alertChannels?.whatsapp && (
                 <Tooltip title="WhatsApp alerts on">
                   <Chip size="small" label="📱 WA" sx={{ height: 20, fontSize: '0.65rem', background: 'rgba(37,211,102,0.1)', color: '#25D366' }} />
@@ -183,6 +199,17 @@ export default function CaseCard({ caseData, onRefresh, onDelete, onArchive, onU
               )}
             </Box>
             <Box sx={{ display: 'flex', gap: 0.5 }}>
+              {onShare && (
+                <Tooltip title={t('case.share_with_lawyer', 'Share with a lawyer')}>
+                  <IconButton
+                    size="small"
+                    onClick={(e) => { e.stopPropagation(); onShare(caseData); }}
+                    sx={{ color: 'var(--color-text-secondary)', '&:hover': { color: 'var(--color-primary)' } }}
+                  >
+                    <span style={{ fontSize: 16, lineHeight: 1 }}>🤝</span>
+                  </IconButton>
+                </Tooltip>
+              )}
               <Tooltip title={t('case.refresh', 'Sync with eCourts')}>
                 <IconButton size="small" onClick={handleRefresh} disabled={refreshing}
                   sx={{ color: 'var(--color-text-secondary)', '&:hover': { color: 'var(--color-primary)' } }}>
@@ -220,6 +247,11 @@ export default function CaseCard({ caseData, onRefresh, onDelete, onArchive, onU
 
         <Collapse in={expanded} timeout={300}>
           <Box sx={{ px: 2.5, pb: 2.5, borderTop: '1px solid var(--color-border)', pt: 2 }}>
+            {caseData.notes && (
+              <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', whiteSpace: 'pre-line', mb: 1.5, fontSize: '0.8rem' }}>
+                {caseData.notes}
+              </Typography>
+            )}
             <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', mb: 1.5 }}>
               {t('case.hearing_history', 'Hearing Timeline')}
             </Typography>

@@ -122,6 +122,7 @@ function useNavLinks(persona, t) {
 
 function NotificationPopover({ anchorEl, onClose }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const notifications = useSelector(selectNotifications);
   const unread = useSelector(selectUnreadTotal);
@@ -139,6 +140,14 @@ function NotificationPopover({ anchorEl, onClose }) {
 
   const handleRead = (id) => dispatch(markNotificationRead(id));
   const handleReadAll = () => dispatch(markAllNotificationsRead());
+
+  const handleOpen = (n) => {
+    if (!n.isRead) handleRead(n._id);
+    if (typeof n.actionUrl === 'string' && n.actionUrl.startsWith('/') && !n.actionUrl.startsWith('//')) {
+      navigate(n.actionUrl);
+      onClose();
+    }
+  };
 
   return (
     <Popover
@@ -264,14 +273,14 @@ function NotificationPopover({ anchorEl, onClose }) {
                   transition={{ delay: i * 0.04 }}
                 >
                   <Box
-                    onClick={() => !n.isRead && handleRead(n._id)}
+                    onClick={() => handleOpen(n)}
                     sx={{
                       display: "flex",
                       alignItems: "flex-start",
                       gap: 1.5,
                       px: 2.5,
                       py: 1.75,
-                      cursor: !n.isRead ? "pointer" : "default",
+                      cursor: n.actionUrl || !n.isRead ? "pointer" : "default",
                       background: !n.isRead
                         ? "var(--color-primary-alpha)"
                         : "transparent",

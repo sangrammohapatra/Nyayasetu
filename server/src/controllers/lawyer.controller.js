@@ -53,10 +53,15 @@ const uploadCertificate = upload.single('certificate');
 /* ---------------------------------------------------------------------------
  * searchLawyers
  * GET /v1/lawyers
- * Query: state, specialisation, district, minRating, maxFee, availableOnly, page, limit
+ * Query: q, state, specialisation, district, minRating, maxFee, availableOnly, page, limit
  * ------------------------------------------------------------------------ */
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 const searchLawyers = asyncHandler(async (req, res) => {
   const {
+    q,
     state,
     specialisation,
     district,
@@ -93,6 +98,25 @@ const searchLawyers = asyncHandler(async (req, res) => {
   }
 
   try {
+    if (typeof q === 'string' && q.trim()) {
+      const term = q.trim().slice(0, 80);
+      const matchedUsers = await User.find({
+        persona: 'lawyer',
+        name: { $regex: escapeRegex(term), $options: 'i' },
+      }).select('_id').limit(200).lean();
+
+      if (matchedUsers.length === 0) {
+        return res.json({
+          items: [],
+          total: 0,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: 1,
+        });
+      }
+      filter.user = { $in: matchedUsers.map((u) => u._id) };
+    }
+
     const [profiles, total] = await Promise.all([
       LawyerProfile.find(filter)
         .sort({ averageRating: -1, totalConsultations: -1 })
@@ -449,8 +473,10 @@ const getMyClients = asyncHandler(async (req, res) => {
         .populate('sharedDocument', 'title templateSlug approvalStatus lawyerAnnotations lawyerEditedContent lawyerEditedAt')
         .sort({ createdAt: -1 })
         .lean(),
-      CaseTracker.find({ sharedWithLawyer: profile._id })
-        .select('user cnrNumber caseTitle court nextHearingDate status')
+      // shareWithLawyer stores the lawyer's User id (LawyerProfile.user), not profile._id.
+      CaseTracker.find({ sharedWithLawyer: userId, isActive: true })
+        .select('user cnrNumber caseTitle court nextHearingDate caseStatus hearings notes sharedAt createdAt')
+        .sort({ sharedAt: -1, createdAt: -1 })
         .lean(),
     ]);
 

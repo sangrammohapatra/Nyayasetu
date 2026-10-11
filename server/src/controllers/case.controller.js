@@ -261,6 +261,7 @@ const listCases = asyncHandler(async (req, res) => {
   const [cases, total, disposedCount, activeCount] = await Promise.all([
     CaseTracker.find(filter)
       .select('-rawEcourtsData')
+      .populate('sharedWithLawyer', 'name')
       .sort({ nextHearingDate: 1, createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
@@ -310,8 +311,15 @@ const getCaseDetail = asyncHandler(async (req, res) => {
     .populate('linkedDocuments',  'title templateSlug createdAt isPaid')
     .select('-rawEcourtsData');
 
-  if (!caseDoc)                      throw createError(404, 'CASE_NOT_FOUND', 'Case not found');
-  if (!caseDoc.user.equals(userId))  throw createError(403, 'FORBIDDEN', 'This case does not belong to you');
+  if (!caseDoc) throw createError(404, 'CASE_NOT_FOUND', 'Case not found');
+  const isOwner = sameId(caseDoc.user, userId);
+  const isSharedLawyer = sameId(caseDoc.sharedWithLawyer, userId);
+  if (!isOwner && !isSharedLawyer) {
+    throw createError(403, 'FORBIDDEN', 'This case does not belong to you');
+  }
+  if (!isOwner && !caseDoc.isActive) {
+    throw createError(404, 'CASE_NOT_FOUND', 'Case not found');
+  }
 
   const freshness = computeDataFreshness(caseDoc.lastSyncedAt);
   const caseObj   = caseDoc.toObject();
@@ -368,7 +376,7 @@ const refreshCase = asyncHandler(async (req, res) => {
     message:       isMock
       ? `No case data was found for CNR ${caseDoc.cnrNumber}. Showing mock data.`
       : (refreshed ? 'Case refreshed successfully' : 'Showing last known data'),
-    case:          sanitizeCase(caseDoc),
+    case:          await withSharedLawyer(caseDoc),
     refreshed,
     dataFreshness: freshness.label,
     isDataStale:   freshness.isStale,
@@ -382,6 +390,7 @@ const refreshCase = asyncHandler(async (req, res) => {
 
 /**
  * PATCH /v1/cases/:id/alerts
+ * Hearing alerts stay with the case owner. Notes are saved on PATCH /cases/:id/notes.
  */
 const updateAlerts = asyncHandler(async (req, res) => {
   const { id: caseId } = req.params;
@@ -422,6 +431,48 @@ const updateAlerts = asyncHandler(async (req, res) => {
   });
 });
 
+// ─── updateCaseNotes ──────────────────────────────────────────────────────────
+
+/**
+ * PATCH /v1/cases/:id/notes
+ * The case owner and the lawyer the case was shared with can append a note.
+ * sharedWithLawyer stores the lawyer's User id, same as shareWithLawyer.
+ */
+const updateCaseNotes = asyncHandler(async (req, res) => {
+  const { id: caseId } = req.params;
+  const { userId }     = req.user;
+  const notes          = typeof req.body.notes === 'string' ? req.body.notes.trim() : '';
+
+  if (!notes) throw createError(400, 'NOTES_REQUIRED', 'Write a note before saving.');
+
+  const caseDoc = await CaseTracker.findById(caseId);
+  if (!caseDoc || !caseDoc.isActive) throw createError(404, 'CASE_NOT_FOUND', 'Case not found');
+
+  const isOwner = sameId(caseDoc.user, userId);
+  const isSharedLawyer = sameId(caseDoc.sharedWithLawyer, userId);
+  if (!isOwner && !isSharedLawyer) {
+    throw createError(403, 'FORBIDDEN', 'Only the case owner or the lawyer this case was shared with can add notes');
+  }
+
+  const existing = (caseDoc.notes || '').trim();
+  const nextNotes = existing ? `${existing}\n${notes}` : notes;
+  if (nextNotes.length > 2000) {
+    throw createError(400, 'NOTES_TOO_LONG', 'Notes must be 2000 characters or fewer.');
+  }
+
+  caseDoc.notes = nextNotes;
+  await caseDoc.save();
+
+  await AuditLog.log(req, 'case.notes.updated', 'CaseTracker', caseDoc._id, {
+    notesLength: caseDoc.notes.length,
+  });
+
+  res.json({
+    message: 'Note saved',
+    notes:   caseDoc.notes,
+  });
+});
+
 // ─── shareWithLawyer ─────────────────────────────────────────────────────────
 
 /**
@@ -434,15 +485,21 @@ const shareWithLawyer = asyncHandler(async (req, res) => {
 
   if (!lawyerId) throw createError(400, 'LAWYER_ID_REQUIRED', 'lawyerId is required');
 
+  // Match lawyer search: development can share with a profile that is still unverified.
+  const isDev = process.env.NODE_ENV === 'development';
   const [caseDoc, lawyerProfile] = await Promise.all([
     CaseTracker.findById(caseId),
-    LawyerProfile.findOne({ user: lawyerId, isVerified: true }).populate('user', 'name email phone whatsappNumber'),
+    LawyerProfile.findOne({ user: lawyerId, ...(isDev ? {} : { isVerified: true }) })
+      .populate('user', 'name email phone whatsappNumber'),
   ]);
 
   if (!caseDoc)                      throw createError(404, 'CASE_NOT_FOUND', 'Case not found');
   if (!caseDoc.user.equals(userId))  throw createError(403, 'FORBIDDEN', 'Access denied');
-  if (!lawyerProfile)                throw createError(404, 'LAWYER_NOT_FOUND', 'Verified lawyer not found');
+  if (!lawyerProfile) {
+    throw createError(404, 'LAWYER_NOT_FOUND', isDev ? 'Lawyer not found' : 'Verified lawyer not found');
+  }
 
+  // LawyerProfile.user — getMyClients matches this User id, not the profile id.
   caseDoc.sharedWithLawyer = lawyerId;
   caseDoc.sharedAt         = new Date();
   await caseDoc.save();
@@ -521,7 +578,7 @@ const setCaseArchived = asyncHandler(async (req, res) => {
 
   res.json({
     message,
-    case:     sanitizeCase(caseDoc),
+    case:     await withSharedLawyer(caseDoc),
     archived: stillArchived,
   });
 });
@@ -581,6 +638,19 @@ function mockDataNotices(cnr) {
   ];
 }
 
+function sameId(ref, userId) {
+  if (!ref || userId == null) return false;
+  const id = ref._id || ref;
+  return String(id) === String(userId);
+}
+
+async function withSharedLawyer(caseDoc) {
+  if (caseDoc?.sharedWithLawyer && typeof caseDoc.populate === 'function') {
+    await caseDoc.populate('sharedWithLawyer', 'name');
+  }
+  return sanitizeCase(caseDoc);
+}
+
 function sanitizeCase(caseDoc) {
   const obj = caseDoc.toObject ? caseDoc.toObject() : { ...caseDoc };
   delete obj.rawEcourtsData;
@@ -593,6 +663,7 @@ module.exports = {
   getCaseDetail,
   refreshCase,
   updateAlerts,
+  updateCaseNotes,
   shareWithLawyer,
   setCaseArchived,
   removeCase,

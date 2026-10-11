@@ -411,7 +411,22 @@
     "archived_toast": "Case moved to your archive.",
     "restored_toast": "Case restored to your tracker.",
     "empty_archived": "No archived cases",
-    "empty_archived_desc": "Cases move here automatically once the court marks them disposed."
+    "empty_archived_desc": "Cases move here automatically once the court marks them disposed.",
+    "share_with_lawyer": "Share with a lawyer",
+    "share_desc": "A verified lawyer can review this case and add notes.",
+    "share_search": "Search lawyers by name",
+    "share_empty": "No lawyers match that search.",
+    "share_search_error": "Could not load lawyers.",
+    "share_success": "Case shared with {{name}}.",
+    "share_error": "Could not share this case. Please try again.",
+    "shared_with": "Shared with {{name}}",
+    "shared": "Shared",
+    "share_upgrade": "Sharing a case with a lawyer is included on the Pro plan.",
+    "share_action": "Share",
+    "share_current": "Currently shared with {{name}}.",
+    "share_unverified": "Pending verification",
+    "lawyer_general": "Advocate",
+    "your_notes": "Your notes"
   },
   "pricing": {
     "title": "Legal help that fits your pocket",

@@ -27,6 +27,7 @@ import AnimatedPage from '../../components/ui/AnimatedPage';
 import GradientHeading from '../../components/ui/GradientHeading';
 import CNRInput, { CNR_REGEX } from '../../components/case/CNRInput';
 import CaseCard, { CaseCardSkeleton } from '../../components/case/CaseCard';
+import ShareCaseDialog from '../../components/case/ShareCaseDialog';
 import { RADIUS, TYPOGRAPHY } from '../../theme/tokens';
 
 // ─── Add Case Modal ──────────────────────────────────────────────────────────
@@ -187,6 +188,7 @@ function CaseDashboard({ embedded = false }) {
   } = useCaseTracker();
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [shareTarget, setShareTarget] = useState(null);
   const [view, setView] = useState('active'); // 'active' | 'disposed'
   const [pendingDelete, setPendingDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -236,6 +238,15 @@ function CaseDashboard({ embedded = false }) {
   }, [refresh, dispatch, t]);
 
   const requestDelete = useCallback((id) => setPendingDelete(id), []);
+
+  const handleShared = useCallback((lawyerName) => {
+    setShareTarget(null);
+    dispatch(pushSnackbar({
+      message: t('case.share_success', 'Case shared with {{name}}.', { name: lawyerName || t('case.lawyer_general', 'your lawyer') }),
+      severity: 'success',
+    }));
+    load(view === 'disposed' ? { archived: true } : undefined);
+  }, [dispatch, t, load, view]);
 
   const handleArchive = useCallback(async (id) => {
     const shouldArchive = view !== 'disposed';
@@ -388,6 +399,7 @@ function CaseDashboard({ embedded = false }) {
                     onArchive={handleArchive}
                     archived={view === 'disposed'}
                     onUpdateAlerts={updateAlerts}
+                    onShare={isLawyer ? undefined : setShareTarget}
                   />
                 </Grid>
               ))}
@@ -396,6 +408,15 @@ function CaseDashboard({ embedded = false }) {
         )}
 
         <AddCaseModal open={modalOpen} onClose={handleModalClose} onAdd={add} whatsappOptIn={user?.whatsappOptIn} />
+
+        {!isLawyer && (
+          <ShareCaseDialog
+            open={!!shareTarget}
+            caseData={shareTarget}
+            onClose={() => { if (shareTarget) setShareTarget(null); }}
+            onShared={handleShared}
+          />
+        )}
 
         <Dialog
           open={!!pendingDelete}

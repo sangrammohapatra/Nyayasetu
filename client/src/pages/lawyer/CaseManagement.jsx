@@ -3,6 +3,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
@@ -25,14 +26,30 @@ import CaseDashboard from '../citizen/CaseDashboard';
 import { RADIUS, SHADOWS, TYPOGRAPHY } from '../../theme/tokens';
 import api from '../../services/api';
 
-function CaseCard({ caseData, clientName, delay }) {
+const STATUS_LABEL = {
+  pending: 'Active',
+  disposed: 'Disposed',
+  transferred: 'Transferred',
+  unknown: 'Unknown',
+};
+
+function CaseCard({ caseData, clientName, delay, focused = false }) {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const prefersReducedMotion = useReducedMotion();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(focused);
   const [notesOpen, setNotesOpen] = useState(false);
   const [note, setNote] = useState('');
+  const [savedNotes, setSavedNotes] = useState(caseData.notes || '');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (focused) setExpanded(true);
+  }, [focused]);
+
+  useEffect(() => {
+    setSavedNotes(caseData.notes || '');
+  }, [caseData.notes]);
 
   const isUrgent = caseData.nextHearingDate && (() => {
     const days = Math.ceil((new Date(caseData.nextHearingDate) - new Date()) / 86400000);
@@ -43,16 +60,17 @@ function CaseCard({ caseData, clientName, delay }) {
     if (!note.trim()) return;
     setSaving(true);
     try {
-      await api.patch(`/cases/${caseData._id}/alerts`, { notes: note });
+      const { data } = await api.patch(`/cases/${caseData._id}/notes`, { notes: note });
+      setSavedNotes(data.notes || '');
       dispatch(pushSnackbar({
         message: t('case.note_saved', 'Note saved.'),
         severity: 'success',
       }));
       setNote('');
       setNotesOpen(false);
-    } catch {
+    } catch (err) {
       dispatch(pushSnackbar({
-        message: t('case.note_error', 'Could not save the note. Please try again.'),
+        message: err.response?.data?.fields?.notes || err.response?.data?.message || t('case.note_error', 'Could not save the note. Please try again.'),
         severity: 'error',
       }));
     } finally { setSaving(false); }
@@ -64,14 +82,20 @@ function CaseCard({ caseData, clientName, delay }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.35 }}
     >
-      <Box sx={{
-        borderRadius: `${RADIUS.xl}px`,
-        border: isUrgent ? '1.5px solid var(--color-warning)' : '1px solid var(--color-border)',
-        background: 'var(--color-surface)',
-        overflow: 'hidden',
-        boxShadow: SHADOWS.sm,
-        mb: 2,
-      }}>
+      <Box
+        id={`shared-case-${caseData._id}`}
+        sx={{
+          borderRadius: `${RADIUS.xl}px`,
+          border: isUrgent
+            ? '1.5px solid var(--color-warning)'
+            : `1px solid ${focused ? 'var(--color-primary)' : 'var(--color-border)'}`,
+          background: 'var(--color-surface)',
+          overflow: 'hidden',
+          boxShadow: SHADOWS.sm,
+          mb: 2,
+          scrollMarginTop: 88,
+        }}
+      >
         {isUrgent && <Box sx={{ height: 3, background: 'linear-gradient(90deg, var(--color-warning), var(--color-error))' }} />}
 
         <Box sx={{ p: 2.5, cursor: 'pointer' }} onClick={() => setExpanded((v) => !v)}>
@@ -87,7 +111,7 @@ function CaseCard({ caseData, clientName, delay }) {
             </Box>
             <Box sx={{ display: 'flex', gap: 0.75, flexShrink: 0 }}>
               {isUrgent && <Chip size="small" label="⚠️ Soon" sx={{ height: 20, fontSize: '0.65rem', background: 'var(--color-warning)', color: '#fff', fontWeight: 700 }} />}
-              <Chip size="small" label={caseData.status || 'Active'} sx={{ height: 20, fontSize: '0.65rem', background: 'rgba(46,125,50,0.1)', color: 'var(--color-success)', fontWeight: 600 }} />
+              <Chip size="small" label={STATUS_LABEL[(caseData.caseStatus || caseData.status || 'pending').toLowerCase()] || 'Active'} sx={{ height: 20, fontSize: '0.65rem', background: 'rgba(46,125,50,0.1)', color: 'var(--color-success)', fontWeight: 600 }} />
             </Box>
           </Box>
 
@@ -102,6 +126,15 @@ function CaseCard({ caseData, clientName, delay }) {
             )}
           </Box>
 
+          {savedNotes && !notesOpen && (
+            <Typography variant="caption" sx={{
+              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+              overflow: 'hidden', color: 'var(--color-text-secondary)', mt: 1.25, whiteSpace: 'pre-line',
+            }}>
+              {savedNotes}
+            </Typography>
+          )}
+
           <Box sx={{ display: 'flex', gap: 1, mt: 1.5 }}>
             <Button size="small" variant="text" onClick={(e) => { e.stopPropagation(); setNotesOpen((v) => !v); }}
               sx={{ fontSize: '0.72rem', color: 'var(--color-primary)', fontWeight: 600, py: 0.25 }}>
@@ -114,6 +147,11 @@ function CaseCard({ caseData, clientName, delay }) {
         {/* Notes input */}
         <Collapse in={notesOpen}>
           <Box sx={{ px: 2.5, pb: 2, borderTop: '1px solid var(--color-border)', pt: 1.75 }} onClick={(e) => e.stopPropagation()}>
+            {savedNotes && (
+              <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', whiteSpace: 'pre-line', mb: 1.25, fontSize: '0.8rem' }}>
+                {savedNotes}
+              </Typography>
+            )}
             <TextField
               fullWidth
               multiline
@@ -152,7 +190,7 @@ function CaseCard({ caseData, clientName, delay }) {
   );
 }
 
-function SharedCases() {
+function SharedCases({ focusCaseId }) {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const clients = useSelector(selectClients);
@@ -172,6 +210,17 @@ function SharedCases() {
       (cs.cnrNumber || '').toLowerCase().includes(q) ||
       (cs.clientName || '').toLowerCase().includes(q);
   });
+
+  useEffect(() => {
+    if (!focusCaseId || loading) return undefined;
+    const el = document.getElementById(`shared-case-${focusCaseId}`);
+    if (!el) return undefined;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const timer = setTimeout(() => {
+      el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [focusCaseId, loading, filtered.length]);
 
   return (
     <Box>
@@ -206,7 +255,13 @@ function SharedCases() {
         ) : (
           <AnimatePresence>
             {filtered.map((cs, i) => (
-              <CaseCard key={cs._id || i} caseData={cs} clientName={cs.clientName} delay={i * 0.06} />
+              <CaseCard
+                key={cs._id || i}
+                caseData={cs}
+                clientName={cs.clientName}
+                delay={i * 0.06}
+                focused={focusCaseId && String(cs._id) === String(focusCaseId)}
+              />
             ))}
           </AnimatePresence>
         )}
@@ -216,8 +271,13 @@ function SharedCases() {
 
 function CaseManagement() {
   const { t } = useTranslation();
+  const { caseId } = useParams();
   const prefersReducedMotion = useReducedMotion();
-  const [tab, setTab] = useState('tracked');
+  const [tab, setTab] = useState(caseId ? 'shared' : 'tracked');
+
+  useEffect(() => {
+    if (caseId) setTab('shared');
+  }, [caseId]);
 
   return (
     <AnimatedPage>
@@ -258,7 +318,7 @@ function CaseManagement() {
           />
         </Box>
 
-        {tab === 'tracked' ? <CaseDashboard embedded /> : <SharedCases />}
+        {tab === 'tracked' ? <CaseDashboard embedded /> : <SharedCases focusCaseId={caseId} />}
       </Box>
     </AnimatedPage>
   );

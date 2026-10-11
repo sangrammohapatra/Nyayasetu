@@ -48,7 +48,7 @@ const LAWYER_CASE_LIMITS = { free: 5, professional: Infinity, firm: Infinity };
  *   add:            ({ cnrNumber, alertChannels?, alertDaysBefore? }) => Promise,
  *   refresh:        (caseId) => Promise,
  *   remove:         (caseId) => Promise,
- *   updateAlerts:   (caseId, { alertDaysBefore?, alertChannels?, alertsEnabled?, notes? }) => Promise,
+ *   updateAlerts:   (caseId, { alertDaysBefore?, alertChannels?, alertsEnabled? }) => Promise,
  *   clearError:     () => void,
  *   upgradeOrAdd:   (onAdd: () => void) => void,
  * }}
@@ -109,7 +109,7 @@ export function useCaseTracker({ autoLoad = false } = {}) {
 
   /**
    * Thin wrapper around updateCaseAlerts that accepts arbitrary alert fields
-   * (alertDaysBefore, alertChannels, alertsEnabled, notes) so callers are not
+   * (alertDaysBefore, alertChannels, alertsEnabled) so callers are not
    * constrained to the thunk's original parameter shape.
    */
   const updateAlerts = useCallback(

@@ -233,7 +233,7 @@ function LawyerHome() {
           feed.push({ type: 'consultation', text: `${c.user?.name} requested a consultation`, time: new Date(c.consultations[0].createdAt).toLocaleDateString('en-IN') });
         }
         if (c.sharedCases?.[0]) {
-          feed.push({ type: 'case', text: `${c.user?.name} shared case ${c.sharedCases[0].cnrNumber}`, time: new Date(c.sharedCases[0].createdAt || Date.now()).toLocaleDateString('en-IN') });
+          feed.push({ type: 'case', text: `${c.user?.name} shared case ${c.sharedCases[0].cnrNumber}`, time: new Date(c.sharedCases[0].sharedAt || c.sharedCases[0].createdAt || Date.now()).toLocaleDateString('en-IN') });
         }
       });
       setActivities(feed.slice(0, 8));

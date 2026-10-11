@@ -88,7 +88,9 @@ function ConsultationCard({ c, i }) {
 
 function CaseCard({ c, i }) {
   const prefersReducedMotion = useReducedMotion();
-  const sm = STATUS_META[(c.status || 'active').toLowerCase()] || { label: c.status, bg: 'rgba(46,125,50,0.1)', color: '#2e7d32' };
+  const rawStatus = (c.caseStatus || c.status || 'active').toLowerCase();
+  const statusKey = rawStatus === 'pending' ? 'active' : rawStatus;
+  const sm = STATUS_META[statusKey] || { label: statusKey, bg: 'rgba(46,125,50,0.1)', color: '#2e7d32' };
 
   return (
     <motion.div initial={prefersReducedMotion ? false : { opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}>

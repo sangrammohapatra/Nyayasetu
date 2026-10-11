@@ -65,6 +65,7 @@ router.get(
   '/lawyers',
   optionalAuth,
   [
+    query('q').optional().isString().trim().isLength({ max: 80 }),
     query('state').optional().isString().trim().isLength({ max: 100 }).escape(),
     query('specialisation').optional().isString().trim().isLength({ max: 100 }).escape(),
     query('district').optional().isString().trim().isLength({ max: 100 }).escape(),

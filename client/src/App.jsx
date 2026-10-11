@@ -456,6 +456,7 @@ const router = createBrowserRouter([
           { path: "clients", element: <ClientList /> },
           { path: "clients/:userId", element: <ClientDetail /> },
           { path: "cases", element: <CaseManagement /> },
+          { path: "cases/:caseId", element: <CaseManagement /> },
           {
             path: "consultations",
             element: (
