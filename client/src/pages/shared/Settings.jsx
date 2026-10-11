@@ -1191,6 +1191,8 @@ function LawyerProfileSection({ lawyerProfile, showSnack }) {
     availability: defaultWeeklySchedule(),
   });
   const [saving, setSaving] = useState(false);
+  const enrollmentLocked = Boolean(lawyerProfile);
+  const enrollmentRejected = lawyerProfile?.verificationStatus === "rejected";
 
   useEffect(() => {
     if (!lawyerProfile) return;
@@ -1226,10 +1228,15 @@ function LawyerProfileSection({ lawyerProfile, showSnack }) {
 
   const handleSave = async () => {
     setSaving(true);
-    const result = await dispatch(updateLawyerProfile({
+    const payload = {
       ...form,
       consultationFee: form.consultationFee * 100,
-    }));
+    };
+    if (enrollmentLocked) {
+      delete payload.barCouncilNumber;
+      delete payload.barCouncilState;
+    }
+    const result = await dispatch(updateLawyerProfile(payload));
     setSaving(false);
     updateLawyerProfile.fulfilled.match(result)
       ? showSnack("Lawyer profile saved!")
@@ -1264,10 +1271,16 @@ function LawyerProfileSection({ lawyerProfile, showSnack }) {
             <TextField fullWidth size="small" label="Bar Council Enrollment Number"
               value={form.barCouncilNumber}
               onChange={(e) => set("barCouncilNumber", e.target.value)}
+              disabled={enrollmentLocked}
+              helperText={enrollmentLocked
+                ? (enrollmentRejected
+                  ? "Correct this on the profile setup page, then resubmit for review."
+                  : "Locked after you apply. Contact support to correct it.")
+                : undefined}
               sx={{ "& .MuiOutlinedInput-root": { borderRadius: `${RADIUS.md}px` } }} />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <FormControl fullWidth size="small">
+            <FormControl fullWidth size="small" disabled={enrollmentLocked}>
               <InputLabel>Bar Council State</InputLabel>
               <Select value={form.barCouncilState} label="Bar Council State"
                 onChange={(e) => set("barCouncilState", e.target.value)}

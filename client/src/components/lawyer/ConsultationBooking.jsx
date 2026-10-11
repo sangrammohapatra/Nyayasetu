@@ -336,7 +336,7 @@ function ConsultationBooking({ open, onClose, lawyer }) {
         onDismiss: () => setLoading(false),
       });
     } catch (err) {
-      setError(err.response?.data?.error || 'Booking failed. Please try again.');
+      setError(err.response?.data?.message || err.response?.data?.error || 'Booking failed. Please try again.');
       setLoading(false);
     }
   };

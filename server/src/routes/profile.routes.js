@@ -61,7 +61,7 @@ router.patch(
     body('email')
       .optional({ checkFalsy: true })
       .isEmail().withMessage('Please enter a valid email address')
-      .normalizeEmail(),
+      .normalizeEmail({ gmail_remove_dots: false, gmail_remove_subaddress: false }),
 
     body('state')
       .optional()

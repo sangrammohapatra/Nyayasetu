@@ -64,7 +64,7 @@ const STEP_LABELS = [
 
 // ─── Step forms ───────────────────────────────────────────────────────────────
 
-function StepBarCouncil({ control, errors }) {
+function StepBarCouncil({ control, errors, enrollmentLocked }) {
   const { t } = useTranslation();
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
@@ -78,12 +78,17 @@ function StepBarCouncil({ control, errors }) {
       <Controller name="barCouncilNumber" control={control} render={({ field }) => (
         <TextField {...field} fullWidth label={t('lawyer_setup.bar_council', 'Bar Council Enrollment Number')}
           placeholder="e.g. MH/5432/2015"
-          error={!!errors.barCouncilNumber} helperText={errors.barCouncilNumber?.message}
+          disabled={enrollmentLocked}
+          error={!!errors.barCouncilNumber}
+          helperText={errors.barCouncilNumber?.message || (enrollmentLocked
+            ? t('lawyer_setup.enrollment_locked', 'Enrollment details are locked after you apply. Contact support to correct them.')
+            : undefined)}
           inputProps={{ style: { fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.06em' } }} />
       )} />
 
       <Controller name="barCouncilState" control={control} render={({ field }) => (
         <TextField {...field} select fullWidth label={t('lawyer_setup.bar_council_state', 'State Bar Council')}
+          disabled={enrollmentLocked}
           error={!!errors.barCouncilState} helperText={errors.barCouncilState?.message}>
           {INDIAN_STATES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
         </TextField>
@@ -477,16 +482,20 @@ function LawyerDashboard() {
 
   const goBack = () => { setDirection(-1); setStep((s) => s - 1); };
 
+  const enrollmentLocked = Boolean(existingProfile) && existingProfile.verificationStatus !== 'rejected';
+
   const onFinalSubmit = async (values) => {
     if (specialisations.length === 0) { setStep(1); setSpecError('Select at least one specialisation'); return; }
     setSubmitting(true);
     setError('');
     try {
       const fd = new FormData();
-      fd.append('barCouncilNumber', values.barCouncilNumber);
-      fd.append('barCouncilState', values.barCouncilState);
+      const barCouncilNumber = enrollmentLocked ? existingProfile.barCouncilNumber : values.barCouncilNumber;
+      const barCouncilState = enrollmentLocked ? existingProfile.barCouncilState : values.barCouncilState;
+      fd.append('barCouncilNumber', barCouncilNumber);
+      fd.append('barCouncilState', barCouncilState);
       fd.append('specialisations', specialisations.join(','));
-      fd.append('practicingStates', [...new Set([values.barCouncilState, ...practicingStates])].join(','));
+      fd.append('practicingStates', [...new Set([barCouncilState, ...practicingStates])].join(','));
       fd.append('experience', String(values.experience));
       fd.append('bio', values.bio || '');
       fd.append('consultationFee', String(values.consultationFee * 100));
@@ -521,7 +530,7 @@ function LawyerDashboard() {
   }
 
   const stepComponents = [
-    <StepBarCouncil key={0} control={control} errors={errors} />,
+    <StepBarCouncil key={0} control={control} errors={errors} enrollmentLocked={enrollmentLocked} />,
     <StepSpecialisations key={1} specialisations={specialisations} onToggle={toggleSpec} error={specError} />,
     <StepPracticeDetails key={2} control={control} errors={errors} practicingStates={practicingStates} setPracticingStates={setPracticingStates} />,
     <StepAvailability key={3} control={control} modes={modes} setModes={setModes} availability={availability} setAvailability={setAvailability} />,

@@ -31,6 +31,28 @@ function redactReviewerName(name) {
   return `${parts[0]} ${parts[parts.length - 1][0]}.`;
 }
 
+// Identity fields the admin verifies. Locked once an application exists,
+// same as a notary registration number. A rejected lawyer can replace them
+// only by resubmitting apply, which sends the profile back to review.
+const ENROLLMENT_FIELDS = ['barCouncilNumber', 'barCouncilState', 'enrollmentYear'];
+const ENROLLMENT_LOCKED_ERROR = 'Bar Council enrollment details cannot be changed after you apply. Contact support if they are incorrect.';
+
+function enrollmentValue(value) {
+  if (value === undefined || value === null) return '';
+  return String(value).trim();
+}
+
+function enrollmentIsLocked(profile) {
+  return !!profile && profile.verificationStatus !== 'rejected';
+}
+
+function changedEnrollmentFields(profile, incoming) {
+  return ENROLLMENT_FIELDS.filter((field) => (
+    incoming[field] !== undefined
+    && enrollmentValue(incoming[field]) !== enrollmentValue(profile[field])
+  ));
+}
+
 /* ---------------------------------------------------------------------------
  * Multer — memory storage, 5 MB cap, PDF/image only.
  * Buffer forwarded to Cloudinary; nothing touches disk.
@@ -280,16 +302,26 @@ const applyAsLawyer = asyncHandler(async (req, res) => {
     : null;
 
   try {
-    const existingProfile = await LawyerProfile.findOne({ user: userId }).select('verificationStatus isVerified').lean();
+    const existingProfile = await LawyerProfile.findOne({ user: userId })
+      .select('verificationStatus isVerified barCouncilNumber barCouncilState')
+      .lean();
     const needsReview = !existingProfile || existingProfile.verificationStatus === 'rejected';
+
+    if (enrollmentIsLocked(existingProfile) && changedEnrollmentFields(existingProfile, { barCouncilNumber, barCouncilState }).length) {
+      return res.status(409).json({ error: ENROLLMENT_LOCKED_ERROR });
+    }
 
     const profile = await LawyerProfile.findOneAndUpdate(
       { user: userId },
       {
         $set: {
           user: userId,
-          barCouncilNumber: barCouncilNumber.trim(),
-          barCouncilState: barCouncilState.trim(),
+          barCouncilNumber: enrollmentIsLocked(existingProfile)
+            ? existingProfile.barCouncilNumber
+            : barCouncilNumber.trim(),
+          barCouncilState: enrollmentIsLocked(existingProfile)
+            ? existingProfile.barCouncilState
+            : barCouncilState.trim(),
           specialisations: toArray(specialisations),
           practicingStates: toArray(practicingStates),
           experience: Math.max(0, parseInt(experience, 10) || 0),
@@ -432,6 +464,21 @@ const updateLawyerProfile = asyncHandler(async (req, res) => {
   }
 
   try {
+    const existing = await LawyerProfile.findOne({ user: userId })
+      .select('verificationStatus barCouncilNumber barCouncilState enrollmentYear');
+    if (!existing) {
+      return res.status(404).json({ error: 'Lawyer profile not found — please apply first' });
+    }
+
+    if (changedEnrollmentFields(existing, updates).length) {
+      return res.status(409).json({ error: ENROLLMENT_LOCKED_ERROR });
+    }
+    for (const field of ENROLLMENT_FIELDS) delete updates[field];
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No updatable fields provided' });
+    }
+
     const profile = await LawyerProfile.findOneAndUpdate(
       { user: userId },
       { $set: updates },
