@@ -13,7 +13,7 @@ export const getCurrentSubscription = createAsyncThunk(
       const { data } = await api.get('/subscriptions/current');
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to load subscription');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to load subscription');
     }
   }
 );
@@ -25,7 +25,7 @@ export const createOrder = createAsyncThunk(
       const { data } = await api.post('/subscriptions/create', { plan, billingCycle, persona });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to create order');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to create order');
     }
   }
 );
@@ -47,7 +47,7 @@ export const verifyPayment = createAsyncThunk(
       }
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Payment verification failed');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Payment verification failed');
     }
   }
 );
@@ -59,7 +59,7 @@ export const cancelSubscription = createAsyncThunk(
       const { data } = await api.post('/subscriptions/cancel');
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to cancel subscription');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to cancel subscription');
     }
   }
 );

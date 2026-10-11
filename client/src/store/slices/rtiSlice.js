@@ -18,7 +18,7 @@ export const listRTIs = createAsyncThunk(
       const { data } = await api.get('/rti', { params });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to load RTI applications');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to load RTI applications');
     }
   }
 );
@@ -30,7 +30,7 @@ export const getRTIDetail = createAsyncThunk(
       const { data } = await api.get(`/rti/${rtiId}`);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to load RTI');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to load RTI');
     }
   }
 );
@@ -42,7 +42,7 @@ export const aiDraftRTI = createAsyncThunk(
       const { data } = await api.post('/rti/ai-draft', { description, language });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'AI draft failed');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'AI draft failed');
     }
   }
 );
@@ -54,7 +54,7 @@ export const createRTI = createAsyncThunk(
       const { data } = await api.post('/rti', payload);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to create RTI');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to create RTI');
     }
   }
 );
@@ -66,7 +66,7 @@ export const markRTIAsFiled = createAsyncThunk(
       const { data } = await api.patch(`/rti/${rtiId}/file`, { filedDate, referenceNumber, feeMode, feeStatus });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to mark as filed');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to mark as filed');
     }
   }
 );
@@ -78,7 +78,7 @@ export const updateRTIStatus = createAsyncThunk(
       const { data } = await api.patch(`/rti/${rtiId}/status`, payload);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to update status');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to update status');
     }
   }
 );
@@ -90,7 +90,7 @@ export const draftFirstAppeal = createAsyncThunk(
       const { data } = await api.post(`/rti/${rtiId}/draft-first-appeal`);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to draft first appeal');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to draft first appeal');
     }
   }
 );
@@ -102,7 +102,7 @@ export const draftCICAppeal = createAsyncThunk(
       const { data } = await api.post(`/rti/${rtiId}/draft-cic-appeal`);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to draft CIC appeal');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to draft CIC appeal');
     }
   }
 );
@@ -114,7 +114,7 @@ export const deleteRTI = createAsyncThunk(
       await api.delete(`/rti/${rtiId}`);
       return rtiId;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to delete RTI');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to delete RTI');
     }
   }
 );
@@ -126,7 +126,7 @@ export const getMinistries = createAsyncThunk(
       const { data } = await api.get('/rti/ministries', { params: q ? { q } : {} });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to load ministries');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to load ministries');
     }
   }
 );

@@ -14,7 +14,7 @@ export const generateDocument = createAsyncThunk(
       const { data } = await api.post('/documents/generate', { sessionId });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Document generation failed');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Document generation failed');
     }
   }
 );
@@ -26,7 +26,7 @@ export const listDocuments = createAsyncThunk(
       const { data } = await api.get('/documents', { params: { page, limit, category, status } });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to load documents');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to load documents');
     }
   }
 );
@@ -38,7 +38,7 @@ export const getDocument = createAsyncThunk(
       const { data } = await api.get(`/documents/${documentId}`);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to load document');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to load document');
     }
   }
 );
@@ -50,7 +50,7 @@ export const getPDF = createAsyncThunk(
       const { data } = await api.get(`/documents/${documentId}/pdf`);
       return data; // { pdfUrl: '...' } — signed 15-min URL
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to get PDF');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to get PDF');
     }
   }
 );
@@ -80,7 +80,12 @@ export const explainClause = createAsyncThunk(
 
     if (!response.ok) {
       dispatch(clauseExplanationFailed(clauseIndex));
-      return rejectWithValue('Failed to explain clause');
+      let errorMsg = 'Failed to explain clause';
+      try {
+        const errData = await response.json();
+        errorMsg = errData.message || errData.error || errorMsg;
+      } catch (_) {}
+      return rejectWithValue(errorMsg);
     }
 
     const reader = response.body.getReader();
@@ -148,7 +153,7 @@ export const regenerateDocument = createAsyncThunk(
       const { data } = await api.post(`/documents/${documentId}/regenerate`);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Regeneration failed');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Regeneration failed');
     }
   }
 );
@@ -174,7 +179,7 @@ export const deleteDocument = createAsyncThunk(
       await api.delete(`/documents/${documentId}`);
       return documentId;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to delete document');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to delete document');
     }
   }
 );

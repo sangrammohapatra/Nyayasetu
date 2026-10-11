@@ -17,7 +17,7 @@ export const searchLawyers = createAsyncThunk(
       const { data } = await api.get('/lawyers', { params });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to search lawyers');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to search lawyers');
     }
   }
 );
@@ -29,7 +29,7 @@ export const getLawyerProfile = createAsyncThunk(
       const { data } = await api.get(`/lawyers/${lawyerId}`);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to load lawyer');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to load lawyer');
     }
   }
 );
@@ -43,7 +43,7 @@ export const applyAsLawyer = createAsyncThunk(
       });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Application failed');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Application failed');
     }
   }
 );
@@ -55,7 +55,7 @@ export const updateLawyerProfile = createAsyncThunk(
       const { data } = await api.put('/lawyers/profile', updates);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Update failed');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Update failed');
     }
   }
 );
@@ -67,7 +67,7 @@ export const fetchMyClients = createAsyncThunk(
       const { data } = await api.get('/lawyers/me/clients');
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to load clients');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to load clients');
     }
   }
 );
@@ -79,7 +79,7 @@ export const createConsultation = createAsyncThunk(
       const { data } = await api.post('/consultations', payload);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to create consultation');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to create consultation');
     }
   }
 );
@@ -91,7 +91,7 @@ export const fetchConsultations = createAsyncThunk(
       const { data } = await api.get('/consultations', { params });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to load consultations');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to load consultations');
     }
   }
 );
@@ -103,7 +103,7 @@ export const acceptConsultation = createAsyncThunk(
       const { data } = await api.patch(`/consultations/${id}/accept`);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to accept consultation');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to accept consultation');
     }
   }
 );
@@ -115,7 +115,7 @@ export const rejectConsultation = createAsyncThunk(
       const { data } = await api.patch(`/consultations/${id}/reject`, { reason });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to reject consultation');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to reject consultation');
     }
   }
 );
@@ -127,7 +127,7 @@ export const completeConsultation = createAsyncThunk(
       const { data } = await api.patch(`/consultations/${id}/complete`);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to complete consultation');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to complete consultation');
     }
   }
 );
@@ -139,7 +139,7 @@ export const markNoShow = createAsyncThunk(
       const { data } = await api.patch(`/consultations/${id}/no-show`);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to mark no-show');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to mark no-show');
     }
   }
 );
@@ -151,7 +151,7 @@ export const cancelConsultation = createAsyncThunk(
       const { data } = await api.patch(`/consultations/${id}/cancel`, { reason });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to cancel consultation');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to cancel consultation');
     }
   }
 );

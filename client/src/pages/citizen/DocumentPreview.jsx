@@ -918,14 +918,17 @@ function DocumentPreview() {
         const result = await dispatch(getPDF(documentId));
         if (result.payload?.pdfUrl) {
           window.open(result.payload.pdfUrl, '_blank');
-        } else if (result.error || result.payload?.error) {
-          // PDF locked (free-tier doc that isn't always-free) — send to pricing
-          const errCode = result.payload?.error || result.payload?.code;
-          if (errCode === 'PDF_LOCKED' || result.meta?.requestStatus === 'rejected') {
+        } else if (result.meta?.requestStatus === 'rejected') {
+          const raw = result.payload;
+          const code = typeof raw === 'object' && raw ? (raw.error || raw.code) : raw;
+          const message = typeof raw === 'string'
+            ? raw
+            : (raw?.message || 'Could not download PDF. Please try again.');
+          if (code === 'PDF_LOCKED') {
             setSnack({ open: true, msg: 'PDF download requires a paid plan. Redirecting to pricing…', severity: 'info' });
             setTimeout(() => navigate('/citizen/pricing'), 1500);
           } else {
-            setSnack({ open: true, msg: result.payload?.message || 'Could not download PDF. Please try again.', severity: 'error' });
+            setSnack({ open: true, msg: message, severity: 'error' });
           }
         }
       } else {

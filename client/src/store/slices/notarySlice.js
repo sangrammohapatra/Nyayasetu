@@ -8,7 +8,7 @@ export const searchNotaries = createAsyncThunk(
       const { data } = await api.get('/notaries', { params });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to search notaries');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to search notaries');
     }
   }
 );
@@ -20,7 +20,7 @@ export const getNotaryProfile = createAsyncThunk(
       const { data } = await api.get(`/notaries/${notaryId}`);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to load notary');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to load notary');
     }
   }
 );
@@ -32,7 +32,7 @@ export const createNotarizationRequest = createAsyncThunk(
       const { data } = await api.post('/notarizations', payload);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to create request');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to create request');
     }
   }
 );
@@ -44,7 +44,7 @@ export const verifyNotarizationPayment = createAsyncThunk(
       const { data } = await api.post('/notarizations/verify-payment', payload);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Payment verification failed');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Payment verification failed');
     }
   }
 );
@@ -57,7 +57,7 @@ export const fetchNotarizationRequests = createAsyncThunk(
       const { data } = await api.get('/notarizations', { params: queryParams });
       return { ...data, append: !!append };
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to load requests');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to load requests');
     }
   }
 );
@@ -69,7 +69,7 @@ export const acceptNotarizationRequest = createAsyncThunk(
       const { data } = await api.patch(`/notarizations/${id}/accept`);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to accept request');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to accept request');
     }
   }
 );
@@ -81,7 +81,7 @@ export const scheduleKYC = createAsyncThunk(
       const { data } = await api.patch(`/notarizations/${id}/schedule-kyc`, { scheduledAt });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to schedule KYC');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to schedule KYC');
     }
   }
 );
@@ -93,7 +93,7 @@ export const completeKYC = createAsyncThunk(
       const { data } = await api.patch(`/notarizations/${id}/complete-kyc`);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to complete KYC');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to complete KYC');
     }
   }
 );
@@ -105,7 +105,7 @@ export const stampDocument = createAsyncThunk(
       const { data } = await api.patch(`/notarizations/${id}/stamp`);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to stamp document');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to stamp document');
     }
   }
 );
@@ -117,7 +117,7 @@ export const rejectNotarizationRequest = createAsyncThunk(
       const { data } = await api.patch(`/notarizations/${id}/reject`, { reason });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to reject request');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to reject request');
     }
   }
 );
@@ -129,7 +129,7 @@ export const markDispatched = createAsyncThunk(
       const { data } = await api.patch(`/notarizations/${id}/dispatch`, { courierTrackingId });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to mark dispatched');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to mark dispatched');
     }
   }
 );
@@ -141,7 +141,7 @@ export const getDocumentNotarizationStatus = createAsyncThunk(
       const { data } = await api.get(`/notarizations/document/${documentId}`);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to load status');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to load status');
     }
   }
 );

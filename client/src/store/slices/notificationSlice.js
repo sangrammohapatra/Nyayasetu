@@ -12,7 +12,7 @@ export const fetchNotifications = createAsyncThunk(
       const { data } = await api.get('/notifications', { params: { page, limit, ...(unread ? { unread: 'true' } : {}) } });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to load notifications');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to load notifications');
     }
   }
 );
@@ -24,7 +24,7 @@ export const markNotificationRead = createAsyncThunk(
       const { data } = await api.patch(`/notifications/${notificationId}/read`);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to mark read');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to mark read');
     }
   }
 );
@@ -36,7 +36,7 @@ export const markAllNotificationsRead = createAsyncThunk(
       const { data } = await api.post('/notifications/read-all');
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to mark all read');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to mark all read');
     }
   }
 );

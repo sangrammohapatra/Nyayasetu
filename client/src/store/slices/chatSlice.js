@@ -19,7 +19,7 @@ export const createSession = createAsyncThunk(
       const { data } = await api.post('/chat/sessions', { templateSlug, language });
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to create session');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to create session');
     }
   }
 );
@@ -31,7 +31,7 @@ export const loadSession = createAsyncThunk(
       const { data } = await api.get(`/chat/sessions/${sessionId}`);
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to load session');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to load session');
     }
   }
 );
@@ -43,7 +43,7 @@ export const listSessions = createAsyncThunk(
       const { data } = await api.get('/chat/sessions');
       return data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to list sessions');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to list sessions');
     }
   }
 );
@@ -55,7 +55,7 @@ export const abandonSession = createAsyncThunk(
       await api.post(`/chat/sessions/${sessionId}/abandon`);
       return sessionId;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || 'Failed to abandon session');
+      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to abandon session');
     }
   }
 );
@@ -95,7 +95,7 @@ export const sendMessage = createAsyncThunk(
       let errorMsg = 'Failed to send message';
       try {
         const errData = await response.json();
-        errorMsg = errData.error || errorMsg;
+        errorMsg = errData.message || errData.error || errorMsg;
       } catch (_) {}
       return rejectWithValue(errorMsg);
     }
