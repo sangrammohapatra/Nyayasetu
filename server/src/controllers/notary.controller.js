@@ -15,6 +15,7 @@ const AuditLog = require('../models/AuditLog.model');
 const { signTokenPair } = require('../utils/token');
 const { PERSONAS, NOTARIZATION_FEE } = require('../config/constants');
 const { documentUrl, notaryRequestUrl } = require('../utils/clientRoutes');
+const { parseIstScheduledAt, availabilityWindowError } = require('../services/lawyerAvailability');
 
 // ─── Multer (certificate upload) ─────────────────────────────────────────────
 const upload = multer({
@@ -576,19 +577,49 @@ exports.acceptRequest = async (req, res) => {
 
 exports.scheduleKYC = async (req, res) => {
   try {
-    const { scheduledAt } = req.body;
+    const scheduledDate = parseIstScheduledAt(req.body?.scheduledAt);
+    if (!scheduledDate || scheduledDate < new Date()) {
+      return res.status(400).json({
+        error: 'INVALID_SCHEDULE',
+        message: 'scheduledAt must be a valid future date',
+      });
+    }
 
-    // Create a video room via the existing videoProvider
+    const profile = await NotaryProfile.findOne({ user: req.user.userId })
+      .select('availability')
+      .lean();
+    if (!profile) {
+      return res.status(404).json({ error: 'NOT_FOUND', message: 'Notary profile not found' });
+    }
+
+    const windowError = availabilityWindowError(profile, scheduledDate);
+    if (windowError) return res.status(409).json(windowError);
+
+    const payable = await NotarizationRequest.findOne({
+      _id: req.params.id,
+      notary: req.user.userId,
+      status: 'accepted',
+      'payment.status': 'paid',
+    }).select('_id').lean();
+    if (!payable) {
+      return res.status(404).json({
+        error: 'NOT_FOUND',
+        message: 'Request not found or citizen payment not yet received',
+      });
+    }
+
+    // Create a video room only after the time is valid, so a bad request
+    // does not open a session.
     const room = await videoProvider.createRoom({
       name: `notary-kyc-${req.params.id}`,
-      expiresAt: new Date(scheduledAt).getTime() / 1000 + 3600,
+      expiresAt: Math.floor(scheduledDate.getTime() / 1000) + 3600,
     });
 
     const request = await NotarizationRequest.findOneAndUpdate(
       { _id: req.params.id, notary: req.user.userId, status: 'accepted', 'payment.status': 'paid' },
       {
         status: 'kyc_scheduled',
-        scheduledAt: new Date(scheduledAt),
+        scheduledAt: scheduledDate,
         videoLink: room.url,
       },
       { new: true }
@@ -602,8 +633,8 @@ exports.scheduleKYC = async (req, res) => {
         userId: request.citizen,
         type: 'notarization_kyc_scheduled',
         title: 'Video KYC scheduled',
-        body: `Your notarization Video KYC is scheduled for ${new Date(scheduledAt).toLocaleString('en-IN')}. Join the link at the scheduled time.`,
-        data: { notarizationRequestId: request._id, videoLink: room.url, scheduledAt },
+        body: `Your notarization Video KYC is scheduled for ${scheduledDate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST. Join the link at the scheduled time.`,
+        data: { notarizationRequestId: request._id, videoLink: room.url, scheduledAt: scheduledDate },
         actionUrl: documentUrl(request.document),
         priority: 'high',
         io: req.app.get('io'),
@@ -611,7 +642,7 @@ exports.scheduleKYC = async (req, res) => {
     } catch (_) {}
 
     await AuditLog.log(req, 'notarization.kyc.scheduled', 'NotarizationRequest', request._id, {
-      scheduledAt,
+      scheduledAt: scheduledDate,
       videoLink: room.url,
     });
 

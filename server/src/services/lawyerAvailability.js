@@ -26,4 +26,68 @@ function resolveAvailability(profile) {
   return defaultAvailability();
 }
 
-module.exports = { DAY_NAMES, defaultAvailability, resolveAvailability };
+/**
+ * A zone-less datetime (the value from <input type="datetime-local">) is IST.
+ * Strings that already carry Z or an offset are left as that instant.
+ * Returns null for missing or unparseable values.
+ */
+function parseIstScheduledAt(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const raw = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(raw)) return null;
+  const zoned = /(?:Z|[+-]\d{2}:?\d{2})$/.test(raw);
+  const normalized = zoned ? raw : `${raw.length === 16 ? `${raw}:00` : raw}+05:30`;
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function istWallClock(date) {
+  const ist = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  return {
+    dayOfWeek: ist.getDay(),
+    minutes: ist.getHours() * 60 + ist.getMinutes(),
+  };
+}
+
+/**
+ * Same window rule as consultation booking: active day, start inclusive, end exclusive.
+ * `labels.role` is "You" for a notary scheduling their own session, "Lawyer" for a citizen booking.
+ */
+function availabilityWindowError(profile, scheduledDate, labels = {}) {
+  const unavailable = labels.unavailable || 'NOTARY_UNAVAILABLE';
+  const who = labels.who || 'You are';
+  const hoursLabel = labels.hoursLabel || 'your working hours';
+  const { dayOfWeek, minutes } = istWallClock(scheduledDate);
+  const dayRules = resolveAvailability(profile).filter(
+    (rule) => rule.dayOfWeek === dayOfWeek && rule.isActive !== false && rule.startTime && rule.endTime
+  );
+  if (!dayRules.length) {
+    return {
+      error: unavailable,
+      message: `${who} not available on ${DAY_NAMES[dayOfWeek]}. Choose another day.`,
+    };
+  }
+  const fits = dayRules.some((rule) => {
+    const [sH, sM] = rule.startTime.split(':').map(Number);
+    const [eH, eM] = rule.endTime.split(':').map(Number);
+    if ([sH, sM, eH, eM].some((n) => Number.isNaN(n))) return false;
+    return minutes >= sH * 60 + sM && minutes < eH * 60 + eM;
+  });
+  if (!fits) {
+    const hours = dayRules.map((rule) => `${rule.startTime}–${rule.endTime}`).join(', ');
+    return {
+      error: 'OUTSIDE_HOURS',
+      message: `That time is outside ${hoursLabel} (${hours} IST).`,
+    };
+  }
+  return null;
+}
+
+module.exports = {
+  DAY_NAMES,
+  defaultAvailability,
+  resolveAvailability,
+  parseIstScheduledAt,
+  istWallClock,
+  availabilityWindowError,
+};

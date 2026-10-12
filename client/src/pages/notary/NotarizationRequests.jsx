@@ -87,20 +87,42 @@ function RejectDialog({ open, onClose, onConfirm, loading }) {
   );
 }
 
-function ScheduleDialog({ open, onClose, onConfirm, loading }) {
+function istDatetimeLocal(date = new Date()) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(date).map((part) => [part.type, part.value])
+  );
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
+
+function asIstInstant(localValue) {
+  if (!localValue || /(?:Z|[+-]\d{2}:?\d{2})$/.test(localValue)) return localValue;
+  return `${localValue.length === 16 ? `${localValue}:00` : localValue}+05:30`;
+}
+
+function ScheduleDialog({ open, onClose, onConfirm, loading, error }) {
   const [dt, setDt] = useState('');
   return (
     <Dialog open={open} onClose={onClose} PaperProps={{ sx: { borderRadius: `${RADIUS.xl}px`, background: 'var(--color-surface)' } }}>
       <DialogTitle sx={{ fontFamily: TYPOGRAPHY.fontFamily.display, fontWeight: 700 }}>Schedule Video KYC</DialogTitle>
       <DialogContent>
         <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', display: 'block', mb: 2 }}>
-          Pick a date & time for the Video KYC session. A secure video link will be auto-generated and sent to the citizen.
+          Pick a future date and time inside your weekly hours (IST). A secure video link will be sent to the citizen.
         </Typography>
         <TextField
-          fullWidth type="datetime-local" label="Session Date & Time"
+          fullWidth type="datetime-local" label="Session Date & Time (IST)"
           value={dt} onChange={(e) => setDt(e.target.value)}
           InputLabelProps={{ shrink: true }}
-          inputProps={{ min: new Date().toISOString().slice(0, 16) }}
+          inputProps={{ min: istDatetimeLocal() }}
+          error={!!error}
+          helperText={error || ' '}
           sx={{ '& .MuiOutlinedInput-root': { borderRadius: `${RADIUS.md}px` } }}
         />
       </DialogContent>
@@ -309,6 +331,7 @@ export default function NotarizationRequests() {
   const [actionLoading, setActionLoading] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null);
   const [scheduleTarget, setScheduleTarget] = useState(null);
+  const [scheduleError, setScheduleError] = useState('');
   const [dispatchTarget, setDispatchTarget] = useState(null);
   const focusRequestId = useNotificationFocus('request', !loading && tab === TABS.length - 1, requests.length);
 
@@ -324,7 +347,7 @@ export default function NotarizationRequests() {
 
   const handleAction = async (type, id) => {
     if (type === 'reject') { setRejectTarget(id); return; }
-    if (type === 'schedule') { setScheduleTarget(id); return; }
+    if (type === 'schedule') { setScheduleError(''); setScheduleTarget(id); return; }
     if (type === 'dispatch') { setDispatchTarget(id); return; }
 
     setActionLoading(id);
@@ -342,10 +365,19 @@ export default function NotarizationRequests() {
   };
 
   const handleSchedule = async (scheduledAt) => {
+    setScheduleError('');
     setActionLoading(scheduleTarget);
-    await dispatch(scheduleKYC({ id: scheduleTarget, scheduledAt }));
-    setScheduleTarget(null);
+    const result = await dispatch(scheduleKYC({
+      id: scheduleTarget,
+      scheduledAt: asIstInstant(scheduledAt),
+    }));
     setActionLoading(null);
+    if (scheduleKYC.fulfilled.match(result)) {
+      setScheduleTarget(null);
+      setScheduleError('');
+    } else {
+      setScheduleError(typeof result.payload === 'string' ? result.payload : 'Could not schedule this session.');
+    }
   };
 
   const handleDispatch = async (courierTrackingId) => {
@@ -441,9 +473,10 @@ export default function NotarizationRequests() {
       />
       <ScheduleDialog
         open={!!scheduleTarget}
-        onClose={() => setScheduleTarget(null)}
+        onClose={() => { setScheduleTarget(null); setScheduleError(''); }}
         onConfirm={handleSchedule}
         loading={!!actionLoading}
+        error={scheduleError}
       />
       <DispatchDialog
         open={!!dispatchTarget}
