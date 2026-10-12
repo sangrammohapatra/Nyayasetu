@@ -196,11 +196,14 @@ const createConsultation = asyncHandler(async (req, res) => {
     });
   }
 
-  // 2. Check for an overlapping booking (same lawyer, overlapping time range, active statuses)
+  // 2. Check for an overlapping booking (same lawyer, overlapping time range, active statuses).
+  // lawyerId is the LawyerProfile id. Saved bookings store the lawyer's User id,
+  // which is also what the unique { lawyer, scheduledAt } index is keyed on.
+  const lawyerUserId = lawyerProfile.user?._id || lawyerProfile.user;
   const slotDuration = 30; // minutes
   const slotEnd = new Date(scheduledDate.getTime() + slotDuration * 60 * 1000);
   const overlap = await Consultation.findOne({
-    lawyer: lawyerId,
+    lawyer: lawyerUserId,
     status: { $in: ['requested', 'accepted'] },
     scheduledAt: { $lt: slotEnd },
     $expr: {
@@ -267,7 +270,7 @@ const createConsultation = asyncHandler(async (req, res) => {
   try {
     consultation = await Consultation.create({
       citizen: citizenUserId,
-      lawyer: lawyerProfile.user._id,
+      lawyer: lawyerUserId,
       lawyerProfile: lawyerId,
       mode,
       scheduledAt: scheduledDate,
@@ -305,7 +308,7 @@ const createConsultation = asyncHandler(async (req, res) => {
   // In-app notification for lawyer
   try {
     await Notification.createForUser({
-      userId: lawyerProfile.user._id,
+      userId: lawyerUserId,
       type: 'consultation_requested',
       title: 'New consultation request',
       body: `A citizen has requested a ${mode} consultation on ${scheduledDate.toLocaleDateString('en-IN')}`,

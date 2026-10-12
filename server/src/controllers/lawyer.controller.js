@@ -597,7 +597,7 @@ const getAvailableSlots = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'INVALID_ID', message: 'Invalid lawyer id' });
   }
 
-  const profile = await LawyerProfile.findById(id).select('availability isAcceptingClients').lean();
+  const profile = await LawyerProfile.findById(id).select('user availability isAcceptingClients').lean();
   if (!profile) return res.status(404).json({ error: 'LAWYER_NOT_FOUND', message: 'Lawyer not found' });
 
   if (!profile.isAcceptingClients) {
@@ -642,8 +642,10 @@ const getAvailableSlots = asyncHandler(async (req, res) => {
   const dayStartIST = new Date(`${date}T00:00:00+05:30`);
   const dayEndIST   = new Date(`${date}T23:59:59+05:30`);
 
+  // Consultation.lawyer is the lawyer's User id. `id` here is the LawyerProfile id,
+  // so querying it never sees saved bookings and the picker keeps offering them.
   const existingBookings = await Consultation.find({
-    lawyer: id,
+    lawyer: profile.user,
     scheduledAt: { $gte: dayStartIST, $lte: dayEndIST },
     status: { $in: ['requested', 'accepted'] },
   }).select('scheduledAt durationMinutes').lean();
