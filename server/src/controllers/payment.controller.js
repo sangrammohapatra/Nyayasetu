@@ -32,6 +32,7 @@ const AuditLog = require('../models/AuditLog.model');
 const { signTokenPair } = require('../utils/token');
 const { FREE_TIER_LIMITS } = require('../config/constants');
 const { documentUrl, notaryRequestUrl } = require('../utils/clientRoutes');
+const { creditNotaryPendingEarnings } = require('./notary.controller');
 
 /* ---------------------------------------------------------------------------
  * Constants
@@ -859,16 +860,30 @@ async function handlePaymentCaptured(payload, io = null) {
 
   // If no Payment record matched, check whether this is a notarization payment.
   // Notarization orders are tracked on NotarizationRequest.payment, not a Payment doc.
+  // Claim pending -> paid in the same transaction as the pendingEarnings credit.
+  // Client verify does that credit; if this webhook wins and skips it, stamp
+  // later subtracts from zero and the notary balance goes negative.
+  // A retry is safe: the status guard means a second delivery does not credit again.
   if (!foundPaymentRecord) {
-    const notarizationReq = await NotarizationRequest.findOneAndUpdate(
-      { 'payment.razorpayOrderId': razorpayOrderId, 'payment.status': { $ne: 'paid' } },
-      {
-        'payment.status': 'paid',
-        'payment.razorpayPaymentId': razorpayPaymentId,
-        'payment.paidAt': new Date(),
-      },
-      { new: true }
-    );
+    let notarizationReq = null;
+    const notarizationSession = await mongoose.startSession();
+    try {
+      await notarizationSession.withTransaction(async () => {
+        notarizationReq = await NotarizationRequest.findOneAndUpdate(
+          { 'payment.razorpayOrderId': razorpayOrderId, 'payment.status': 'pending' },
+          {
+            'payment.status': 'paid',
+            'payment.razorpayPaymentId': razorpayPaymentId,
+            'payment.paidAt': new Date(),
+          },
+          { new: true, session: notarizationSession }
+        );
+        if (!notarizationReq) return;
+        await creditNotaryPendingEarnings(notarizationReq.notaryProfile, notarizationSession);
+      });
+    } finally {
+      await notarizationSession.endSession();
+    }
 
     if (notarizationReq) {
       logger.info('[payment.controller] webhook: notarization payment captured', {

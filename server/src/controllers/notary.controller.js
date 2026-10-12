@@ -44,6 +44,22 @@ function computeNotaryEarnings(commissionPercent) {
   return Math.round(NOTARIZATION_FEE * (1 - (commissionPercent / 100)));
 }
 
+// Called from client verify and the Razorpay webhook. Both claim the
+// pending -> paid transition, and only the winner may credit. Stamp later
+// subtracts this same amount.
+async function creditNotaryPendingEarnings(notaryProfileId, session) {
+  if (!notaryProfileId) return;
+  let query = NotaryProfile.findById(notaryProfileId, 'platformCommissionPercent');
+  if (session) query = query.session(session);
+  const notaryProfile = await query;
+  if (!notaryProfile) return;
+  await NotaryProfile.findByIdAndUpdate(notaryProfile._id, {
+    $inc: { pendingEarnings: computeNotaryEarnings(notaryProfile.platformCommissionPercent) },
+  }, session ? { session } : undefined);
+}
+
+exports.creditNotaryPendingEarnings = creditNotaryPendingEarnings;
+
 // ─── Public: Search Notaries ──────────────────────────────────────────────────
 
 exports.searchNotaries = async (req, res) => {
@@ -388,14 +404,7 @@ exports.verifyNotarizationPayment = async (req, res) => {
 
     // Credit as pending earnings now that payment is confirmed, so admins/notaries
     // have visibility into committed money even if the request later stalls before stamping.
-    if (notarizationReq.notaryProfile) {
-      const notaryProfile = await NotaryProfile.findById(notarizationReq.notaryProfile, 'platformCommissionPercent');
-      if (notaryProfile) {
-        await NotaryProfile.findByIdAndUpdate(notaryProfile._id, {
-          $inc: { pendingEarnings: computeNotaryEarnings(notaryProfile.platformCommissionPercent) },
-        });
-      }
-    }
+    await creditNotaryPendingEarnings(notarizationReq.notaryProfile);
 
     // Notify notary that payment has been received
     try {
