@@ -50,9 +50,9 @@ function computeCommission(feeInPaise, referralFeePercent = 10) {
   return { platformEarnings, lawyerEarnings };
 }
 
-// Shared by completeConsultation and markNoShow — both credit the lawyer for
-// the full fee (the lawyer held the slot; only the citizen's own cancellation
-// path is refund-eligible).
+// Credits a captured fee to the lawyer: a completed session, a citizen no-show,
+// or a citizen cancellation inside the 24-hour window. A cancellation with at
+// least 24 hours' notice is refunded instead and must not call this.
 async function creditLawyerEarnings(lawyerProfile, payment, feeInPaise) {
   const referralFeePercent = lawyerProfile.referralFeePercent || 10;
   const { platformEarnings, lawyerEarnings } = computeCommission(feeInPaise, referralFeePercent);
@@ -510,8 +510,9 @@ const rejectConsultation = asyncHandler(async (req, res) => {
 /* ---------------------------------------------------------------------------
  * cancelConsultation
  * PATCH /v1/consultations/:id/cancel
- * Citizen self-service cancellation. Full refund only if cancelled >=24h
- * before the scheduled time; no refund inside that window.
+ * Citizen self-service cancellation. Full refund if cancelled >=24h before
+ * the scheduled time. Inside that window the citizen forfeits the fee and
+ * the lawyer is credited, so the payment does not stay paid with zero earnings.
  * ------------------------------------------------------------------------ */
 const CANCELLATION_REFUND_WINDOW_HOURS = 24;
 
@@ -535,9 +536,9 @@ const cancelConsultation = asyncHandler(async (req, res) => {
   const hoursUntilScheduled = (existing.scheduledAt.getTime() - Date.now()) / (1000 * 60 * 60);
   const eligibleForRefund = hoursUntilScheduled >= CANCELLATION_REFUND_WINDOW_HOURS;
 
-  // Atomic claim BEFORE the refund attempt — prevents a concurrent duplicate
-  // cancel from both passing the status check and both triggering a refund.
-  // If the refund below fails, we revert this claim so the citizen can retry.
+  // Atomic claim BEFORE the refund or credit — prevents a concurrent duplicate
+  // cancel from both passing the status check and both moving the fee.
+  // If that movement fails, we revert this claim so the citizen can retry.
   const consultation = await Consultation.findOneAndUpdate(
     { _id: id, citizen: citizenUserId, status: existing.status },
     { $set: { status: 'cancelled', cancelledBy: 'citizen', ...(reason ? { cancellationReason: reason } : {}) } },
@@ -547,8 +548,15 @@ const cancelConsultation = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Cannot cancel — consultation status changed concurrently' });
   }
 
+  const revertCancelClaim = () => Consultation.findOneAndUpdate(
+    { _id: id, status: 'cancelled' },
+    { $set: { status: existing.status }, $unset: { cancelledBy: '', cancellationReason: '' } }
+  );
+
   const payment = await Payment.findById(consultation.payment);
   let refundInitiated = false;
+  let lawyerCredited = false;
+
   if (eligibleForRefund && payment && payment.status === 'paid' && payment.razorpayPaymentId) {
     try {
       await getRazorpay().payments.refund(payment.razorpayPaymentId, {
@@ -564,13 +572,35 @@ const cancelConsultation = asyncHandler(async (req, res) => {
         paymentId: payment.razorpayPaymentId,
         error: err.message,
       });
-      // Revert the claim so the citizen isn't left paid-and-cancelled with no
-      // automatic retry path, and can retry the cancellation later.
-      await Consultation.findOneAndUpdate(
-        { _id: id, status: 'cancelled' },
-        { $set: { status: existing.status }, $unset: { cancelledBy: '', cancellationReason: '' } }
-      );
+      await revertCancelClaim();
       return res.status(502).json({ error: 'Refund initiation failed — please try again' });
+    }
+  } else if (!eligibleForRefund && payment && payment.status === 'paid' && !(payment.lawyerEarnings > 0)) {
+    // The slot was already held. Leaving lawyerEarnings at 0 keeps the row
+    // looking like a pending payout on the lawyer's Earnings page.
+    const lawyerProfile = await LawyerProfile.findOne({ user: consultation.lawyer });
+    if (!lawyerProfile) {
+      logger.error('[consultation.controller] Late-cancel credit skipped — lawyer profile missing', {
+        consultationId: consultation._id,
+      });
+      await revertCancelClaim();
+      return res.status(500).json({ error: 'Could not credit the lawyer — please try again' });
+    }
+    try {
+      await creditLawyerEarnings(lawyerProfile, payment, consultation.fee);
+      lawyerCredited = true;
+    } catch (err) {
+      logger.error('[consultation.controller] Late-cancel credit failed', {
+        consultationId: consultation._id,
+        error: err.message,
+      });
+      const fresh = await Payment.findById(payment._id).select('lawyerEarnings').lean();
+      if (fresh && fresh.lawyerEarnings > 0) {
+        lawyerCredited = true;
+      } else {
+        await revertCancelClaim();
+        return res.status(502).json({ error: 'Could not credit the lawyer — please try again' });
+      }
     }
   }
 
@@ -578,24 +608,28 @@ const cancelConsultation = asyncHandler(async (req, res) => {
     reason,
     refundInitiated,
     eligibleForRefund,
+    lawyerCredited,
   });
 
   const lawyerUser = await User.findById(consultation.lawyer).select('name email phone whatsappOptIn whatsappNumber').lean();
   await notifyLawyer(lawyerUser, consultation, 'cancelled');
 
+  const scheduledLabel = new Date(consultation.scheduledAt).toLocaleDateString('en-IN');
   try {
     await Notification.createForUser({
       userId: consultation.lawyer,
       type: 'consultation_cancelled',
       title: 'Consultation cancelled',
-      body: `The citizen cancelled their ${consultation.mode} consultation scheduled for ${new Date(consultation.scheduledAt).toLocaleDateString('en-IN')}.`,
+      body: lawyerCredited
+        ? `The citizen cancelled their ${consultation.mode} consultation scheduled for ${scheduledLabel} inside the 24-hour window. The fee has been added to your earnings.`
+        : `The citizen cancelled their ${consultation.mode} consultation scheduled for ${scheduledLabel}.`,
       data: { consultationId: consultation._id },
       actionUrl: consultationUrl('lawyer', consultation._id),
       io: req.app.get('io'),
     });
   } catch (_) {}
 
-  return res.json({ consultation, refundInitiated, eligibleForRefund });
+  return res.json({ consultation, refundInitiated, eligibleForRefund, lawyerCredited });
 });
 
 /* ---------------------------------------------------------------------------
