@@ -34,7 +34,7 @@ async function checkHearingDates(job, alertQueue) {
     nextHearingDate: { $gte: now, $lte: sevenDaysOut },
     caseStatus:      'pending',
   })
-    .populate('user', 'name email phone whatsappNumber whatsappOptIn preferredLanguage')
+    .populate('user', 'name email phone whatsappNumber whatsappOptIn preferredLanguage persona')
     .lean();
 
   logger.info(`[checkHearingDates] Found ${cases.length} cases with upcoming hearings in 7-day window`);
@@ -114,6 +114,7 @@ async function checkHearingDates(job, alertQueue) {
           whatsappOptIn:  caseDoc.user?.whatsappOptIn,
           userName:       caseDoc.user?.name,
           language:       caseDoc.user?.preferredLanguage || 'en',
+          persona:        (caseDoc.user?.persona || 'citizen').toLowerCase(),
           daysUntil:      daysUntilHearing,
         },
         {

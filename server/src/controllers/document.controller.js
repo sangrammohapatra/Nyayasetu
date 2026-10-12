@@ -9,6 +9,7 @@ const LawyerProfile    = require('../models/LawyerProfile.model');
 const CaseTracker      = require('../models/CaseTracker.model');
 const AuditLog         = require('../models/AuditLog.model');
 const Notification     = require('../models/Notification.model');
+const { documentUrl }  = require('../utils/clientRoutes');
 const { getSignedPdfUrl } = require('../services/storage/storageProvider');
 const { getRedisClient } = require('../config/redis');
 const { explainClause }   = require('../services/ai/clauseExplainer');
@@ -1030,7 +1031,7 @@ const signWebhook = asyncHandler(async (req, res) => {
       title:     'Document Signed!',
       body:      `Your document "${document.title}" has been digitally signed via Aadhaar eSign.`,
       data:      { documentId: document._id },
-      actionUrl: `/documents/${document._id}`,
+      actionUrl: documentUrl(document._id),
       io:        req.app.get('io'),
     });
   } catch (_) {}

@@ -10,6 +10,7 @@
  */
 
 const logger = require('../../utils/logger');
+const { caseUrl } = require('../../utils/clientRoutes');
 
 /**
  * Main processor.
@@ -30,6 +31,7 @@ async function sendHearingAlert(job) {
     whatsappOptIn,
     userName,
     language = 'en',
+    persona = 'citizen',
     daysUntil,
   } = job.data;
 
@@ -57,6 +59,9 @@ async function sendHearingAlert(job) {
   const shortMessage =
     `🏛️ Hearing Reminder: Your case "${caseTitle || cnrNumber}" has a hearing ${daysText} (${dateFormatted}) at ${court || 'the court'}. Prepared by NyayaSetu.`;
 
+  const casePath = caseUrl(persona, caseId);
+  const clientBase = process.env.CLIENT_URL || 'https://nyayasetu.in';
+
   const whatsappMessage =
     `🏛️ *NyayaSetu Hearing Reminder*\n\n` +
     `📋 *Case:* ${caseTitle || cnrNumber}\n` +
@@ -64,7 +69,7 @@ async function sendHearingAlert(job) {
     `🏛️ *Court:* ${court || 'As per notice'}\n` +
     `🔖 *CNR:* ${cnrNumber}\n\n` +
     `Please ensure all required documents are ready and arrive on time.\n\n` +
-    `View case: ${process.env.CLIENT_URL || 'https://nyayasetu.in'}/cases/${caseId}\n\n` +
+    `View case: ${clientBase}${casePath}\n\n` +
     `_To stop these reminders, update your alert settings on NyayaSetu._`;
 
   const results = { web: null, whatsapp: null, email: null };
@@ -87,7 +92,7 @@ async function sendHearingAlert(job) {
         nextHearingDate,
         daysUntil,
       },
-      actionUrl: `/cases/${caseId}`,
+      actionUrl: casePath,
       channel:   'web',
       priority:  daysUntil <= 1 ? 'urgent' : 'high',
     });
@@ -136,7 +141,7 @@ async function sendHearingAlert(job) {
         hearingDate: nextHearingDate,
         court:       court,
         cnrNumber,
-        documentUrl: `${process.env.CLIENT_URL || 'https://nyayasetu.in'}/cases/${caseId}`,
+        documentUrl: `${clientBase}${casePath}`,
       });
 
       results.email = 'sent';

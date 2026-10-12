@@ -9,7 +9,7 @@
  * - Scroll elevation: useScroll bumps opacity/shadow past 8px (enableScrollReveal)
  * - Blur: backdropFilter only when enableBlur flag is on
  *
- * All logic (notifications, auth, routing, Redux) is unchanged.
+ * Notification rows open the matching in-app route, rewriting legacy actionUrl values.
  */
 
 import React, { useState, useCallback, useEffect, useMemo } from "react";
@@ -61,6 +61,7 @@ import {
 import { toggleSidebar } from "../../store/slices/uiSlice";
 import { RADIUS, SHADOWS } from "../../theme/tokens";
 import { useFeatureFlag } from "../../utils/featureFlags";
+import { destinationForNotification } from "../../utils/notificationRoutes";
 import GradientHeading from "../ui/GradientHeading";
 import LanguageSelector from "../ui/LanguageSelector";
 import ThemeSwitcher from "./ThemeSwitcher";
@@ -124,6 +125,7 @@ function NotificationPopover({ anchorEl, onClose }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const persona = useSelector(selectUserPersona);
   const notifications = useSelector(selectNotifications);
   const unread = useSelector(selectUnreadTotal);
   const [loading, setLoading] = useState(false);
@@ -143,10 +145,11 @@ function NotificationPopover({ anchorEl, onClose }) {
 
   const handleOpen = (n) => {
     if (!n.isRead) handleRead(n._id);
-    if (typeof n.actionUrl === 'string' && n.actionUrl.startsWith('/') && !n.actionUrl.startsWith('//')) {
-      navigate(n.actionUrl);
+    destinationForNotification(n.actionUrl, persona).then((path) => {
+      if (!path) return;
+      navigate(path);
       onClose();
-    }
+    });
   };
 
   return (

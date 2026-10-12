@@ -215,12 +215,14 @@ module.exports = async function processGenerateDocument(job) {
       }
 
       // Notify user of failure
+      const { chatUrl } = require('../../utils/clientRoutes');
+      const templateSlug = session?.template?.slug || session?.templateSlug;
       await Notification.createForUser({
         userId,
         type:      'document_ready',
         title:     'Document Generation Failed',
         body:      'We could not generate your document. Please try again from the chat.',
-        actionUrl: `/chat/${sessionId}`,
+        actionUrl: templateSlug ? chatUrl(templateSlug) : `/chat/${sessionId}`,
         channel:   'web',
         priority:  'high',
       });
@@ -273,6 +275,9 @@ async function sendCompletionNotifications({ user, document, template }) {
   try {
     const Notification = require('../../models/Notification.model');
 
+    const { documentUrl } = require('../../utils/clientRoutes');
+    const docPath = documentUrl(document._id);
+
     // Always send in-app web notification
     await Notification.createForUser({
       userId:    user._id || document.user,
@@ -280,7 +285,7 @@ async function sendCompletionNotifications({ user, document, template }) {
       title:     'Your Document is Ready!',
       body:      `Your ${template.name} has been generated successfully. Tap to view.`,
       data:      { documentId: document._id, templateName: template.name },
-      actionUrl: `/documents/${document._id}`,
+      actionUrl: docPath,
       channel:   'web',
       priority:  'high',
     });
@@ -289,7 +294,7 @@ async function sendCompletionNotifications({ user, document, template }) {
     if (user.whatsappOptIn && user.whatsappNumber) {
       try {
         const { sendSMS } = require('../../services/notification/smsService');
-        const message = `✅ NyayaSetu: Your ${template.name} is ready! View it here: ${process.env.CLIENT_URL}/documents/${document._id}`;
+        const message = `✅ NyayaSetu: Your ${template.name} is ready! View it here: ${process.env.CLIENT_URL}${docPath}`;
         await sendSMS(user.whatsappNumber, message);
       } catch (smsErr) {
         logger.warn('[job/generateDocument] WhatsApp notification failed:', { error: smsErr.message });

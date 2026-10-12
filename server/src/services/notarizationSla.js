@@ -14,6 +14,7 @@ const NotarizationRequest = require('../models/NotarizationRequest.model');
 const Notification = require('../models/Notification.model');
 const razorpayService = require('./payment/razorpayService');
 const logger = require('../utils/logger');
+const { documentUrl, notaryRequestUrl } = require('../utils/clientRoutes');
 
 const HOUR = 60 * 60 * 1000;
 
@@ -25,7 +26,7 @@ async function expireStalePending(io) {
   const expired = await NotarizationRequest.find({
     status: 'pending',
     createdAt: { $lt: cutoff },
-  }).select('_id citizen notary').lean();
+  }).select('_id citizen notary document').lean();
 
   for (const req of expired) {
     try {
@@ -44,7 +45,7 @@ async function expireStalePending(io) {
         title: 'Notarization request expired',
         body: 'Your notarization request was automatically cancelled because the notary did not respond within 48 hours. Please choose another notary and submit a new request.',
         data: { notarizationRequestId: req._id },
-        actionUrl: `/notarization/${req._id}`,
+        actionUrl: documentUrl(req.document),
         io,
       });
 
@@ -67,7 +68,7 @@ async function expireUnpaidAccepted(io) {
     status: 'accepted',
     'payment.status': { $ne: 'paid' },
     acceptedAt: { $lt: cutoff },
-  }).select('_id citizen notary').lean();
+  }).select('_id citizen notary document').lean();
 
   for (const req of stale) {
     try {
@@ -86,7 +87,7 @@ async function expireUnpaidAccepted(io) {
         title: 'Notarization request expired',
         body: 'Your notarization request was automatically cancelled because payment was not completed within 48 hours of the notary accepting. Please submit a new request if you still need notarization.',
         data: { notarizationRequestId: req._id },
-        actionUrl: `/notarization/${req._id}`,
+        actionUrl: documentUrl(req.document),
         io,
       });
 
@@ -96,7 +97,7 @@ async function expireUnpaidAccepted(io) {
         title: 'Notarization request expired',
         body: 'A notarization request you accepted was automatically cancelled because the citizen did not complete payment within 48 hours.',
         data: { notarizationRequestId: req._id },
-        actionUrl: `/notary/requests/${req._id}`,
+        actionUrl: notaryRequestUrl(req._id),
         io,
       });
 
@@ -127,7 +128,7 @@ async function remindKycScheduling(io) {
         title: 'Action needed: Schedule Video KYC',
         body: 'A citizen paid for notarization 24 hours ago. Please schedule the Video KYC session promptly to keep your response rate high.',
         data: { notarizationRequestId: req._id },
-        actionUrl: `/notary/requests/${req._id}`,
+        actionUrl: notaryRequestUrl(req._id),
         priority: 'high',
         io,
       });
@@ -155,7 +156,7 @@ async function remindStamping(io) {
         title: 'Action needed: Stamp the document',
         body: 'Video KYC was completed 24 hours ago. Please stamp and notarize the document to complete the citizen\'s request.',
         data: { notarizationRequestId: req._id },
-        actionUrl: `/notary/requests/${req._id}`,
+        actionUrl: notaryRequestUrl(req._id),
         priority: 'high',
         io,
       });

@@ -17,6 +17,7 @@ const Notification = require('../models/Notification.model');
 const Subscription = require('../models/Subscription.model');
 const AuditLog = require('../models/AuditLog.model');
 const RTIApplication = require('../models/RTIApplication.model');
+const { LAWYER_HOME, LAWYER_SETUP, NOTARY_HOME } = require('../utils/clientRoutes');
 
 const razorpayService = require('../services/payment/razorpayService');
 const { creditLawyerEarnings } = require('./consultation.controller');
@@ -89,7 +90,7 @@ const verifyLawyer = asyncHandler(async (req, res) => {
       title: 'Your profile is verified',
       body: 'Congratulations! Your lawyer profile has been verified. You are now visible to citizens on NyayaSetu.',
       data: { lawyerProfileId: profile._id },
-      actionUrl: '/lawyer/dashboard',
+      actionUrl: LAWYER_HOME,
       io: req.app.get('io'),
     });
   } catch (_) {}
@@ -516,7 +517,7 @@ ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
         ? `Your lawyer profile could not be verified. Reason: ${reason}`
         : 'Your lawyer profile could not be verified at this time. Please update your documents and resubmit.',
       data: { lawyerProfileId: profile._id },
-      actionUrl: '/lawyer/setup',
+      actionUrl: LAWYER_SETUP,
       io: req.app.get('io'),
     });
   } catch (_) {}
@@ -646,7 +647,7 @@ const verifyNotary = asyncHandler(async (req, res) => {
       title: 'Your profile is verified',
       body: 'Congratulations! Your notary profile has been verified. You are now visible to citizens on NyayaSetu.',
       data: { notaryProfileId: profile._id },
-      actionUrl: '/notary/dashboard',
+      actionUrl: NOTARY_HOME,
       io: req.app.get('io'),
     });
   } catch (_) {}

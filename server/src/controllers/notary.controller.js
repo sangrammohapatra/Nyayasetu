@@ -14,6 +14,7 @@ const logger = require('../utils/logger');
 const AuditLog = require('../models/AuditLog.model');
 const { signTokenPair } = require('../utils/token');
 const { PERSONAS, NOTARIZATION_FEE } = require('../config/constants');
+const { documentUrl, notaryRequestUrl } = require('../utils/clientRoutes');
 
 // ─── Multer (certificate upload) ─────────────────────────────────────────────
 const upload = multer({
@@ -316,7 +317,7 @@ exports.createNotarizationRequest = async (req, res) => {
         title: 'New notarization request',
         body: `A citizen has requested notarization for document "${doc.title}".`,
         data: { notarizationRequestId: notarizationReq._id },
-        actionUrl: `/notary/requests/${notarizationReq._id}`,
+        actionUrl: notaryRequestUrl(notarizationReq._id),
         io: req.app.get('io'),
       });
     } catch (_) {}
@@ -403,7 +404,7 @@ exports.verifyNotarizationPayment = async (req, res) => {
         title: 'Notarization payment received',
         body: 'The citizen has paid ₹199. You can now schedule the Video KYC session.',
         data: { notarizationRequestId: notarizationReq._id },
-        actionUrl: `/notary/requests/${notarizationReq._id}`,
+        actionUrl: notaryRequestUrl(notarizationReq._id),
         priority: 'high',
         io: req.app.get('io'),
       });
@@ -417,7 +418,7 @@ exports.verifyNotarizationPayment = async (req, res) => {
         title: 'Payment successful',
         body: 'Your payment of ₹199 for notarization has been received. The notary will schedule a Video KYC shortly.',
         data: { notarizationRequestId: notarizationReq._id },
-        actionUrl: `/notarization/${notarizationReq._id}`,
+        actionUrl: documentUrl(notarizationReq.document),
         io: req.app.get('io'),
       });
     } catch (_) {}
@@ -554,7 +555,7 @@ exports.acceptRequest = async (req, res) => {
         title: 'Notarization request accepted',
         body: 'The notary has accepted your request. Please complete the payment of ₹199 to proceed.',
         data: { notarizationRequestId: request._id, razorpayOrderId: order.id },
-        actionUrl: `/notarization/${request._id}`,
+        actionUrl: documentUrl(request.document),
         priority: 'high',
         io: req.app.get('io'),
       });
@@ -603,7 +604,7 @@ exports.scheduleKYC = async (req, res) => {
         title: 'Video KYC scheduled',
         body: `Your notarization Video KYC is scheduled for ${new Date(scheduledAt).toLocaleString('en-IN')}. Join the link at the scheduled time.`,
         data: { notarizationRequestId: request._id, videoLink: room.url, scheduledAt },
-        actionUrl: `/notarization/${request._id}`,
+        actionUrl: documentUrl(request.document),
         priority: 'high',
         io: req.app.get('io'),
       });
@@ -640,7 +641,7 @@ exports.completeKYC = async (req, res) => {
         title: 'Video KYC completed',
         body: 'Your Video KYC verification is complete. The notary will stamp your document shortly.',
         data: { notarizationRequestId: request._id },
-        actionUrl: `/notarization/${request._id}`,
+        actionUrl: documentUrl(request.document),
         io: req.app.get('io'),
       });
     } catch (_) {}
@@ -719,9 +720,9 @@ exports.stampDocument = async (req, res) => {
         userId: updatedRequest.citizen,
         type: 'notarization_stamped',
         title: 'Document notarized!',
-        body: `Your document has been officially notarized (Ref: ${stampRef}). Download your notarized PDF from the request page.`,
+        body: `Your document has been officially notarized (Ref: ${stampRef}). Download your notarized PDF from the document page.`,
         data: { notarizationRequestId: updatedRequest._id, notarizedPdfUrl: uploaded.url, stampRef },
-        actionUrl: `/notarization/${updatedRequest._id}`,
+        actionUrl: documentUrl(updatedRequest.document),
         priority: 'high',
         io: req.app.get('io'),
       });
@@ -782,7 +783,7 @@ exports.rejectRequest = async (req, res) => {
           ? `Your notarization request was declined. Reason: ${reason}.${refundInitiated ? ' A refund will be processed in 5-7 business days.' : ''}`
           : `Your notarization request was declined by the notary.${refundInitiated ? ' A refund will be processed in 5-7 business days.' : ''}`,
         data: { notarizationRequestId: request._id },
-        actionUrl: `/notarization/${request._id}`,
+        actionUrl: documentUrl(request.document),
         io: req.app.get('io'),
       });
     } catch (_) {}
@@ -835,7 +836,7 @@ exports.cancelRequest = async (req, res) => {
         title: 'Notarization request cancelled',
         body: 'The citizen has cancelled the notarization request.',
         data: { notarizationRequestId: request._id },
-        actionUrl: `/notary/requests/${request._id}`,
+        actionUrl: notaryRequestUrl(request._id),
         io: req.app.get('io'),
       });
     } catch (_) {}
@@ -894,7 +895,7 @@ exports.markDispatched = async (req, res) => {
           ? `Your notarized document is on its way! Tracking ID: ${courierTrackingId}`
           : 'Your notarized document has been dispatched via courier.',
         data: { notarizationRequestId: request._id, courierTrackingId },
-        actionUrl: `/notarization/${request._id}`,
+        actionUrl: documentUrl(request.document),
         io: req.app.get('io'),
       });
     } catch (_) {}

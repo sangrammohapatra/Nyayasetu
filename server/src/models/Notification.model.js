@@ -27,6 +27,9 @@ const notificationSchema = new Schema(
         'consultation_accepted',
         'consultation_rejected',
         'consultation_completed',
+        'consultation_cancelled',
+        'consultation_no_show',
+        'consultation_refunded',
         'consultation_reminder',
         'notarization_requested',
         'notarization_accepted',
@@ -45,7 +48,10 @@ const notificationSchema = new Schema(
         'subscription_expiring',
         'subscription_cancelled',
         'lawyer_verified',
+        'lawyer_rejected',
         'lawyer_application',
+        'notary_verified',
+        'notary_rejected',
         'notary_application',
         'quota_warning',
         'quota_exceeded',
@@ -82,7 +88,7 @@ const notificationSchema = new Schema(
       type: String,
       trim: true,
       // Frontend route to navigate to when notification is tapped
-      // e.g. "/documents/abc123", "/cases/xyz789"
+      // e.g. "/citizen/documents/abc123", "/citizen/cases?case=xyz789"
     },
 
     // ── Delivery Channel ──────────────────────────────────────────────────────

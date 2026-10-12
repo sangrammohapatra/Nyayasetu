@@ -31,6 +31,7 @@ const logger = require('../utils/logger');
 const AuditLog = require('../models/AuditLog.model');
 const { signTokenPair } = require('../utils/token');
 const { FREE_TIER_LIMITS } = require('../config/constants');
+const { documentUrl, notaryRequestUrl } = require('../utils/clientRoutes');
 
 /* ---------------------------------------------------------------------------
  * Constants
@@ -881,7 +882,7 @@ async function handlePaymentCaptured(payload, io = null) {
           title: 'Notarization payment received',
           body: 'The citizen has paid ₹199. You can now schedule the Video KYC session.',
           data: { notarizationRequestId: notarizationReq._id },
-          actionUrl: `/notary/requests/${notarizationReq._id}`,
+          actionUrl: notaryRequestUrl(notarizationReq._id),
           priority: 'high',
           io,
         });
@@ -895,7 +896,7 @@ async function handlePaymentCaptured(payload, io = null) {
           title: 'Payment successful',
           body: 'Your payment of ₹199 for notarization has been received. The notary will schedule a Video KYC shortly.',
           data: { notarizationRequestId: notarizationReq._id },
-          actionUrl: `/notarization/${notarizationReq._id}`,
+          actionUrl: documentUrl(notarizationReq.document),
           io,
         });
       } catch (err) {

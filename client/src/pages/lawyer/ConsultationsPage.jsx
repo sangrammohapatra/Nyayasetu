@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { useNotificationFocus } from '../../utils/notificationRoutes';
 
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -87,7 +88,7 @@ function ConsultationRowSkeleton() {
 
 // ─── Row ──────────────────────────────────────────────────────────────────────
 
-function ConsultationRow({ consultation, delay, onAccept, onReject, onComplete, onNoShow, onChat, actionLoading }) {
+function ConsultationRow({ consultation, delay, onAccept, onReject, onComplete, onNoShow, onChat, actionLoading, focused }) {
   const { t } = useTranslation();
   const muiTheme = useTheme();
   const prefersReducedMotion = useReducedMotion();
@@ -115,10 +116,13 @@ function ConsultationRow({ consultation, delay, onAccept, onReject, onComplete, 
       exit={prefersReducedMotion ? undefined : { opacity: 0, y: -8 }}
       transition={{ delay, duration: 0.3 }}
     >
-      <Box sx={{
+      <Box id={`consultation-${consultation._id}`} sx={{
         display: 'flex', flexDirection: 'column', gap: 1.25, p: 2,
         borderBottom: '1px solid var(--color-border)',
+        scrollMarginTop: 88,
         transition: 'background 0.15s',
+        background: focused ? 'var(--color-primary-alpha)' : 'transparent',
+        boxShadow: focused ? 'inset 3px 0 0 var(--color-primary)' : 'none',
         '&:hover': { background: 'var(--color-overlay)' },
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
@@ -282,6 +286,7 @@ function ConsultationsPage() {
 
   // Chat drawer state
   const [chatConsultation, setChatConsultation] = useState(null);
+  const focusConsultationId = useNotificationFocus('consultation', !loading, consultations.length);
 
   useEffect(() => {
     const params = activeTab !== 'all' ? { status: activeTab } : {};
@@ -405,6 +410,7 @@ function ConsultationsPage() {
                   onNoShow={handleNoShow}
                   onChat={(c) => setChatConsultation(c)}
                   actionLoading={actionLoading}
+                  focused={focusConsultationId && String(c._id) === String(focusConsultationId)}
                 />
               ))}
             </AnimatePresence>

@@ -51,11 +51,11 @@ export function CaseCardSkeleton() {
   );
 }
 
-export default function CaseCard({ caseData, onRefresh, onDelete, onArchive, onUpdateAlerts, onShare, archived = false }) {
+export default function CaseCard({ caseData, onRefresh, onDelete, onArchive, onUpdateAlerts, onShare, archived = false, focused = false }) {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const prefersReducedMotion = useReducedMotion();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(focused);
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRemind = useCallback(async () => {
@@ -97,7 +97,9 @@ export default function CaseCard({ caseData, onRefresh, onDelete, onArchive, onU
 
   return (
     <motion.div
+      id={`case-${caseData._id}`}
       layout
+      style={{ scrollMarginTop: 88 }}
       initial={prefersReducedMotion ? false : { opacity: 0, y: 20, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={prefersReducedMotion ? undefined : { opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
@@ -105,8 +107,8 @@ export default function CaseCard({ caseData, onRefresh, onDelete, onArchive, onU
     >
       <Box sx={{
         borderRadius: `${RADIUS.xl}px`,
-        border: isUrgent ? '1.5px solid var(--color-warning)' : '1px solid var(--color-border)',
-        background: 'var(--color-surface)',
+        border: isUrgent ? '1.5px solid var(--color-warning)' : `1px solid ${focused ? 'var(--color-primary)' : 'var(--color-border)'}`,
+        background: focused ? 'var(--color-primary-alpha)' : 'var(--color-surface)',
         boxShadow: expanded ? SHADOWS.md : SHADOWS.sm,
         overflow: 'hidden',
         transition: 'box-shadow 0.25s',

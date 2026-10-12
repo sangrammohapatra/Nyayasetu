@@ -23,6 +23,7 @@ import Chip from '@mui/material/Chip';
 import { useCaseTracker } from '../../hooks/useCaseTracker';
 import { selectUser, selectUserPersona } from '../../store/slices/authSlice';
 import { pushSnackbar } from '../../store/slices/uiSlice';
+import { useNotificationFocus } from '../../utils/notificationRoutes';
 import AnimatedPage from '../../components/ui/AnimatedPage';
 import GradientHeading from '../../components/ui/GradientHeading';
 import CNRInput, { CNR_REGEX } from '../../components/case/CNRInput';
@@ -193,6 +194,7 @@ function CaseDashboard({ embedded = false }) {
   const [pendingDelete, setPendingDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const toastedLimit = useRef(false);
+  const focusCaseId = useNotificationFocus('case', !loading, cases.length);
 
   useEffect(() => {
     load(view === 'disposed' ? { archived: true } : undefined);
@@ -394,6 +396,7 @@ function CaseDashboard({ embedded = false }) {
                 <Grid item xs={12} sm={6} key={c._id}>
                   <CaseCard
                     caseData={c}
+                    focused={focusCaseId && String(c._id) === String(focusCaseId)}
                     onRefresh={handleRefresh}
                     onDelete={requestDelete}
                     onArchive={handleArchive}

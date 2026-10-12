@@ -321,7 +321,7 @@ function notaryApprovedEmail(name) {
     heading: `You're Verified, ${safeName}!`,
     contentHtml: content,
     ctaLabel: 'Go to Notary Dashboard',
-    ctaUrl: `${process.env.CLIENT_URL || 'https://nyayasetu.in'}/notary/dashboard`,
+    ctaUrl: `${process.env.CLIENT_URL || 'https://nyayasetu.in'}/notary/home`,
     footerNote: 'You can reply to this email if you need help — a real human will read it.',
   });
 }

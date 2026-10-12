@@ -21,6 +21,7 @@ const emailService = require('../services/notification/emailService');
 const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
 const AuditLog = require('../models/AuditLog.model');
+const { consultationUrl, LAWYER_HOME } = require('../utils/clientRoutes');
 
 /* ---------------------------------------------------------------------------
  * Razorpay client — lazy init so missing creds don't crash at require time.
@@ -74,7 +75,7 @@ async function notifyLawyer(lawyerUser, consultation, subject) {
   try {
     const message =
       subject === 'new_booking'
-        ? `⚖️ *NyayaSetu* — New consultation request!\n\nMode: ${consultation.mode}\nScheduled: ${new Date(consultation.scheduledAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n\nPlease accept or decline from your dashboard: nyayasetu.in/lawyer/dashboard`
+        ? `⚖️ *NyayaSetu* — New consultation request!\n\nMode: ${consultation.mode}\nScheduled: ${new Date(consultation.scheduledAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n\nPlease accept or decline from your dashboard: nyayasetu.in${LAWYER_HOME}`
         : subject === 'cancelled'
         ? `⚠️ *NyayaSetu* — A consultation has been cancelled.\n\nConsultation ID: ${consultation._id}`
         : null;
@@ -309,7 +310,7 @@ const createConsultation = asyncHandler(async (req, res) => {
       title: 'New consultation request',
       body: `A citizen has requested a ${mode} consultation on ${scheduledDate.toLocaleDateString('en-IN')}`,
       data: { consultationId: consultation._id },
-      actionUrl: `/consultations/${consultation._id}`,
+      actionUrl: consultationUrl('lawyer', consultation._id),
       io: req.app.get('io'),
     });
   } catch (_) {}
@@ -407,7 +408,7 @@ const acceptConsultation = asyncHandler(async (req, res) => {
         consultationId: consultation._id,
         ...(consultation.meetingLink ? { meetingLink: consultation.meetingLink } : {}),
       },
-      actionUrl: `/consultations/${consultation._id}`,
+      actionUrl: consultationUrl('citizen', consultation._id),
       io: req.app.get('io'),
     });
   } catch (_) {}
@@ -495,7 +496,7 @@ const rejectConsultation = asyncHandler(async (req, res) => {
       title: 'Consultation declined',
       body: `Your consultation request was declined by the lawyer.${refundInitiated ? ' A refund will be processed in 5-7 business days.' : ''}`,
       data: { consultationId: consultation._id },
-      actionUrl: `/consultations/${consultation._id}`,
+      actionUrl: consultationUrl('citizen', consultation._id),
       io: req.app.get('io'),
     });
   } catch (_) {}
@@ -586,7 +587,7 @@ const cancelConsultation = asyncHandler(async (req, res) => {
       title: 'Consultation cancelled',
       body: `The citizen cancelled their ${consultation.mode} consultation scheduled for ${new Date(consultation.scheduledAt).toLocaleDateString('en-IN')}.`,
       data: { consultationId: consultation._id },
-      actionUrl: `/consultations/${consultation._id}`,
+      actionUrl: consultationUrl('lawyer', consultation._id),
       io: req.app.get('io'),
     });
   } catch (_) {}
@@ -655,7 +656,7 @@ const completeConsultation = asyncHandler(async (req, res) => {
       title: 'Consultation complete',
       body: 'Your consultation is complete. How did it go? Please take a moment to rate your lawyer.',
       data: { consultationId: consultation._id },
-      actionUrl: `/consultations/${consultation._id}`,
+      actionUrl: consultationUrl('citizen', consultation._id),
       io: req.app.get('io'),
     });
   } catch (_) {}

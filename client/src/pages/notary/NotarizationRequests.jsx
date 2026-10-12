@@ -6,8 +6,10 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNotificationFocus } from '../../utils/notificationRoutes';
 
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -136,14 +138,18 @@ function DispatchDialog({ open, onClose, onConfirm, loading }) {
   );
 }
 
-function RequestCard({ request, onAction, actionLoading }) {
+function RequestCard({ request, onAction, actionLoading, focused }) {
   const meta = STATUS_META[request.status] || STATUS_META.pending;
 
   const addr = request.courierAddress;
   const addrStr = addr?.city ? `${addr.line1}, ${addr.city}, ${addr.state} — ${addr.pincode}` : null;
 
   return (
-    <GlassCard sx={{ p: 2 }}>
+    <GlassCard id={`request-${request._id}`} sx={{
+      p: 2,
+      scrollMarginTop: 88,
+      ...(focused ? { outline: '2px solid var(--color-primary)', outlineOffset: 2 } : {}),
+    }}>
       {/* Header row */}
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1.5 }}>
         <Avatar src={request.citizen?.avatar} sx={{ width: 40, height: 40, flexShrink: 0 }}>
@@ -292,16 +298,19 @@ const PAGE_SIZE = 20;
 
 export default function NotarizationRequests() {
   const dispatch = useDispatch();
+  const [searchParams] = useSearchParams();
+  const requestId = searchParams.get('request');
   const requests = useSelector(selectNotarizationRequests);
   const hasMore = useSelector(selectNotarizationRequestsHasMore);
   const currentPage = useSelector(selectNotarizationRequestsPage);
   const loading = useSelector(selectNotaryRequestsLoading);
 
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useState(requestId ? TABS.length - 1 : 0);
   const [actionLoading, setActionLoading] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null);
   const [scheduleTarget, setScheduleTarget] = useState(null);
   const [dispatchTarget, setDispatchTarget] = useState(null);
+  const focusRequestId = useNotificationFocus('request', !loading && tab === TABS.length - 1, requests.length);
 
   useEffect(() => { dispatch(fetchNotarizationRequests({ page: 1, limit: PAGE_SIZE })); }, [dispatch]);
 
@@ -397,7 +406,12 @@ export default function NotarizationRequests() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
                   >
-                    <RequestCard request={req} onAction={handleAction} actionLoading={actionLoading} />
+                    <RequestCard
+                      request={req}
+                      onAction={handleAction}
+                      actionLoading={actionLoading}
+                      focused={focusRequestId && String(req._id) === String(focusRequestId)}
+                    />
                   </motion.div>
                 ))}
               </Box>
