@@ -245,7 +245,27 @@
     "share_current": "अभी {{name}} के साथ साझा है।",
     "share_unverified": "सत्यापन लंबित",
     "lawyer_general": "अधिवक्ता",
-    "your_notes": "आपके नोट"
+    "your_notes": "आपके नोट",
+    "confirm_delete_title": "यह केस हटाएं?",
+    "confirm_delete_desc": "यह आपके ट्रैकर से हट जाएगा। आप बाद में वही CNR दोबारा जोड़ सकते हैं।",
+    "removed": "केस ट्रैकिंग से हटा दिया गया।",
+    "remove_error": "यह केस नहीं हटाया जा सका। कृपया फिर कोशिश करें।",
+    "cnr_not_found": "CNR {{cnr}} के लिए कोई केस डेटा नहीं मिला।",
+    "mock_data_info": "मॉक डेटा दिखाया जा रहा है। यह विकास के लिए नमूना डेटा है, असली अदालती रिकॉर्ड नहीं।",
+    "mock_continue": "मॉक डेटा के साथ जारी रखें",
+    "status_archived": "संग्रहीत",
+    "note_saved": "नोट सेव हो गया।",
+    "note_error": "नोट सेव नहीं हो सका। कृपया फिर कोशिश करें।",
+    "management_subtitle": "CNR से अपने मामले ट्रैक करें, और मुवक्किलों के साझा किए केस देखें।",
+    "lawyer_title": "मेरे ट्रैक किए केस",
+    "limit_reached_lawyer": "आप 5 ट्रैक किए केस की मुफ्त सीमा पर पहुँच गए हैं। असीमित ट्रैकिंग के लिए प्रोफेशनल में अपग्रेड करें।",
+    "empty_desc_lawyer": "जिन मामलों को आप संभाल रहे हैं उनकी सुनवाई ट्रैक करने के लिए CNR नंबर जोड़ें।",
+    "tab_tracked": "मेरे केस",
+    "tab_shared": "मुवक्किलों द्वारा साझा",
+    "archive": "संग्रह",
+    "restore": "वापस लाएं",
+    "archived_toast": "केस आपके संग्रह में भेज दिया गया।",
+    "restored_toast": "केस आपके ट्रैकर में वापस आ गया।"
   },
   "pricing": {
     "title": "आपकी जेब के अनुकूल कानूनी सहायता",
@@ -769,7 +789,8 @@
     "resume_last_activity": "अंतिम गतिविधि: {{date}}",
     "resume_generate_btn": "दस्तावेज़ बनाएं",
     "resume_continue_btn": "सत्र जारी रखें",
-    "resume_start_fresh_btn": "फिर से शुरू करें"
+    "resume_start_fresh_btn": "फिर से शुरू करें",
+    "tab_steps": "🗺️ अगले कदम"
   },
   "newDoc": {
     "title": "कानूनी दस्तावेज़ बनाएं",
@@ -783,7 +804,18 @@
     "complexity_complex": "जटिल",
     "plan_free": "🆓 मुफ्त",
     "plan_basic": "⭐ बेसिक",
-    "plan_pro": "🚀 प्रो"
+    "plan_pro": "🚀 प्रो",
+    "category_all": "सभी",
+    "category_consumer": "उपभोक्ता",
+    "category_property": "संपत्ति",
+    "category_employment": "रोजगार",
+    "category_family": "परिवार",
+    "category_criminal": "आपराधिक",
+    "category_rti": "RTI",
+    "category_civil": "सिविल",
+    "category_financial": "वित्तीय",
+    "category_labour": "श्रम",
+    "category_startup": "स्टार्टअप"
   },
   "sidebar": {
     "home": "होम",
@@ -845,7 +877,9 @@
     "placeholder": "कानून, धारा, निर्णय खोजें…",
     "results": "{{count}} परिणाम",
     "no_results": "कोई परिणाम नहीं मिला",
-    "try_broader": "थोड़ी व्यापक खोज आज़माएँ।"
+    "try_broader": "थोड़ी व्यापक खोज आज़माएँ।",
+    "searching": "खोज हो रही है…",
+    "results_for": "\"{{query}}\" के खोज परिणाम"
   },
   "voice": {
     "aria": "वॉइस इनपुट",
